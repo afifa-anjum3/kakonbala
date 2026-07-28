@@ -304,26 +304,52 @@ export default function App() {
         {/* ══════════ SHOP ══════════ */}
         {tab==="shop"&&(
           <div>
-            {/* Hero Banner — pure CSS floral */}
-            <div style={{borderRadius:20,marginBottom:28,overflow:"hidden",position:"relative",minHeight:190,background:"linear-gradient(135deg,#880E4F 0%,#AD1457 20%,#7B1FA2 55%,#4A148C 100%)",boxShadow:"0 8px 32px rgba(173,20,87,0.35)"}}>
-              <div style={{position:"absolute",width:300,height:300,top:-100,right:-60,borderRadius:"50%",background:"rgba(255,100,150,0.18)",filter:"blur(40px)"}}/>
-              <div style={{position:"absolute",width:200,height:200,bottom:-80,left:-40,borderRadius:"50%",background:"rgba(180,100,255,0.2)",filter:"blur(35px)"}}/>
-              <div style={{position:"absolute",top:"50%",right:50,transform:"translateY(-50%)",width:130,height:130,borderRadius:"50%",border:"1.5px solid rgba(249,168,37,0.35)"}}/>
-              <div style={{position:"absolute",top:"50%",right:40,transform:"translateY(-50%)",width:160,height:160,borderRadius:"50%",border:"1px solid rgba(249,168,37,0.2)"}}/>
-              <div style={{position:"absolute",top:10,left:16,fontSize:32,opacity:0.55,transform:"rotate(-20deg)"}}>🌸</div>
-              <div style={{position:"absolute",top:15,left:58,fontSize:20,opacity:0.45,transform:"rotate(10deg)"}}>🦋</div>
-              <div style={{position:"absolute",bottom:12,left:24,fontSize:26,opacity:0.5}}>🌷</div>
-              <div style={{position:"absolute",top:8,right:28,fontSize:28,opacity:0.5,transform:"rotate(15deg)"}}>🌸</div>
-              <div style={{position:"absolute",top:28,right:80,fontSize:18,opacity:0.45}}>🦋</div>
-              <div style={{position:"absolute",bottom:14,right:24,fontSize:24,opacity:0.5}}>🌷</div>
-              <div style={{position:"relative",zIndex:2,padding:"36px 40px"}}>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",letterSpacing:3,textTransform:"uppercase",marginBottom:10}}>✦  হাতে তৈরি · Handmade  ✦</div>
-                <h1 style={{fontSize:34,fontWeight:900,color:"#FFF",margin:0,textShadow:"0 2px 16px rgba(0,0,0,0.3)"}}>{t.welcome}</h1>
-                <p style={{color:"rgba(255,255,255,0.88)",fontSize:14,margin:"10px 0 0",fontWeight:500}}>{t.welcomeSub}</p>
-                <div style={{marginTop:18,display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{height:1,width:50,background:"rgba(249,168,37,0.7)"}}/>
-                  <span style={{color:"#F9A825",fontSize:16}}>✦</span>
-                  <div style={{height:1,width:50,background:"rgba(249,168,37,0.7)"}}/>
+            {/* Hero Banner — light pink floral like reference image */}
+            <div style={{borderRadius:20,marginBottom:28,overflow:"hidden",position:"relative",minHeight:180,
+              background:"linear-gradient(120deg,#FFF0F8 0%,#FFE4F4 25%,#F8E0FF 50%,#FFE8F8 75%,#FFF5FC 100%)",
+              boxShadow:"0 8px 32px rgba(173,20,87,0.2)",border:"1px solid rgba(255,255,255,0.8)"}}>
+              {/* Soft pink glow blobs */}
+              <div style={{position:"absolute",width:260,height:260,top:-80,left:-60,borderRadius:"50%",background:"rgba(230,130,180,0.18)",filter:"blur(50px)"}}/>
+              <div style={{position:"absolute",width:200,height:200,bottom:-70,right:100,borderRadius:"50%",background:"rgba(180,100,220,0.12)",filter:"blur(40px)"}}/>
+              <div style={{position:"absolute",width:150,height:150,top:-30,right:200,borderRadius:"50%",background:"rgba(255,180,220,0.15)",filter:"blur(35px)"}}/>
+              {/* Gold ring */}
+              <div style={{position:"absolute",top:"50%",right:55,transform:"translateY(-50%)",width:120,height:120,borderRadius:"50%",border:"1.5px solid rgba(200,150,50,0.45)",boxShadow:"0 0 20px rgba(200,150,50,0.1)"}}/>
+              <div style={{position:"absolute",top:"50%",right:45,transform:"translateY(-50%)",width:148,height:148,borderRadius:"50%",border:"1px solid rgba(200,150,50,0.25)"}}/>
+              {/* LEFT side flowers cluster */}
+              <div style={{position:"absolute",top:-8,left:-10,fontSize:52,opacity:0.75,transform:"rotate(-15deg)",filter:"saturate(1.3)"}}>🌸</div>
+              <div style={{position:"absolute",top:10,left:38,fontSize:36,opacity:0.7,transform:"rotate(5deg)"}}>💜</div>
+              <div style={{position:"absolute",bottom:-10,left:-8,fontSize:48,opacity:0.7,transform:"rotate(10deg)"}}>🌷</div>
+              <div style={{position:"absolute",bottom:10,left:42,fontSize:28,opacity:0.6,transform:"rotate(-8deg)"}}>🌸</div>
+              <div style={{position:"absolute",top:52,left:5,fontSize:22,opacity:0.55,transform:"rotate(20deg)"}}>🦋</div>
+              <div style={{position:"absolute",top:18,left:72,fontSize:14,opacity:0.5}}>✨</div>
+              <div style={{position:"absolute",bottom:30,left:70,fontSize:12,opacity:0.45}}>✨</div>
+              {/* RIGHT side flowers cluster */}
+              <div style={{position:"absolute",top:-8,right:-10,fontSize:50,opacity:0.75,transform:"rotate(15deg)",filter:"saturate(1.3)"}}>🌸</div>
+              <div style={{position:"absolute",top:12,right:38,fontSize:34,opacity:0.65,transform:"rotate(-5deg)"}}>💜</div>
+              <div style={{position:"absolute",bottom:-10,right:-8,fontSize:46,opacity:0.7,transform:"rotate(-12deg)"}}>🌷</div>
+              <div style={{position:"absolute",bottom:12,right:44,fontSize:26,opacity:0.6,transform:"rotate(8deg)"}}>🌸</div>
+              <div style={{position:"absolute",top:55,right:8,fontSize:20,opacity:0.5,transform:"rotate(-15deg)"}}>🦋</div>
+              <div style={{position:"absolute",top:20,right:75,fontSize:13,opacity:0.5}}>✨</div>
+              <div style={{position:"absolute",bottom:28,right:72,fontSize:11,opacity:0.4}}>✨</div>
+              {/* Top scattered sparkles */}
+              <div style={{position:"absolute",top:14,left:"35%",fontSize:11,opacity:0.4,color:"#C8960A"}}>✦</div>
+              <div style={{position:"absolute",top:8,left:"50%",fontSize:10,opacity:0.35,color:"#C8960A"}}>✦</div>
+              <div style={{position:"absolute",bottom:14,left:"42%",fontSize:10,opacity:0.3,color:"#C8960A"}}>✦</div>
+              {/* Text — dark on light background */}
+              <div style={{position:"relative",zIndex:2,padding:"32px 160px 32px 130px",display:"flex",flexDirection:"column",justifyContent:"center",minHeight:180}}>
+                <div style={{fontSize:11,color:"#9C4070",letterSpacing:3,textTransform:"uppercase",marginBottom:8,fontWeight:600}}>
+                  হাতে তৈরি &nbsp;·&nbsp; HANDMADE &nbsp;✦
+                </div>
+                <h1 style={{fontSize:32,fontWeight:900,color:"#5C0A30",margin:0,textShadow:"0 1px 3px rgba(180,80,120,0.15)",letterSpacing:0.3}}>
+                  {t.welcome}
+                </h1>
+                <p style={{color:"#7B3060",fontSize:14,margin:"8px 0 0",fontWeight:500}}>
+                  {t.welcomeSub}
+                </p>
+                <div style={{marginTop:16,display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{height:1,width:45,background:"rgba(200,150,50,0.6)"}}/>
+                  <span style={{color:"#C8960A",fontSize:14}}>✦</span>
+                  <div style={{height:1,width:45,background:"rgba(200,150,50,0.6)"}}/>
                 </div>
               </div>
             </div>
