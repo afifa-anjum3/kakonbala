@@ -304,26 +304,25 @@ export default function App() {
         {/* ══════════ SHOP ══════════ */}
         {tab==="shop"&&(
           <div>
-            {/* Hero Banner — logo as background */}
-            <div style={{
-              borderRadius:20,marginBottom:28,overflow:"hidden",position:"relative",minHeight:180,
-              backgroundImage:"url('/logo.jpg')",backgroundSize:"cover",backgroundPosition:"center",
-              boxShadow:"0 8px 32px rgba(173,20,87,0.3)",
-            }}>
-              <div style={{position:"absolute",inset:0,background:"rgba(80,0,80,0.38)",backdropFilter:"blur(1px)"}}/>
+            {/* Hero Banner — pure CSS floral */}
+            <div style={{borderRadius:20,marginBottom:28,overflow:"hidden",position:"relative",minHeight:190,background:"linear-gradient(135deg,#880E4F 0%,#AD1457 20%,#7B1FA2 55%,#4A148C 100%)",boxShadow:"0 8px 32px rgba(173,20,87,0.35)"}}>
+              <div style={{position:"absolute",width:300,height:300,top:-100,right:-60,borderRadius:"50%",background:"rgba(255,100,150,0.18)",filter:"blur(40px)"}}/>
+              <div style={{position:"absolute",width:200,height:200,bottom:-80,left:-40,borderRadius:"50%",background:"rgba(180,100,255,0.2)",filter:"blur(35px)"}}/>
+              <div style={{position:"absolute",top:"50%",right:50,transform:"translateY(-50%)",width:130,height:130,borderRadius:"50%",border:"1.5px solid rgba(249,168,37,0.35)"}}/>
+              <div style={{position:"absolute",top:"50%",right:40,transform:"translateY(-50%)",width:160,height:160,borderRadius:"50%",border:"1px solid rgba(249,168,37,0.2)"}}/>
+              <div style={{position:"absolute",top:10,left:16,fontSize:32,opacity:0.55,transform:"rotate(-20deg)"}}>🌸</div>
+              <div style={{position:"absolute",top:15,left:58,fontSize:20,opacity:0.45,transform:"rotate(10deg)"}}>🦋</div>
+              <div style={{position:"absolute",bottom:12,left:24,fontSize:26,opacity:0.5}}>🌷</div>
+              <div style={{position:"absolute",top:8,right:28,fontSize:28,opacity:0.5,transform:"rotate(15deg)"}}>🌸</div>
+              <div style={{position:"absolute",top:28,right:80,fontSize:18,opacity:0.45}}>🦋</div>
+              <div style={{position:"absolute",bottom:14,right:24,fontSize:24,opacity:0.5}}>🌷</div>
               <div style={{position:"relative",zIndex:2,padding:"36px 40px"}}>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.8)",letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>
-                  ✦ &nbsp;হাতে তৈরি &nbsp;·&nbsp; Handmade &nbsp;✦
-                </div>
-                <h1 style={{fontSize:34,fontWeight:900,color:"#FFF",margin:0,textShadow:"0 2px 16px rgba(0,0,0,0.4)",letterSpacing:0.5}}>
-                  {t.welcome}
-                </h1>
-                <p style={{color:"rgba(255,255,255,0.9)",fontSize:14,margin:"10px 0 0",fontWeight:500}}>
-                  {t.welcomeSub}
-                </p>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",letterSpacing:3,textTransform:"uppercase",marginBottom:10}}>✦  হাতে তৈরি · Handmade  ✦</div>
+                <h1 style={{fontSize:34,fontWeight:900,color:"#FFF",margin:0,textShadow:"0 2px 16px rgba(0,0,0,0.3)"}}>{t.welcome}</h1>
+                <p style={{color:"rgba(255,255,255,0.88)",fontSize:14,margin:"10px 0 0",fontWeight:500}}>{t.welcomeSub}</p>
                 <div style={{marginTop:18,display:"flex",alignItems:"center",gap:8}}>
                   <div style={{height:1,width:50,background:"rgba(249,168,37,0.7)"}}/>
-                  <span style={{color:C.gold,fontSize:16}}>✦</span>
+                  <span style={{color:"#F9A825",fontSize:16}}>✦</span>
                   <div style={{height:1,width:50,background:"rgba(249,168,37,0.7)"}}/>
                 </div>
               </div>
