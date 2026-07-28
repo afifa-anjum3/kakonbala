@@ -239,16 +239,12 @@ export default function App() {
   /* ── Page background style ── */
   const pageBg={
     minHeight:"100vh",
-    backgroundImage:"url('/logo.jpg')",
-    backgroundSize:"cover",
-    backgroundPosition:"center",
-    backgroundAttachment:"fixed",
+    background:"linear-gradient(160deg, #FFE4F0 0%, #F8D7F8 20%, #EDD6FF 40%, #F5D0FF 60%, #FFD6EC 80%, #FFE8F5 100%)",
     position:"relative",
   };
   const overlay={
     position:"fixed",inset:0,
-    background:"rgba(255,220,240,0.55)",
-    backdropFilter:"blur(0px)",
+    background:"transparent",
     zIndex:0,pointerEvents:"none",
   };
 
