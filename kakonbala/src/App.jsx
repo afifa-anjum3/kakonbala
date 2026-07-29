@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  collection, onSnapshot, doc, updateDoc, addDoc,
+  collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc,
   increment, serverTimestamp, query, orderBy
 } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -136,6 +136,7 @@ export default function App() {
   const [catFilter,setCatFilter]=useState("all");
   const [cartOpen,setCartOpen]=useState(false);
   const [showForm,setShowForm]=useState(false);
+  const [editProduct,setEditProduct]=useState(null);
   const [checkoutModal,setCheckoutModal]=useState(false);
   const [payLoading,setPayLoading]=useState(false);
   const [notif,setNotif]=useState(null);
@@ -198,6 +199,23 @@ export default function App() {
 
   async function adjustStock(id,delta){
     await updateDoc(doc(db,"products",id),{stock:increment(delta)});
+  }
+
+  async function deleteProduct(id,name){
+    if(!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    await deleteDoc(doc(db,"products",id));
+    notify("✓ Product deleted!");
+  }
+
+  async function saveEdit(){
+    if(!editProduct.name||!editProduct.price||!editProduct.stock) return notify("⚠ Fill all required fields");
+    await updateDoc(doc(db,"products",editProduct.id),{
+      name:editProduct.name, category:editProduct.category,
+      price:Number(editProduct.price), stock:Number(editProduct.stock),
+      desc:editProduct.desc, imageUrl:editProduct.imageUrl||"",
+    });
+    setEditProduct(null);
+    notify("✓ Product updated!");
   }
 
   async function handleCheckout(){
@@ -508,7 +526,7 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                <button style={{...btn,marginTop:16}} onClick={addProduct} disabled={uploading}>{t.saveDb}</button>
+                <button style={{...btn,marginTop:16}} onClick={addProduct}>{t.saveDb}</button>
               </div>
             )}
             <div style={{...glassCard,overflow:"hidden"}}>
@@ -542,10 +560,20 @@ export default function App() {
                         </span>
                       </td>
                       <td style={TD}>
-                        <div style={{display:"flex",gap:6}}>
-                          <button style={qBtn} onClick={()=>adjustStock(p.id,-1)}>−</button>
-                          <button style={qBtn} onClick={()=>adjustStock(p.id,5)}>+5</button>
-                          <button style={qBtn} onClick={()=>adjustStock(p.id,10)}>+10</button>
+                        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                          <button style={qBtn} onClick={()=>adjustStock(p.id,-1)} title="Remove 1">−</button>
+                          <button style={qBtn} onClick={()=>adjustStock(p.id,5)} title="Add 5">+5</button>
+                          <button style={qBtn} onClick={()=>adjustStock(p.id,10)} title="Add 10">+10</button>
+                          <button title="Edit product"
+                            onClick={()=>setEditProduct({...p})}
+                            style={{...qBtn,width:"auto",padding:"0 10px",background:"rgba(227,242,253,0.9)",color:"#1565C0",border:"1px solid rgba(21,101,192,0.3)",fontSize:12,fontWeight:700}}>
+                            ✏️
+                          </button>
+                          <button title="Delete product"
+                            onClick={()=>deleteProduct(p.id,p.name)}
+                            style={{...qBtn,width:"auto",padding:"0 10px",background:"rgba(255,235,238,0.9)",color:C.danger,border:"1px solid rgba(198,40,40,0.3)",fontSize:12,fontWeight:700}}>
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -597,6 +625,62 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* ══ EDIT PRODUCT MODAL ══ */}
+      {editProduct&&(
+        <>
+          <div onClick={()=>setEditProduct(null)} style={{position:"fixed",inset:0,background:"rgba(45,10,63,0.55)",zIndex:200}}/>
+          <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:460,
+            background:"rgba(255,255,255,0.92)",backdropFilter:"blur(20px)",borderRadius:20,
+            overflow:"hidden",zIndex:201,boxShadow:"0 20px 60px rgba(173,20,87,0.3)",border:"1px solid rgba(255,255,255,0.6)"}}>
+            <div style={{background:GRAD,padding:"18px 26px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{color:"#FFF",fontSize:16,fontWeight:800}}>✏️ Edit Product</div>
+              <button onClick={()=>setEditProduct(null)} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            </div>
+            <div style={{padding:24}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                {[["Product Name *","name","text","Product name"],["Price (৳) *","price","number","e.g. 400"],["Stock *","stock","number","e.g. 10"]].map(([l,k,tp,ph])=>(
+                  <div key={k}>
+                    <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>{l}</label>
+                    <input style={inp} type={tp} placeholder={ph} value={editProduct[k]||""}
+                      onChange={e=>setEditProduct(p=>({...p,[k]:e.target.value}))}/>
+                  </div>
+                ))}
+                <div>
+                  <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Category *</label>
+                  <select style={inp} value={editProduct.category}
+                    onChange={e=>setEditProduct(p=>({...p,category:e.target.value}))}>
+                    <option value="jewelry">💍 Jewelry / গহনা</option>
+                    <option value="crafts">🏺 Crafts / ক্রাফট</option>
+                    <option value="clothing">👗 Clothing / পোশাক</option>
+                  </select>
+                </div>
+                <div style={{gridColumn:"span 2"}}>
+                  <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Description</label>
+                  <input style={inp} placeholder="Product description" value={editProduct.desc||""}
+                    onChange={e=>setEditProduct(p=>({...p,desc:e.target.value}))}/>
+                </div>
+                <div style={{gridColumn:"span 2"}}>
+                  <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>📸 Photo URL</label>
+                  <div style={{fontSize:11,color:C.med,marginBottom:4}}>
+                    Upload to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{color:C.primary,fontWeight:700}}>imgbb.com</a> → paste Direct link here
+                  </div>
+                  <input style={inp} type="text" placeholder="https://i.ibb.co/..." value={editProduct.imageUrl||""}
+                    onChange={e=>setEditProduct(p=>({...p,imageUrl:e.target.value}))}/>
+                  {editProduct.imageUrl&&(
+                    <img src={editProduct.imageUrl} alt="preview" onError={e=>e.target.style.display="none"}
+                      style={{width:60,height:60,objectFit:"cover",borderRadius:8,marginTop:8,border:"2px solid rgba(255,255,255,0.6)"}}/>
+                  )}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:10,marginTop:18}}>
+                <button onClick={saveEdit} style={{...btn,flex:1,padding:"11px",fontSize:14}}>✓ Save Changes</button>
+                <button onClick={()=>setEditProduct(null)} style={{flex:1,padding:"11px",fontSize:14,background:"rgba(255,255,255,0.6)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:600,color:C.med}}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ══ CART DRAWER ══ */}
       {cartOpen&&(
