@@ -137,6 +137,8 @@ export default function App() {
   const [cartOpen,setCartOpen]=useState(false);
   const [showForm,setShowForm]=useState(false);
   const [editProduct,setEditProduct]=useState(null);
+  const [selectedProduct,setSelectedProduct]=useState(null);
+  const [zoom,setZoom]=useState(1);
   const [checkoutModal,setCheckoutModal]=useState(false);
   const [payLoading,setPayLoading]=useState(false);
   const [notif,setNotif]=useState(null);
@@ -358,18 +360,20 @@ export default function App() {
 
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:20}}>
               {visible.map(p=>(
-                <div key={p.id} style={{...glassCard,overflow:"hidden",transition:"transform 0.2s"}}
+                <div key={p.id} style={{...glassCard,overflow:"hidden",transition:"transform 0.2s",cursor:"pointer"}}
                   onMouseEnter={e=>e.currentTarget.style.transform="translateY(-6px)"}
                   onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
-                  <div style={{height:160,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",position:"relative",background:"rgba(255,255,255,0.3)"}}>
+                  <div onClick={()=>{setSelectedProduct(p);setZoom(1);}}
+                    style={{height:180,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",position:"relative",background:"rgba(255,255,255,0.5)"}}>
                     {p.imageUrl
-                      ?<img src={p.imageUrl} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                      ?<img src={p.imageUrl} alt={p.name} style={{width:"100%",height:"100%",objectFit:"contain",padding:4}}/>
                       :<span style={{fontSize:60}}>{p.emoji}</span>
                     }
                     <span style={{position:"absolute",top:8,left:8,...catBadge(p.category)}}>{p.category}</span>
+                    <span style={{position:"absolute",bottom:8,right:8,background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"2px 8px",fontSize:10,color:C.med,backdropFilter:BLUR}}>🔍 View</span>
                   </div>
                   <div style={{padding:"14px 16px"}}>
-                    <div style={{fontSize:14,fontWeight:700,color:C.dark,marginBottom:4}}>{p.name}</div>
+                    <div onClick={()=>{setSelectedProduct(p);setZoom(1);}} style={{fontSize:14,fontWeight:700,color:C.dark,marginBottom:4}}>{p.name}</div>
                     <div style={{fontSize:11,color:C.med,lineHeight:1.5,marginBottom:10,minHeight:32}}>{p.desc}</div>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <span style={{fontSize:18,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>৳{p.price.toLocaleString()}</span>
@@ -625,6 +629,88 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* ══ PRODUCT DETAIL MODAL ══ */}
+      {selectedProduct&&(
+        <>
+          <div onClick={()=>setSelectedProduct(null)} style={{position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:200,backdropFilter:"blur(4px)"}}/>
+          <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",
+            width:"min(600px,95vw)",maxHeight:"90vh",overflowY:"auto",
+            background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",
+            borderRadius:24,overflow:"hidden",zIndex:201,
+            boxShadow:"0 24px 80px rgba(173,20,87,0.35)",border:"1px solid rgba(255,255,255,0.7)"}}>
+            {/* Close button */}
+            <button onClick={()=>setSelectedProduct(null)}
+              style={{position:"absolute",top:14,right:14,zIndex:10,background:"rgba(255,255,255,0.8)",
+                border:"none",width:34,height:34,borderRadius:"50%",cursor:"pointer",
+                fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",
+                boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+            {/* Image section with zoom */}
+            <div style={{background:"rgba(255,240,252,0.6)",position:"relative",overflow:"hidden",height:280}}>
+              <div style={{width:"100%",height:"100%",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {selectedProduct.imageUrl
+                  ?<img src={selectedProduct.imageUrl} alt={selectedProduct.name}
+                    style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",
+                      transform:`scale(${zoom})`,transition:"transform 0.3s",cursor:zoom>1?"zoom-out":"zoom-in"}}
+                    onClick={()=>setZoom(z=>z>=3?1:z+0.5)}/>
+                  :<span style={{fontSize:90}}>{selectedProduct.emoji}</span>
+                }
+              </div>
+              {/* Zoom controls */}
+              <div style={{position:"absolute",bottom:12,right:12,display:"flex",gap:6,alignItems:"center"}}>
+                <button onClick={()=>setZoom(z=>Math.max(1,z-0.5))}
+                  style={{background:"rgba(255,255,255,0.85)",border:"1px solid rgba(173,20,87,0.2)",
+                    borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,fontWeight:700,
+                    display:"flex",alignItems:"center",justifyContent:"center",color:C.primary}}>−</button>
+                <span style={{background:"rgba(255,255,255,0.85)",padding:"4px 10px",borderRadius:8,
+                  fontSize:12,fontWeight:700,color:C.med,border:"1px solid rgba(173,20,87,0.2)"}}>
+                  {Math.round(zoom*100)}%
+                </span>
+                <button onClick={()=>setZoom(z=>Math.min(3,z+0.5))}
+                  style={{background:"rgba(255,255,255,0.85)",border:"1px solid rgba(173,20,87,0.2)",
+                    borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,fontWeight:700,
+                    display:"flex",alignItems:"center",justifyContent:"center",color:C.primary}}>+</button>
+                <button onClick={()=>setZoom(1)}
+                  style={{background:"rgba(255,255,255,0.85)",border:"1px solid rgba(173,20,87,0.2)",
+                    borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,
+                    fontWeight:700,color:C.med}}>Reset</button>
+              </div>
+              <div style={{position:"absolute",bottom:12,left:12,fontSize:10,color:C.med,
+                background:"rgba(255,255,255,0.7)",padding:"3px 8px",borderRadius:6}}>
+                🔍 Click image or use +/− to zoom
+              </div>
+            </div>
+            {/* Product details */}
+            <div style={{padding:"22px 28px 28px"}}>
+              <span style={catBadge(selectedProduct.category)}>{selectedProduct.category}</span>
+              <h2 style={{fontSize:24,fontWeight:900,color:C.dark,margin:"6px 0 8px"}}>{selectedProduct.name}</h2>
+              <p style={{color:C.med,fontSize:14,lineHeight:1.7,marginBottom:20}}>{selectedProduct.desc||"No description available."}</p>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                background:"rgba(255,240,252,0.6)",borderRadius:12,padding:"14px 18px",marginBottom:20}}>
+                <div>
+                  <div style={{fontSize:11,color:C.light,marginBottom:2}}>মূল্য / Price</div>
+                  <div style={{fontSize:28,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>
+                    ৳{selectedProduct.price.toLocaleString()}
+                  </div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:11,color:C.light,marginBottom:2}}>স্টক / Stock</div>
+                  <span style={stockTag(selectedProduct.stock)}>
+                    {selectedProduct.stock<=5?`⚠ ${selectedProduct.stock} ${t.left}`:`${selectedProduct.stock} ${t.inStock}`}
+                  </span>
+                </div>
+              </div>
+              <button onClick={()=>{addToCart(selectedProduct);setSelectedProduct(null);}}
+                disabled={selectedProduct.stock===0}
+                style={{...btn,width:"100%",padding:"14px",fontSize:16,
+                  opacity:selectedProduct.stock===0?0.45:1,
+                  cursor:selectedProduct.stock===0?"not-allowed":"pointer"}}>
+                {selectedProduct.stock===0?t.outOfStock:t.addCart}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ══ EDIT PRODUCT MODAL ══ */}
       {editProduct&&(
