@@ -304,9 +304,33 @@ export default function App() {
         {/* ══════════ SHOP ══════════ */}
         {tab==="shop"&&(
           <div>
-            {/* Hero Banner — exact screenshot as background image */}
-            <div style={{borderRadius:20,marginBottom:28,overflow:"hidden",lineHeight:0}}>
-              <img src="/banner.png" alt="কাঁকনবালায় স্বাগতম" style={{width:"100%",display:"block",objectFit:"cover"}}/>
+            {/* Hero Banner — image as bg, dynamic text on top */}
+            <div style={{
+              borderRadius:20,marginBottom:28,overflow:"hidden",position:"relative",minHeight:180,
+              backgroundImage:"url('/banner.png')",
+              backgroundSize:"cover",backgroundPosition:"center center",
+              boxShadow:"0 8px 32px rgba(173,20,87,0.25)",
+            }}>
+              {/* subtle overlay so our text is readable */}
+              <div style={{position:"absolute",inset:0,background:"rgba(255,240,252,0.45)"}}/>
+              <div style={{position:"relative",zIndex:2,padding:"32px 40px",minHeight:180,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                <div style={{fontSize:11,color:"#7B1FA2",letterSpacing:3,textTransform:"uppercase",marginBottom:8,fontWeight:700}}>
+                  হাতে তৈরি &nbsp;·&nbsp; HANDMADE &nbsp;✦
+                </div>
+                <h1 style={{fontSize:34,fontWeight:900,color:"#4A0030",margin:0,
+                  textShadow:"0 1px 6px rgba(255,255,255,0.9)",letterSpacing:0.3}}>
+                  {t.welcome}
+                </h1>
+                <p style={{color:"#6A1B4D",fontSize:14,margin:"8px 0 0",fontWeight:600,
+                  textShadow:"0 1px 4px rgba(255,255,255,0.8)"}}>
+                  {t.welcomeSub}
+                </p>
+                <div style={{marginTop:16,display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{height:1.5,width:45,background:"rgba(180,120,30,0.7)"}}/>
+                  <span style={{color:"#B8860B",fontSize:14}}>✦</span>
+                  <div style={{height:1.5,width:45,background:"rgba(180,120,30,0.7)"}}/>
+                </div>
+              </div>
             </div>
 
             {/* Category filter */}
