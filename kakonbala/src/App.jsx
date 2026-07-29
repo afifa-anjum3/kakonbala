@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   collection, onSnapshot, doc, updateDoc, addDoc,
   increment, serverTimestamp, query, orderBy
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "./firebase.js";
+import { db } from "./firebase.js";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer
@@ -140,9 +139,7 @@ export default function App() {
   const [checkoutModal,setCheckoutModal]=useState(false);
   const [payLoading,setPayLoading]=useState(false);
   const [notif,setNotif]=useState(null);
-  const [uploading,setUploading]=useState(false);
   const [previewUrl,setPreviewUrl]=useState(null);
-  const fileRef=useRef();
   const [newP,setNewP]=useState({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:""});
   const [customer,setCustomer]=useState({name:"",email:"",phone:"",address:""});
   const t=T[lang];
@@ -184,20 +181,7 @@ export default function App() {
     setCart(prev=>prev.map(i=>i.product.id===id?{...i,qty:i.qty+delta}:i).filter(i=>i.qty>0));
   }
 
-  async function handlePhotoChange(e){
-    const file=e.target.files[0];
-    if(!file)return;
-    setPreviewUrl(URL.createObjectURL(file));
-    setUploading(true);
-    try{
-      const sRef=ref(storage,`products/${Date.now()}_${file.name}`);
-      await uploadBytes(sRef,file);
-      const url=await getDownloadURL(sRef);
-      setNewP(p=>({...p,imageUrl:url}));
-      notify("✓ Photo uploaded!");
-    }catch(err){notify("⚠ Upload failed: "+err.message);}
-    setUploading(false);
-  }
+
 
   async function addProduct(){
     if(!newP.name||!newP.price||!newP.stock)return notify("⚠ Fill all required fields");
@@ -503,16 +487,25 @@ export default function App() {
                     <input style={inp} placeholder="Brief product description" value={newP.desc} onChange={e=>setNewP(p=>({...p,desc:e.target.value}))}/>
                   </div>
                   <div style={{gridColumn:"span 2"}}>
-                    <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:6}}>{t.photo}</label>
-                    <div style={{display:"flex",alignItems:"center",gap:16}}>
-                      <input type="file" accept="image/*" ref={fileRef} style={{display:"none"}} onChange={handlePhotoChange}/>
-                      <button type="button" onClick={()=>fileRef.current.click()} style={{...btn,padding:"8px 20px",fontSize:12}}>
-                        {uploading?t.uploading:t.choosePhoto}
-                      </button>
-                      {previewUrl&&<img src={previewUrl} alt="preview" style={{width:60,height:60,objectFit:"cover",borderRadius:10,border:"2px solid rgba(255,255,255,0.6)"}}/>}
-                      {newP.imageUrl&&!uploading&&<span style={{fontSize:11,color:C.success,fontWeight:600}}>{t.photoReady}</span>}
+                    <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>{t.photo}</label>
+                    <div style={{fontSize:11,color:C.med,marginBottom:6}}>
+                      📌 Upload photo to <b><a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{color:C.primary}}>imgbb.com</a></b> → copy "Direct link" → paste below
                     </div>
-                    <div style={{fontSize:11,color:C.med,marginTop:4}}>{t.photoHint}</div>
+                    <input style={inp} type="text" placeholder="https://i.ibb.co/your-image-url.jpg"
+                      value={newP.imageUrl}
+                      onChange={e=>{
+                        setNewP(p=>({...p,imageUrl:e.target.value}));
+                        setPreviewUrl(e.target.value);
+                      }}
+                    />
+                    {previewUrl&&(
+                      <div style={{marginTop:8,display:"flex",alignItems:"center",gap:10}}>
+                        <img src={previewUrl} alt="preview"
+                          onError={e=>{e.target.style.display="none"}}
+                          style={{width:70,height:70,objectFit:"cover",borderRadius:10,border:"2px solid rgba(255,255,255,0.6)"}}/>
+                        <span style={{fontSize:11,color:C.success,fontWeight:600}}>✓ Preview looks good!</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button style={{...btn,marginTop:16}} onClick={addProduct} disabled={uploading}>{t.saveDb}</button>
