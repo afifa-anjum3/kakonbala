@@ -306,10 +306,10 @@ export default function App() {
           <div>
             {/* Hero Banner — logo image as direct background */}
             <div style={{borderRadius:20,marginBottom:28,overflow:"hidden",position:"relative",minHeight:180,
-              backgroundImage:"url('/logo.jpg')",backgroundSize:"cover",backgroundPosition:"center top",
+              backgroundImage:"url('/logo.jpg')",backgroundSize:"250%",backgroundPosition:"20% 40%",
               boxShadow:"0 8px 32px rgba(173,20,87,0.3)"}}>
-              {/* Very light overlay so text is readable */}
-              <div style={{position:"absolute",inset:0,background:"rgba(255,240,250,0.45)"}}/>
+              {/* Overlay hides logo text/circle, keeps color & flower texture */}
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(120deg,rgba(255,230,248,0.72) 0%,rgba(245,210,255,0.68) 50%,rgba(255,225,245,0.72) 100%)"}}/>
               {/* Text */}
               <div style={{position:"relative",zIndex:2,padding:"32px 40px",minHeight:180,display:"flex",flexDirection:"column",justifyContent:"center"}}>
                 <div style={{fontSize:11,color:"#7B1FA2",letterSpacing:3,textTransform:"uppercase",marginBottom:8,fontWeight:700}}>
