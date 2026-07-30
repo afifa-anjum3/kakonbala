@@ -146,6 +146,74 @@ const qBtn={width:30,height:30,background:"rgba(248,234,246,0.8)",
   fontSize:14,color:C.purple,display:"inline-flex",alignItems:"center",justifyContent:"center"};
 const metCard=(c)=>({...glassCard,padding:"16px 20px",borderLeft:`4px solid ${c||C.primary}`});
 
+
+/* ── Image Carousel Component ── */
+function Carousel({ images=[], emoji="💍", height=180, zoom=false }) {
+  const [idx, setIdx] = useState(0);
+  const valid = images.filter(Boolean);
+
+  useEffect(() => {
+    if (valid.length <= 1) return;
+    const t = setInterval(() => setIdx(i => (i+1) % valid.length), 2800);
+    return () => clearInterval(t);
+  }, [valid.length]);
+
+  if (!valid.length) return (
+    <div style={{width:"100%",height,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <span style={{fontSize:60}}>{emoji}</span>
+    </div>
+  );
+
+  return (
+    <div style={{position:"relative",width:"100%",height,overflow:"hidden",background:"rgba(255,255,255,0.3)"}}>
+      {/* Main image */}
+      <img src={valid[idx]} alt="product"
+        style={{width:"100%",height:"100%",objectFit:zoom?"contain":"contain",
+          padding:4,transition:"opacity 0.4s"}}
+        onError={e=>e.target.style.display="none"}/>
+
+      {/* Prev / Next arrows */}
+      {valid.length>1&&(
+        <>
+          <button onClick={e=>{e.stopPropagation();setIdx(i=>(i-1+valid.length)%valid.length);}}
+            style={{position:"absolute",left:4,top:"50%",transform:"translateY(-50%)",
+              background:"rgba(255,255,255,0.75)",border:"none",borderRadius:"50%",
+              width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:700,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              color:"#AD1457",boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}}>‹</button>
+          <button onClick={e=>{e.stopPropagation();setIdx(i=>(i+1)%valid.length);}}
+            style={{position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",
+              background:"rgba(255,255,255,0.75)",border:"none",borderRadius:"50%",
+              width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:700,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              color:"#AD1457",boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}}>›</button>
+        </>
+      )}
+
+      {/* Dot indicators */}
+      {valid.length>1&&(
+        <div style={{position:"absolute",bottom:6,left:"50%",transform:"translateX(-50%)",
+          display:"flex",gap:5}}>
+          {valid.map((_,i)=>(
+            <div key={i} onClick={e=>{e.stopPropagation();setIdx(i);}}
+              style={{width:i===idx?16:7,height:7,borderRadius:4,cursor:"pointer",
+                background:i===idx?"#AD1457":"rgba(255,255,255,0.7)",
+                transition:"all 0.3s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
+          ))}
+        </div>
+      )}
+
+      {/* Photo count badge */}
+      {valid.length>1&&(
+        <div style={{position:"absolute",top:6,right:6,background:"rgba(173,20,87,0.75)",
+          color:"#FFF",borderRadius:10,padding:"1px 8px",fontSize:10,fontWeight:700}}>
+          {idx+1}/{valid.length}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [lang,setLang]=useState("bn");
   const [tab,setTab]=useState("shop");
@@ -163,8 +231,7 @@ export default function App() {
   const [checkoutModal,setCheckoutModal]=useState(false);
   const [payLoading,setPayLoading]=useState(false);
   const [notif,setNotif]=useState(null);
-  const [previewUrl,setPreviewUrl]=useState(null);
-  const [newP,setNewP]=useState({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",subcategory:"",clothingGroup:""});
+  const [newP,setNewP]=useState({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",imageUrls:[""],subcategory:"",clothingGroup:""});
   const [customer,setCustomer]=useState({name:"",email:"",phone:"",address:""});
   const t=T[lang];
 
@@ -217,14 +284,17 @@ export default function App() {
   async function addProduct(){
     if(!newP.name||!newP.price||!newP.stock)return notify("⚠ Fill all required fields");
     const catEmoji={jewelry:"💍",crafts:"🏺",clothing:"👗"};
+    const validUrls = (newP.imageUrls||[]).filter(Boolean);
     await addDoc(collection(db,"products"),{
       name:newP.name,category:newP.category,
       subcategory:newP.subcategory||"",
       clothingGroup:newP.clothingGroup||"",
       price:Number(newP.price),stock:Number(newP.stock),
-      desc:newP.desc,emoji:catEmoji[newP.category],imageUrl:newP.imageUrl||"",
+      desc:newP.desc,emoji:catEmoji[newP.category],
+      imageUrl:validUrls[0]||"",
+      imageUrls:validUrls,
     });
-    setNewP({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",subcategory:"",clothingGroup:""});
+    setNewP({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",imageUrls:[""],subcategory:"",clothingGroup:""});
     setPreviewUrl(null);setShowForm(false);
     notify("✓ Product added!");
   }
@@ -241,12 +311,15 @@ export default function App() {
 
   async function saveEdit(){
     if(!editProduct.name||!editProduct.price||!editProduct.stock) return notify("⚠ Fill all required fields");
+    const eValidUrls = (editProduct.imageUrls||[editProduct.imageUrl]).filter(Boolean);
     await updateDoc(doc(db,"products",editProduct.id),{
       name:editProduct.name, category:editProduct.category,
       subcategory:editProduct.subcategory||"",
       clothingGroup:editProduct.clothingGroup||"",
       price:Number(editProduct.price), stock:Number(editProduct.stock),
-      desc:editProduct.desc, imageUrl:editProduct.imageUrl||"",
+      desc:editProduct.desc,
+      imageUrl:eValidUrls[0]||"",
+      imageUrls:eValidUrls,
     });
     setEditProduct(null);
     notify("✓ Product updated!");
@@ -438,13 +511,10 @@ export default function App() {
                   onMouseEnter={e=>e.currentTarget.style.transform="translateY(-6px)"}
                   onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
                   <div onClick={()=>{setSelectedProduct(p);setZoom(1);}}
-                    style={{height:180,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",position:"relative",background:"rgba(255,255,255,0.5)"}}>
-                    {p.imageUrl
-                      ?<img src={p.imageUrl} alt={p.name} style={{width:"100%",height:"100%",objectFit:"contain",padding:4}}/>
-                      :<span style={{fontSize:60}}>{p.emoji}</span>
-                    }
-                    <span style={{position:"absolute",top:8,left:8,...catBadge(p.category)}}>{p.subcategory||p.category}</span>
-                    <span style={{position:"absolute",bottom:8,right:8,background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"2px 8px",fontSize:10,color:C.med,backdropFilter:BLUR}}>🔍 View</span>
+                    style={{height:180,position:"relative",overflow:"hidden",cursor:"pointer"}}>
+                    <Carousel images={p.imageUrls&&p.imageUrls.length?p.imageUrls:[p.imageUrl]} emoji={p.emoji} height={180}/>
+                    <span style={{position:"absolute",top:8,left:8,...catBadge(p.category),zIndex:3}}>{p.subcategory||p.category}</span>
+                    <span style={{position:"absolute",bottom:8,right:8,background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"2px 8px",fontSize:10,color:C.med,backdropFilter:BLUR,zIndex:3}}>🔍 View</span>
                   </div>
                   <div style={{padding:"14px 16px"}}>
                     <div onClick={()=>{setSelectedProduct(p);setZoom(1);}} style={{fontSize:14,fontWeight:700,color:C.dark,marginBottom:4}}>{p.name}</div>
@@ -604,23 +674,31 @@ export default function App() {
                   </div>
                   <div style={{gridColumn:"span 2"}}>
                     <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>{t.photo}</label>
-                    <div style={{fontSize:11,color:C.med,marginBottom:6}}>
-                      📌 Upload photo to <b><a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{color:C.primary}}>imgbb.com</a></b> → copy "Direct link" → paste below
+                    <div style={{fontSize:11,color:C.med,marginBottom:8}}>
+                      📌 Upload to <b><a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{color:C.primary}}>imgbb.com</a></b> → BBCode → copy URL between [img]...[/img] → paste below. Add up to 5 photos!
                     </div>
-                    <input style={inp} type="text" placeholder="https://i.ibb.co/your-image-url.jpg"
-                      value={newP.imageUrl}
-                      onChange={e=>{
-                        setNewP(p=>({...p,imageUrl:e.target.value}));
-                        setPreviewUrl(e.target.value);
-                      }}
-                    />
-                    {previewUrl&&(
-                      <div style={{marginTop:8,display:"flex",alignItems:"center",gap:10}}>
-                        <img src={previewUrl} alt="preview"
-                          onError={e=>{e.target.style.display="none"}}
-                          style={{width:70,height:70,objectFit:"cover",borderRadius:10,border:"2px solid rgba(255,255,255,0.6)"}}/>
-                        <span style={{fontSize:11,color:C.success,fontWeight:600}}>✓ Preview looks good!</span>
+                    {(newP.imageUrls||[""]).map((url,i)=>(
+                      <div key={i} style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+                        <div style={{fontSize:11,color:C.med,fontWeight:700,minWidth:20}}>#{i+1}</div>
+                        <input style={{...inp,marginTop:0,flex:1}} type="text"
+                          placeholder={`Photo ${i+1} URL`} value={url}
+                          onChange={e=>{
+                            const arr=[...(newP.imageUrls||[""])];
+                            arr[i]=e.target.value;
+                            setNewP(p=>({...p,imageUrls:arr,imageUrl:arr[0]||""}));
+                          }}/>
+                        {url&&<img src={url} alt="" onError={e=>e.target.style.display="none"} style={{width:40,height:40,objectFit:"cover",borderRadius:6,border:"1px solid rgba(255,255,255,0.6)",flexShrink:0}}/>}
+                        {(newP.imageUrls||[""]).length>1&&(
+                          <button type="button" onClick={()=>{const arr=[...(newP.imageUrls||[""])];arr.splice(i,1);setNewP(p=>({...p,imageUrls:arr,imageUrl:arr[0]||""}));}}
+                            style={{background:"rgba(255,235,238,0.9)",border:"1px solid rgba(198,40,40,0.3)",color:C.danger,borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:14,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                        )}
                       </div>
+                    ))}
+                    {(newP.imageUrls||[""]).length<5&&(
+                      <button type="button" onClick={()=>setNewP(p=>({...p,imageUrls:[...(p.imageUrls||[""]),""]})) }
+                        style={{fontSize:12,color:C.primary,background:"rgba(173,20,87,0.08)",border:"1px dashed rgba(173,20,87,0.4)",borderRadius:8,padding:"5px 14px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>
+                        + Add another photo
+                      </button>
                     )}
                   </div>
                 </div>
@@ -740,39 +818,10 @@ export default function App() {
                 fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",
                 boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             {/* Image section with zoom */}
-            <div style={{background:"rgba(255,240,252,0.6)",position:"relative",overflow:"hidden",height:280}}>
-              <div style={{width:"100%",height:"100%",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                {selectedProduct.imageUrl
-                  ?<img src={selectedProduct.imageUrl} alt={selectedProduct.name}
-                    style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",
-                      transform:`scale(${zoom})`,transition:"transform 0.3s",cursor:zoom>1?"zoom-out":"zoom-in"}}
-                    onClick={()=>setZoom(z=>z>=3?1:z+0.5)}/>
-                  :<span style={{fontSize:90}}>{selectedProduct.emoji}</span>
-                }
-              </div>
-              {/* Zoom controls */}
-              <div style={{position:"absolute",bottom:12,right:12,display:"flex",gap:6,alignItems:"center"}}>
-                <button onClick={()=>setZoom(z=>Math.max(1,z-0.5))}
-                  style={{background:"rgba(255,255,255,0.85)",border:"1px solid rgba(173,20,87,0.2)",
-                    borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,fontWeight:700,
-                    display:"flex",alignItems:"center",justifyContent:"center",color:C.primary}}>−</button>
-                <span style={{background:"rgba(255,255,255,0.85)",padding:"4px 10px",borderRadius:8,
-                  fontSize:12,fontWeight:700,color:C.med,border:"1px solid rgba(173,20,87,0.2)"}}>
-                  {Math.round(zoom*100)}%
-                </span>
-                <button onClick={()=>setZoom(z=>Math.min(3,z+0.5))}
-                  style={{background:"rgba(255,255,255,0.85)",border:"1px solid rgba(173,20,87,0.2)",
-                    borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,fontWeight:700,
-                    display:"flex",alignItems:"center",justifyContent:"center",color:C.primary}}>+</button>
-                <button onClick={()=>setZoom(1)}
-                  style={{background:"rgba(255,255,255,0.85)",border:"1px solid rgba(173,20,87,0.2)",
-                    borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,
-                    fontWeight:700,color:C.med}}>Reset</button>
-              </div>
-              <div style={{position:"absolute",bottom:12,left:12,fontSize:10,color:C.med,
-                background:"rgba(255,255,255,0.7)",padding:"3px 8px",borderRadius:6}}>
-                🔍 Click image or use +/− to zoom
-              </div>
+            <div style={{background:"rgba(255,240,252,0.6)",position:"relative",overflow:"hidden",height:300}}>
+              <Carousel
+                images={selectedProduct.imageUrls&&selectedProduct.imageUrls.length?selectedProduct.imageUrls:[selectedProduct.imageUrl]}
+                emoji={selectedProduct.emoji} height={300} zoom={true}/>
             </div>
             {/* Product details */}
             <div style={{padding:"22px 28px 28px"}}>
@@ -880,15 +929,32 @@ export default function App() {
                     onChange={e=>setEditProduct(p=>({...p,desc:e.target.value}))}/>
                 </div>
                 <div style={{gridColumn:"span 2"}}>
-                  <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>📸 Photo URL</label>
-                  <div style={{fontSize:11,color:C.med,marginBottom:4}}>
-                    Upload to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{color:C.primary,fontWeight:700}}>imgbb.com</a> → paste Direct link here
+                  <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>📸 Photos (up to 5)</label>
+                  <div style={{fontSize:11,color:C.med,marginBottom:8}}>
+                    Upload to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{color:C.primary,fontWeight:700}}>imgbb.com</a> → BBCode → copy URL between [img]...[/img]
                   </div>
-                  <input style={inp} type="text" placeholder="https://i.ibb.co/..." value={editProduct.imageUrl||""}
-                    onChange={e=>setEditProduct(p=>({...p,imageUrl:e.target.value}))}/>
-                  {editProduct.imageUrl&&(
-                    <img src={editProduct.imageUrl} alt="preview" onError={e=>e.target.style.display="none"}
-                      style={{width:60,height:60,objectFit:"cover",borderRadius:8,marginTop:8,border:"2px solid rgba(255,255,255,0.6)"}}/>
+                  {(editProduct.imageUrls&&editProduct.imageUrls.length?editProduct.imageUrls:[editProduct.imageUrl||""]).map((url,i)=>(
+                    <div key={i} style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+                      <div style={{fontSize:11,color:C.med,fontWeight:700,minWidth:20}}>#{i+1}</div>
+                      <input style={{...inp,marginTop:0,flex:1}} type="text"
+                        placeholder={`Photo ${i+1} URL`} value={url||""}
+                        onChange={e=>{
+                          const base=editProduct.imageUrls&&editProduct.imageUrls.length?[...editProduct.imageUrls]:[editProduct.imageUrl||""];
+                          base[i]=e.target.value;
+                          setEditProduct(p=>({...p,imageUrls:base,imageUrl:base[0]||""}));
+                        }}/>
+                      {url&&<img src={url} alt="" onError={e=>e.target.style.display="none"} style={{width:40,height:40,objectFit:"cover",borderRadius:6,border:"1px solid rgba(255,255,255,0.6)",flexShrink:0}}/>}
+                      {(editProduct.imageUrls&&editProduct.imageUrls.length?editProduct.imageUrls:[editProduct.imageUrl||""]).length>1&&(
+                        <button type="button" onClick={()=>{const base=editProduct.imageUrls&&editProduct.imageUrls.length?[...editProduct.imageUrls]:[editProduct.imageUrl||""];base.splice(i,1);setEditProduct(p=>({...p,imageUrls:base,imageUrl:base[0]||""}));}}
+                          style={{background:"rgba(255,235,238,0.9)",border:"1px solid rgba(198,40,40,0.3)",color:C.danger,borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:14,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                  {(editProduct.imageUrls&&editProduct.imageUrls.length?editProduct.imageUrls:[editProduct.imageUrl||""]).length<5&&(
+                    <button type="button" onClick={()=>{const base=editProduct.imageUrls&&editProduct.imageUrls.length?[...editProduct.imageUrls]:[editProduct.imageUrl||""];setEditProduct(p=>({...p,imageUrls:[...base,""]}));}}
+                      style={{fontSize:12,color:C.primary,background:"rgba(173,20,87,0.08)",border:"1px dashed rgba(173,20,87,0.4)",borderRadius:8,padding:"5px 14px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>
+                      + Add another photo
+                    </button>
                   )}
                 </div>
               </div>
