@@ -92,6 +92,25 @@ const monthlyData=[
 const catRevData=[{name:"Jewelry",value:68000},{name:"Crafts",value:54000},{name:"Clothing",value:62000}];
 const PIE_COLORS=["#AD1457","#6A1B9A","#F9A825"];
 
+const CATS = {
+  jewelry:{
+    emoji:"💍", label:"Jewelry / গহনা",
+    subs:["Bangles","Earrings","Finger Ring","Payel","Necklace","Nosepin","Waist Band","Hair Accessories"]
+  },
+  crafts:{
+    emoji:"🏺", label:"Crafts / ক্রাফট",
+    subs:["Mandala","Canvas Paint","Painted Glass Jar","Wall Hanging","Candle","Clay Art","Other"]
+  },
+  clothing:{
+    emoji:"👗", label:"Clothing / পোশাক",
+    groups:{
+      "Women":["Saree","Tops","Skirt","Salwar Kameez","Kurti","Lehenga","Other"],
+      "Men":["Panjabi","T-Shirt","Shirt","Pant","Fotua","Other"],
+      "Child":["Baby Boy","Baby Girl"]
+    }
+  }
+};
+
 const catBadge=(cat)=>({
   display:"inline-block",fontSize:10,padding:"2px 8px",borderRadius:10,fontWeight:700,
   textTransform:"uppercase",letterSpacing:0.5,marginBottom:4,
@@ -134,6 +153,8 @@ export default function App() {
   const [orders,setOrders]=useState([]);
   const [cart,setCart]=useState([]);
   const [catFilter,setCatFilter]=useState("all");
+  const [subFilter,setSubFilter]=useState("all");
+  const [clothingGroup,setClothingGroup]=useState("all");
   const [cartOpen,setCartOpen]=useState(false);
   const [showForm,setShowForm]=useState(false);
   const [editProduct,setEditProduct]=useState(null);
@@ -143,7 +164,7 @@ export default function App() {
   const [payLoading,setPayLoading]=useState(false);
   const [notif,setNotif]=useState(null);
   const [previewUrl,setPreviewUrl]=useState(null);
-  const [newP,setNewP]=useState({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:""});
+  const [newP,setNewP]=useState({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",subcategory:"",clothingGroup:""});
   const [customer,setCustomer]=useState({name:"",email:"",phone:"",address:""});
   const t=T[lang];
 
@@ -167,7 +188,14 @@ export default function App() {
   const lowStock=products.filter(p=>p.stock<=5);
   const totalStock=products.reduce((s,p)=>s+p.stock,0);
   const totalRev=monthlyData.reduce((s,m)=>s+m.revenue,0);
-  const visible=catFilter==="all"?products:products.filter(p=>p.category===catFilter);
+  const visible=products.filter(p=>{
+    if(catFilter!=="all" && p.category!==catFilter) return false;
+    if(catFilter==="clothing"){
+      if(clothingGroup!=="all" && p.clothingGroup!==clothingGroup) return false;
+    }
+    if(subFilter!=="all" && p.subcategory!==subFilter) return false;
+    return true;
+  });
 
   function notify(msg){setNotif(msg);setTimeout(()=>setNotif(null),3000);}
 
@@ -191,10 +219,12 @@ export default function App() {
     const catEmoji={jewelry:"💍",crafts:"🏺",clothing:"👗"};
     await addDoc(collection(db,"products"),{
       name:newP.name,category:newP.category,
+      subcategory:newP.subcategory||"",
+      clothingGroup:newP.clothingGroup||"",
       price:Number(newP.price),stock:Number(newP.stock),
       desc:newP.desc,emoji:catEmoji[newP.category],imageUrl:newP.imageUrl||"",
     });
-    setNewP({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:""});
+    setNewP({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",subcategory:"",clothingGroup:""});
     setPreviewUrl(null);setShowForm(false);
     notify("✓ Product added!");
   }
@@ -213,6 +243,8 @@ export default function App() {
     if(!editProduct.name||!editProduct.price||!editProduct.stock) return notify("⚠ Fill all required fields");
     await updateDoc(doc(db,"products",editProduct.id),{
       name:editProduct.name, category:editProduct.category,
+      subcategory:editProduct.subcategory||"",
+      clothingGroup:editProduct.clothingGroup||"",
       price:Number(editProduct.price), stock:Number(editProduct.stock),
       desc:editProduct.desc, imageUrl:editProduct.imageUrl||"",
     });
@@ -338,17 +370,59 @@ export default function App() {
             </div>
 
             {/* Category filter */}
-            <div style={{display:"flex",gap:8,marginBottom:22,flexWrap:"wrap"}}>
-              {[["all",t.allItems],["jewelry",t.jewelry],["crafts",t.crafts],["clothing",t.clothing]].map(([key,label])=>(
-                <button key={key} onClick={()=>setCatFilter(key)} style={{
-                  background:catFilter===key?GRAD:GLASS2,
-                  color:catFilter===key?"#FFF":C.dark,
-                  border:`1.5px solid ${catFilter===key?"transparent":"rgba(255,255,255,0.5)"}`,
-                  padding:"7px 20px",borderRadius:20,cursor:"pointer",fontSize:13,
-                  fontFamily:"inherit",fontWeight:600,backdropFilter:BLUR,
-                  boxShadow:catFilter===key?"0 2px 10px rgba(173,20,87,0.4)":"none",
-                }}>{label}</button>
-              ))}
+            <div style={{marginBottom:18}}>
+              {/* Main category tabs */}
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                {[["all",t.allItems],["jewelry",t.jewelry],["crafts",t.crafts],["clothing",t.clothing]].map(([key,label])=>(
+                  <button key={key} onClick={()=>{setCatFilter(key);setSubFilter("all");setClothingGroup("all");}} style={{
+                    background:catFilter===key?GRAD:GLASS2,
+                    color:catFilter===key?"#FFF":C.dark,
+                    border:`1.5px solid ${catFilter===key?"transparent":"rgba(255,255,255,0.5)"}`,
+                    padding:"7px 20px",borderRadius:20,cursor:"pointer",fontSize:13,
+                    fontFamily:"inherit",fontWeight:600,backdropFilter:BLUR,
+                    boxShadow:catFilter===key?"0 2px 10px rgba(173,20,87,0.4)":"none",
+                  }}>{label}</button>
+                ))}
+              </div>
+              {/* Jewelry subcategories */}
+              {catFilter==="jewelry"&&(
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingLeft:8}}>
+                  <button onClick={()=>setSubFilter("all")} style={{background:subFilter==="all"?"rgba(173,20,87,0.15)":GLASS2,color:subFilter==="all"?C.primary:C.med,border:`1px solid ${subFilter==="all"?"rgba(173,20,87,0.4)":"rgba(255,255,255,0.5)"}`,padding:"4px 14px",borderRadius:15,cursor:"pointer",fontSize:12,fontFamily:"inherit",fontWeight:600,backdropFilter:BLUR}}>All</button>
+                  {CATS.jewelry.subs.map(s=>(
+                    <button key={s} onClick={()=>setSubFilter(s)} style={{background:subFilter===s?"rgba(173,20,87,0.15)":GLASS2,color:subFilter===s?C.primary:C.med,border:`1px solid ${subFilter===s?"rgba(173,20,87,0.4)":"rgba(255,255,255,0.5)"}`,padding:"4px 14px",borderRadius:15,cursor:"pointer",fontSize:12,fontFamily:"inherit",fontWeight:600,backdropFilter:BLUR}}>{s}</button>
+                  ))}
+                </div>
+              )}
+              {/* Crafts subcategories */}
+              {catFilter==="crafts"&&(
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingLeft:8}}>
+                  <button onClick={()=>setSubFilter("all")} style={{background:subFilter==="all"?"rgba(106,27,154,0.15)":GLASS2,color:subFilter==="all"?C.purple:C.med,border:`1px solid ${subFilter==="all"?"rgba(106,27,154,0.4)":"rgba(255,255,255,0.5)"}`,padding:"4px 14px",borderRadius:15,cursor:"pointer",fontSize:12,fontFamily:"inherit",fontWeight:600,backdropFilter:BLUR}}>All</button>
+                  {CATS.crafts.subs.map(s=>(
+                    <button key={s} onClick={()=>setSubFilter(s)} style={{background:subFilter===s?"rgba(106,27,154,0.15)":GLASS2,color:subFilter===s?C.purple:C.med,border:`1px solid ${subFilter===s?"rgba(106,27,154,0.4)":"rgba(255,255,255,0.5)"}`,padding:"4px 14px",borderRadius:15,cursor:"pointer",fontSize:12,fontFamily:"inherit",fontWeight:600,backdropFilter:BLUR}}>{s}</button>
+                  ))}
+                </div>
+              )}
+              {/* Clothing — group + sub */}
+              {catFilter==="clothing"&&(
+                <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:8}}>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <button onClick={()=>{setClothingGroup("all");setSubFilter("all");}} style={{background:clothingGroup==="all"?"rgba(249,168,37,0.2)":GLASS2,color:clothingGroup==="all"?"#B8860B":C.med,border:`1px solid ${clothingGroup==="all"?"rgba(249,168,37,0.5)":"rgba(255,255,255,0.5)"}`,padding:"4px 14px",borderRadius:15,cursor:"pointer",fontSize:12,fontFamily:"inherit",fontWeight:700,backdropFilter:BLUR}}>All</button>
+                    {Object.keys(CATS.clothing.groups).map(g=>(
+                      <button key={g} onClick={()=>{setClothingGroup(g);setSubFilter("all");}} style={{background:clothingGroup===g?"rgba(249,168,37,0.2)":GLASS2,color:clothingGroup===g?"#B8860B":C.med,border:`1px solid ${clothingGroup===g?"rgba(249,168,37,0.5)":"rgba(255,255,255,0.5)"}`,padding:"4px 14px",borderRadius:15,cursor:"pointer",fontSize:12,fontFamily:"inherit",fontWeight:700,backdropFilter:BLUR}}>
+                        {g==="Women"?"👩 Women":g==="Men"?"👨 Men":"👶 Child"}
+                      </button>
+                    ))}
+                  </div>
+                  {clothingGroup!=="all"&&(
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <button onClick={()=>setSubFilter("all")} style={{background:subFilter==="all"?"rgba(249,168,37,0.15)":GLASS2,color:subFilter==="all"?"#B8860B":C.med,border:`1px solid ${subFilter==="all"?"rgba(249,168,37,0.4)":"rgba(255,255,255,0.4)"}`,padding:"3px 12px",borderRadius:12,cursor:"pointer",fontSize:11,fontFamily:"inherit",fontWeight:600,backdropFilter:BLUR}}>All {clothingGroup}</button>
+                      {CATS.clothing.groups[clothingGroup].map(s=>(
+                        <button key={s} onClick={()=>setSubFilter(s)} style={{background:subFilter===s?"rgba(249,168,37,0.15)":GLASS2,color:subFilter===s?"#B8860B":C.med,border:`1px solid ${subFilter===s?"rgba(249,168,37,0.4)":"rgba(255,255,255,0.4)"}`,padding:"3px 12px",borderRadius:12,cursor:"pointer",fontSize:11,fontFamily:"inherit",fontWeight:600,backdropFilter:BLUR}}>{s}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {products.length===0&&(
@@ -369,7 +443,7 @@ export default function App() {
                       ?<img src={p.imageUrl} alt={p.name} style={{width:"100%",height:"100%",objectFit:"contain",padding:4}}/>
                       :<span style={{fontSize:60}}>{p.emoji}</span>
                     }
-                    <span style={{position:"absolute",top:8,left:8,...catBadge(p.category)}}>{p.category}</span>
+                    <span style={{position:"absolute",top:8,left:8,...catBadge(p.category)}}>{p.subcategory||p.category}</span>
                     <span style={{position:"absolute",bottom:8,right:8,background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"2px 8px",fontSize:10,color:C.med,backdropFilter:BLUR}}>🔍 View</span>
                   </div>
                   <div style={{padding:"14px 16px"}}>
@@ -498,12 +572,32 @@ export default function App() {
                   ))}
                   <div>
                     <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>{t.category}</label>
-                    <select style={inp} value={newP.category} onChange={e=>setNewP(p=>({...p,category:e.target.value}))}>
+                    <select style={inp} value={newP.category} onChange={e=>setNewP(p=>({...p,category:e.target.value,subcategory:"",clothingGroup:""}))}>
                       <option value="jewelry">💍 Jewelry / গহনা</option>
                       <option value="crafts">🏺 Crafts / ক্রাফট</option>
                       <option value="clothing">👗 Clothing / পোশাক</option>
                     </select>
                   </div>
+                  {/* Clothing group */}
+                  {newP.category==="clothing"&&(
+                    <div>
+                      <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>For (Group) *</label>
+                      <select style={inp} value={newP.clothingGroup||""} onChange={e=>setNewP(p=>({...p,clothingGroup:e.target.value,subcategory:""}))}>
+                        <option value="">-- Select --</option>
+                        {Object.keys(CATS.clothing.groups).map(g=><option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {/* Subcategory */}
+                  {newP.category&&(newP.category!=="clothing"||newP.clothingGroup)&&(
+                    <div>
+                      <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Subcategory *</label>
+                      <select style={inp} value={newP.subcategory||""} onChange={e=>setNewP(p=>({...p,subcategory:e.target.value}))}>
+                        <option value="">-- Select --</option>
+                        {(newP.category==="jewelry"?CATS.jewelry.subs:newP.category==="crafts"?CATS.crafts.subs:newP.clothingGroup?CATS.clothing.groups[newP.clothingGroup]:[]).map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
                   <div style={{gridColumn:"span 2"}}>
                     <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>{t.description}</label>
                     <input style={inp} placeholder="Brief product description" value={newP.desc} onChange={e=>setNewP(p=>({...p,desc:e.target.value}))}/>
@@ -553,7 +647,7 @@ export default function App() {
                           </div>
                         </div>
                       </td>
-                      <td style={TD}><span style={catBadge(p.category)}>{p.category}</span></td>
+                      <td style={TD}><div style={{display:'flex',flexDirection:'column',gap:3}}><span style={catBadge(p.category)}>{p.category}</span>{p.subcategory&&<span style={{fontSize:10,color:C.med}}>{p.clothingGroup?`${p.clothingGroup} › `:''}{p.subcategory}</span>}</div></td>
                       <td style={{...TD,fontWeight:700,color:C.primary}}>৳{p.price.toLocaleString()}</td>
                       <td style={{...TD,fontWeight:800,fontSize:16,color:p.stock<=5?C.danger:C.dark}}>{p.stock}</td>
                       <td style={TD}>
