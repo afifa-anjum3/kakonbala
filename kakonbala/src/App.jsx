@@ -828,13 +828,52 @@ export default function App() {
                 ))}
                 <div>
                   <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Category *</label>
-                  <select style={inp} value={editProduct.category}
-                    onChange={e=>setEditProduct(p=>({...p,category:e.target.value}))}>
+                  <select style={inp} value={editProduct.category||"jewelry"}
+                    onChange={e=>setEditProduct(p=>({...p,category:e.target.value,subcategory:"",clothingGroup:""}))}>
                     <option value="jewelry">💍 Jewelry / গহনা</option>
                     <option value="crafts">🏺 Crafts / ক্রাফট</option>
                     <option value="clothing">👗 Clothing / পোশাক</option>
                   </select>
                 </div>
+                {/* Subcategory for jewelry */}
+                {(editProduct.category==="jewelry"||!editProduct.category)&&(
+                  <div>
+                    <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Subcategory</label>
+                    <select style={inp} value={editProduct.subcategory||""} onChange={e=>setEditProduct(p=>({...p,subcategory:e.target.value}))}>
+                      <option value="">-- Select --</option>
+                      {CATS.jewelry.subs.map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+                {/* Subcategory for crafts */}
+                {editProduct.category==="crafts"&&(
+                  <div>
+                    <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Subcategory</label>
+                    <select style={inp} value={editProduct.subcategory||""} onChange={e=>setEditProduct(p=>({...p,subcategory:e.target.value}))}>
+                      <option value="">-- Select --</option>
+                      {CATS.crafts.subs.map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+                {/* Group + subcategory for clothing */}
+                {editProduct.category==="clothing"&&(
+                  <>
+                    <div>
+                      <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Group *</label>
+                      <select style={inp} value={editProduct.clothingGroup||""} onChange={e=>setEditProduct(p=>({...p,clothingGroup:e.target.value,subcategory:""}))}>
+                        <option value="">-- Select group --</option>
+                        {Object.keys(CATS.clothing.groups).map(g=><option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Subcategory</label>
+                      <select style={inp} value={editProduct.subcategory||""} onChange={e=>setEditProduct(p=>({...p,subcategory:e.target.value}))} disabled={!editProduct.clothingGroup}>
+                        <option value="">{editProduct.clothingGroup?"-- Select --":"Pick group first"}</option>
+                        {(editProduct.clothingGroup?CATS.clothing.groups[editProduct.clothingGroup]:[]).map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
                 <div style={{gridColumn:"span 2"}}>
                   <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:2}}>Description</label>
                   <input style={inp} placeholder="Product description" value={editProduct.desc||""}
