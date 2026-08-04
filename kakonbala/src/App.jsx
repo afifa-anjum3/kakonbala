@@ -147,6 +147,38 @@ const qBtn={width:30,height:30,background:"rgba(248,234,246,0.8)",
 const metCard=(c)=>({...glassCard,padding:"16px 20px",borderLeft:`4px solid ${c||C.primary}`});
 
 
+/* ── Tag Input Component ── */
+function TagInput({values=[], onChange, placeholder="Type & press Enter"}) {
+  const [input, setInput] = useState("");
+  function add() {
+    const v = input.trim().replace(/,$/,"");
+    if(v && !values.includes(v)) onChange([...values, v]);
+    setInput("");
+  }
+  return (
+    <div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"6px 8px",
+      border:"1.5px solid rgba(173,20,87,0.25)",borderRadius:10,
+      background:"rgba(255,255,255,0.8)",minHeight:38,alignItems:"center"}}>
+      {values.map(v=>(
+        <span key={v} style={{background:"rgba(173,20,87,0.1)",color:"#AD1457",
+          borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:600,
+          display:"flex",alignItems:"center",gap:4}}>
+          {v}
+          <button onClick={()=>onChange(values.filter(x=>x!==v))}
+            style={{background:"none",border:"none",cursor:"pointer",color:"#AD1457",
+              fontSize:14,lineHeight:1,padding:0,fontWeight:700}}>×</button>
+        </span>
+      ))}
+      <input value={input} onChange={e=>setInput(e.target.value)}
+        onKeyDown={e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();add();}}}
+        onBlur={add}
+        placeholder={values.length===0?placeholder:""}
+        style={{border:"none",outline:"none",background:"transparent",
+          fontSize:12,minWidth:80,flex:1}}/>
+    </div>
+  );
+}
+
 /* ── Image Carousel Component ── */
 function Carousel({ images=[], emoji="💍", height=180, zoom=false }) {
   const [idx, setIdx] = useState(0);
@@ -214,6 +246,16 @@ function Carousel({ images=[], emoji="💍", height=180, zoom=false }) {
   );
 }
 
+const COLOR_MAP = {
+  red:"#E53935",blue:"#1E88E5",green:"#43A047",pink:"#E91E63",
+  purple:"#8E24AA",yellow:"#FDD835",orange:"#FB8C00",black:"#212121",
+  white:"#F5F5F5",gold:"#F9A825",silver:"#9E9E9E",grey:"#757575",
+  gray:"#757575",brown:"#795548",cream:"#FFF8E1",maroon:"#880E4F",
+  navy:"#1A237E",teal:"#00796B",mint:"#B2EBF2",lavender:"#EDE7F6",
+  peach:"#FFCCBC",rose:"#FCE4EC",beige:"#F5F5DC",
+};
+
+
 export default function App() {
   const [lang,setLang]=useState("bn");
   const [tab,setTab]=useState("shop");
@@ -226,12 +268,24 @@ export default function App() {
   const [cartOpen,setCartOpen]=useState(false);
   const [showForm,setShowForm]=useState(false);
   const [editProduct,setEditProduct]=useState(null);
+
+  // Reset selections when product detail opens
+  useEffect(()=>{
+    if(selectedProduct){
+      setSelSize(selectedProduct.sizes?.[0]||"");
+      setSelColor(selectedProduct.colors?.[0]||"");
+      setSelPiece(selectedProduct.pieceCounts?.[0]||"");
+    }
+  },[selectedProduct?.id]);
   const [selectedProduct,setSelectedProduct]=useState(null);
   const [zoom,setZoom]=useState(1);
+  const [selSize,setSelSize]=useState("");
+  const [selColor,setSelColor]=useState("");
+  const [selPiece,setSelPiece]=useState("");
   const [checkoutModal,setCheckoutModal]=useState(false);
   const [payLoading,setPayLoading]=useState(false);
   const [notif,setNotif]=useState(null);
-  const [newP,setNewP]=useState({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",imageUrls:[""],subcategory:"",clothingGroup:""});
+  const [newP,setNewP]=useState({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",imageUrls:[""],subcategory:"",clothingGroup:"",sizes:[],colors:[],pieceCounts:[]});
   const [customer,setCustomer]=useState({name:"",email:"",phone:"",address:""});
   const t=T[lang];
 
@@ -266,17 +320,19 @@ export default function App() {
 
   function notify(msg){setNotif(msg);setTimeout(()=>setNotif(null),3000);}
 
-  function addToCart(product){
+  function addToCart(product, opts={}){
     if(product.stock===0)return;
+    const cKey=`${product.id}_${opts.size||""}_${opts.color||""}_${opts.piece||""}`;
     setCart(prev=>{
-      const ex=prev.find(i=>i.product.id===product.id);
-      if(ex)return prev.map(i=>i.product.id===product.id?{...i,qty:i.qty+1}:i);
-      return [...prev,{product,qty:1}];
+      const ex=prev.find(i=>i.cKey===cKey);
+      if(ex)return prev.map(i=>i.cKey===cKey?{...i,qty:i.qty+1}:i);
+      return [...prev,{product,qty:1,cKey,...opts}];
     });
-    notify(`✓ ${product.name} ${t.addedToCart}`);
+    const optStr=[opts.size,opts.color,opts.piece].filter(Boolean).join(" · ");
+    notify(`✓ ${product.name}${optStr?" ("+optStr+")":""} ${t.addedToCart}`);
   }
-  function adjustCart(id,delta){
-    setCart(prev=>prev.map(i=>i.product.id===id?{...i,qty:i.qty+delta}:i).filter(i=>i.qty>0));
+  function adjustCart(cKey,delta){
+    setCart(prev=>prev.map(i=>i.cKey===cKey?{...i,qty:i.qty+delta}:i).filter(i=>i.qty>0));
   }
 
 
@@ -293,8 +349,11 @@ export default function App() {
       desc:newP.desc,emoji:catEmoji[newP.category],
       imageUrl:validUrls[0]||"",
       imageUrls:validUrls,
+      sizes:newP.sizes||[],
+      colors:newP.colors||[],
+      pieceCounts:newP.pieceCounts||[],
     });
-    setNewP({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",imageUrls:[""],subcategory:"",clothingGroup:""});
+    setNewP({name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrl:"",imageUrls:[""],subcategory:"",clothingGroup:"",sizes:[],colors:[],pieceCounts:[]});
     setPreviewUrl(null);setShowForm(false);
     notify("✓ Product added!");
   }
@@ -320,6 +379,9 @@ export default function App() {
       desc:editProduct.desc,
       imageUrl:eValidUrls[0]||"",
       imageUrls:eValidUrls,
+      sizes:editProduct.sizes||[],
+      colors:editProduct.colors||[],
+      pieceCounts:editProduct.pieceCounts||[],
     });
     setEditProduct(null);
     notify("✓ Product updated!");
@@ -673,6 +735,18 @@ export default function App() {
                     <input style={inp} placeholder="Brief product description" value={newP.desc} onChange={e=>setNewP(p=>({...p,desc:e.target.value}))}/>
                   </div>
                   <div style={{gridColumn:"span 2"}}>
+                    <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>📏 Sizes <span style={{fontSize:10,fontWeight:400}}>(type & press Enter — e.g. S, M, L, XL, Free Size)</span></label>
+                    <TagInput values={newP.sizes||[]} onChange={v=>setNewP(p=>({...p,sizes:v}))} placeholder="S, M, L, XL, Free Size..."/>
+                  </div>
+                  <div style={{gridColumn:"span 2"}}>
+                    <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>🎨 Colors <span style={{fontSize:10,fontWeight:400}}>(type & press Enter — e.g. Red, Blue, Gold)</span></label>
+                    <TagInput values={newP.colors||[]} onChange={v=>setNewP(p=>({...p,colors:v}))} placeholder="Red, Blue, Pink, Gold..."/>
+                  </div>
+                  <div style={{gridColumn:"span 2"}}>
+                    <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>📦 Pack Size <span style={{fontSize:10,fontWeight:400}}>(type & press Enter — e.g. 1pc, 2pc, Set of 5)</span></label>
+                    <TagInput values={newP.pieceCounts||[]} onChange={v=>setNewP(p=>({...p,pieceCounts:v}))} placeholder="1pc, 2pc, Set of 3..."/>
+                  </div>
+                  <div style={{gridColumn:"span 2"}}>
                     <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>{t.photo}</label>
                     <div style={{fontSize:11,color:C.med,marginBottom:8}}>
                       📌 Upload to <b><a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{color:C.primary}}>imgbb.com</a></b> → BBCode → copy URL between [img]...[/img] → paste below. Add up to 5 photos!
@@ -827,7 +901,73 @@ export default function App() {
             <div style={{padding:"22px 28px 28px"}}>
               <span style={catBadge(selectedProduct.category)}>{selectedProduct.category}</span>
               <h2 style={{fontSize:24,fontWeight:900,color:C.dark,margin:"6px 0 8px"}}>{selectedProduct.name}</h2>
-              <p style={{color:C.med,fontSize:14,lineHeight:1.7,marginBottom:20}}>{selectedProduct.desc||"No description available."}</p>
+              <p style={{color:C.med,fontSize:14,lineHeight:1.7,marginBottom:16}}>{selectedProduct.desc||"No description available."}</p>
+
+              {/* Pack Size selector */}
+              {selectedProduct.pieceCounts?.length>0&&(
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.dark,marginBottom:6}}>📦 Pack Size</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {selectedProduct.pieceCounts.map(pc=>(
+                      <button key={pc} onClick={()=>setSelPiece(pc)}
+                        style={{padding:"5px 16px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:600,
+                          fontFamily:"inherit",border:`1.5px solid ${selPiece===pc?"#AD1457":"rgba(173,20,87,0.25)"}`,
+                          background:selPiece===pc?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",
+                          color:selPiece===pc?C.primary:C.med}}>
+                        {pc}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Size selector */}
+              {selectedProduct.sizes?.length>0&&(
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.dark,marginBottom:6}}>📏 Size</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {selectedProduct.sizes.map(sz=>(
+                      <button key={sz} onClick={()=>setSelSize(sz)}
+                        style={{padding:"5px 18px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:600,
+                          fontFamily:"inherit",border:`1.5px solid ${selSize===sz?"#AD1457":"rgba(173,20,87,0.25)"}`,
+                          background:selSize===sz?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",
+                          color:selSize===sz?C.primary:C.med}}>
+                        {sz}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Color selector */}
+              {selectedProduct.colors?.length>0&&(
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.dark,marginBottom:6}}>
+                    🎨 Color {selColor&&<span style={{fontWeight:400,color:C.med}}>— {selColor}</span>}
+                  </div>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                    {selectedProduct.colors.map(cl=>{
+                      const hex=COLOR_MAP[cl.toLowerCase()]||null;
+                      return hex?(
+                        <button key={cl} onClick={()=>setSelColor(cl)} title={cl}
+                          style={{width:32,height:32,borderRadius:"50%",cursor:"pointer",
+                            background:hex,border:selColor===cl?"3px solid #AD1457":"2px solid rgba(255,255,255,0.8)",
+                            boxShadow:selColor===cl?"0 0 0 2px #AD1457,0 2px 8px rgba(0,0,0,0.2)":"0 2px 6px rgba(0,0,0,0.15)",
+                            transition:"all 0.2s"}}/>
+                      ):(
+                        <button key={cl} onClick={()=>setSelColor(cl)}
+                          style={{padding:"5px 16px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:600,
+                            fontFamily:"inherit",border:`1.5px solid ${selColor===cl?"#AD1457":"rgba(173,20,87,0.25)"}`,
+                            background:selColor===cl?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",
+                            color:selColor===cl?C.primary:C.med}}>
+                          {cl}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
                 background:"rgba(255,240,252,0.6)",borderRadius:12,padding:"14px 18px",marginBottom:20}}>
                 <div>
@@ -843,7 +983,7 @@ export default function App() {
                   </span>
                 </div>
               </div>
-              <button onClick={()=>{addToCart(selectedProduct);setSelectedProduct(null);}}
+              <button onClick={()=>{addToCart(selectedProduct,{size:selSize,color:selColor,piece:selPiece});setSelectedProduct(null);}}
                 disabled={selectedProduct.stock===0}
                 style={{...btn,width:"100%",padding:"14px",fontSize:16,
                   opacity:selectedProduct.stock===0?0.45:1,
@@ -929,6 +1069,18 @@ export default function App() {
                     onChange={e=>setEditProduct(p=>({...p,desc:e.target.value}))}/>
                 </div>
                 <div style={{gridColumn:"span 2"}}>
+                  <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>📏 Sizes <span style={{fontSize:10,fontWeight:400}}>(Enter to add)</span></label>
+                  <TagInput values={editProduct.sizes||[]} onChange={v=>setEditProduct(p=>({...p,sizes:v}))} placeholder="S, M, L, XL..."/>
+                </div>
+                <div style={{gridColumn:"span 2"}}>
+                  <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>🎨 Colors <span style={{fontSize:10,fontWeight:400}}>(Enter to add)</span></label>
+                  <TagInput values={editProduct.colors||[]} onChange={v=>setEditProduct(p=>({...p,colors:v}))} placeholder="Red, Blue, Gold..."/>
+                </div>
+                <div style={{gridColumn:"span 2"}}>
+                  <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>📦 Pack Size <span style={{fontSize:10,fontWeight:400}}>(Enter to add)</span></label>
+                  <TagInput values={editProduct.pieceCounts||[]} onChange={v=>setEditProduct(p=>({...p,pieceCounts:v}))} placeholder="1pc, 2pc, Set of 3..."/>
+                </div>
+                <div style={{gridColumn:"span 2"}}>
                   <label style={{fontSize:12,color:C.med,fontWeight:700,display:"block",marginBottom:4}}>📸 Photos (up to 5)</label>
                   <div style={{fontSize:11,color:C.med,marginBottom:8}}>
                     Upload to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{color:C.primary,fontWeight:700}}>imgbb.com</a> → BBCode → copy URL between [img]...[/img]
@@ -994,11 +1146,16 @@ export default function App() {
                       </div>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:700,color:C.dark}}>{item.product.name}</div>
+                        {(item.size||item.color||item.piece)&&(
+                          <div style={{fontSize:10,color:C.med,marginTop:1}}>
+                            {[item.size,item.color,item.piece].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
                         <div style={{fontSize:13,fontWeight:800,color:C.primary,marginTop:2}}>৳{item.product.price.toLocaleString()}</div>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
-                          <button style={qBtn} onClick={()=>adjustCart(item.product.id,-1)}>−</button>
+                          <button style={qBtn} onClick={()=>adjustCart(item.cKey,-1)}>−</button>
                           <span style={{fontSize:14,fontWeight:800,minWidth:20,textAlign:"center"}}>{item.qty}</span>
-                          <button style={qBtn} onClick={()=>adjustCart(item.product.id,1)}>+</button>
+                          <button style={qBtn} onClick={()=>adjustCart(item.cKey,1)}>+</button>
                         </div>
                       </div>
                       <div style={{fontSize:13,fontWeight:800,color:C.dark}}>৳{(item.product.price*item.qty).toLocaleString()}</div>
