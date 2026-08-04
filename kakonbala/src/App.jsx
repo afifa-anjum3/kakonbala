@@ -304,8 +304,13 @@ export default function App() {
   const t=T[lang];
 
   useEffect(()=>{
-    const unsub = onAuthStateChanged(auth, (u)=>{ setUser(u); setAuthLoading(false); });
-    return unsub;
+    try {
+      const unsub = onAuthStateChanged(auth, (u)=>{ setUser(u); setAuthLoading(false); });
+      return unsub;
+    } catch(e) {
+      console.error("Auth error:", e);
+      setAuthLoading(false);
+    }
   },[]);
 
   useEffect(()=>{
