@@ -263,7 +263,7 @@ const ADMIN_EMAIL = "afifa.anjum3@gmail.com";
 export default function App() {
   const [lang,setLang]=useState("bn");
   const [user,setUser]=useState(null);
-  const [authLoading,setAuthLoading]=useState(true);
+  const [authLoading,setAuthLoading]=useState(false);
   const [authTab,setAuthTab]=useState("login"); // "login" | "signup"
   const [authEmail,setAuthEmail]=useState("");
   const [authPassword,setAuthPassword]=useState("");
@@ -305,12 +305,9 @@ export default function App() {
 
   useEffect(()=>{
     try {
-      const unsub = onAuthStateChanged(auth, (u)=>{ setUser(u); setAuthLoading(false); });
-      return unsub;
-    } catch(e) {
-      console.error("Auth error:", e);
-      setAuthLoading(false);
-    }
+      const unsub = onAuthStateChanged(auth, (u)=>{ setUser(u); });
+      return ()=>{ try{ unsub(); }catch(e){} };
+    } catch(e) { console.warn("Auth not available:", e.message); }
   },[]);
 
   useEffect(()=>{
