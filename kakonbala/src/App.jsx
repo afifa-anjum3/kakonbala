@@ -740,7 +740,7 @@ export default function App() {
       {selectedProduct && (
         <>
           <div onClick={() => setSelectedProduct(null)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:200,backdropFilter:"blur(4px)" }} />
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(600px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",borderRadius:24,overflow:"hidden",zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.35)" }}>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(600px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.35)" }}>
             <button onClick={() => setSelectedProduct(null)} style={{ position:"absolute",top:14,right:14,zIndex:10,background:"rgba(255,255,255,0.8)",border:"none",width:34,height:34,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
             <div style={{ height:280,position:"relative",overflow:"hidden" }}>
               <Carousel images={selectedProduct.imageUrls&&selectedProduct.imageUrls.length?selectedProduct.imageUrls:[selectedProduct.imageUrl]} emoji={selectedProduct.emoji} height={280} />
@@ -805,7 +805,7 @@ export default function App() {
       {editProduct && (
         <>
           <div onClick={() => setEditProduct(null)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.55)",zIndex:200 }} />
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:460,maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(20px)",borderRadius:20,overflow:"hidden",zIndex:201,boxShadow:"0 20px 60px rgba(173,20,87,0.3)" }}>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:460,maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(20px)",borderRadius:20,zIndex:201,boxShadow:"0 20px 60px rgba(173,20,87,0.3)" }}>
             <div style={{ background:GRAD,padding:"18px 26px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
               <div style={{ color:"#FFF",fontSize:16,fontWeight:800 }}>✏️ Edit Product</div>
               <button onClick={() => setEditProduct(null)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
