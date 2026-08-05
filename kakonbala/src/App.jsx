@@ -174,7 +174,13 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [authWorking, setAuthWorking] = useState(false);
   const [newP, setNewP] = useState({ name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrls:[""],subcategory:"",clothingGroup:"",sizes:[],colors:[],pieceCounts:[] });
-  const [customer, setCustomer] = useState({ name:"",email:"",phone:"",address:"" });
+  const [customer, setCustomer] = useState({ name:"",email:"",phone:"",address:"",city:"" });
+  const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, setPromoApplied] = useState(null);
+  const [payMethod, setPayMethod] = useState("cod");
+  const [promoCodes, setPromoCodes] = useState([]);
+  const [showPromoMgr, setShowPromoMgr] = useState(false);
+  const [newPromo, setNewPromo] = useState({ code:"",type:"percentage",value:"",minOrder:"",active:true });
 
   const t = T[lang];
   const isAdmin = user && user.email === ADMIN_EMAIL;
@@ -198,6 +204,13 @@ export default function App() {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(q, snap =>
       setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "promoCodes"), snap =>
+      setPromoCodes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
     return unsub;
   }, []);
@@ -315,20 +328,93 @@ export default function App() {
     await updateDoc(doc(db, "products", id), { stock: increment(delta) });
   }
 
+  function deliveryCharge() {
+    const city = (customer.city || "").toLowerCase();
+    if (!city) return 0;
+    if (city.includes("dhaka")) return 80;
+    return 150;
+  }
+
+  function finalTotal() {
+    const disc = promoApplied ? promoApplied.discount : 0;
+    return cartTotal + deliveryCharge() - disc;
+  }
+
+  async function applyPromo() {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+    const promo = promoCodes.find(p => p.code?.toUpperCase() === code && p.active);
+    if (!promo) { notify("⚠ Invalid or expired promo code"); return; }
+    if (promo.minOrder && cartTotal < Number(promo.minOrder)) {
+      notify(`⚠ Min order ৳${promo.minOrder} required for this code`); return;
+    }
+    const disc = promo.type === "percentage"
+      ? Math.round(cartTotal * Number(promo.value) / 100)
+      : Number(promo.value);
+    setPromoApplied({ code, discount: disc, label: promo.type === "percentage" ? `${promo.value}% off` : `৳${promo.value} off` });
+    notify(`✓ Promo "${code}" applied! You save ৳${disc}`);
+  }
+
+  async function savePromo() {
+    if (!newPromo.code || !newPromo.value) return notify("⚠ Fill code and value");
+    await addDoc(collection(db, "promoCodes"), {
+      code: newPromo.code.toUpperCase().trim(),
+      type: newPromo.type,
+      value: Number(newPromo.value),
+      minOrder: Number(newPromo.minOrder) || 0,
+      active: true,
+    });
+    setNewPromo({ code:"",type:"percentage",value:"",minOrder:"",active:true });
+    notify("✓ Promo code created!");
+  }
+
+  async function togglePromo(id, current) {
+    await updateDoc(doc(db, "promoCodes", id), { active: !current });
+  }
+
+  async function deletePromo(id) {
+    await deleteDoc(doc(db, "promoCodes", id));
+    notify("✓ Promo deleted");
+  }
+
   async function handleCheckout() {
-    if (!customer.name || !customer.phone) { notify("⚠ Enter name and phone"); return; }
+    if (!customer.name || !customer.phone || !customer.city) {
+      notify("⚠ Enter name, phone and city"); return;
+    }
+    const dc = deliveryCharge();
+    const disc = promoApplied ? promoApplied.discount : 0;
+    const total = cartTotal + dc - disc;
+    const orderData = {
+      customer,
+      items: cart.map(i => ({ id:i.product.id, name:i.product.name, qty:i.qty, price:i.product.price })),
+      subtotal: cartTotal, deliveryCharge: dc, discount: disc,
+      promoCode: promoApplied?.code || "",
+      total, paymentMethod: payMethod, createdAt: serverTimestamp(),
+    };
+
+    if (payMethod === "cod") {
+      if (dc === 150) {
+        notify("⚠ Outside Dhaka orders must pay online. Please select Online Payment.");
+        return;
+      }
+      await addDoc(collection(db, "orders"), { ...orderData, status:"processing" });
+      setCart([]); setCheckoutModal(false); setPromoApplied(null); setPromoCode("");
+      notify("✓ Order placed! Cash on delivery confirmed 🎉");
+      return;
+    }
+
+    // Online payment via SSLCommerz
     setPayLoading(true);
     try {
-      const orderRef = await addDoc(collection(db, "orders"), {
-        customer, items:cart.map(i => ({ id:i.product.id, name:i.product.name, qty:i.qty, price:i.product.price })),
-        total:cartTotal, status:"pending_payment", createdAt:serverTimestamp()
-      });
+      const orderRef = await addDoc(collection(db, "orders"), { ...orderData, status:"pending_payment" });
       const res = await fetch("/api/initiate-payment", {
         method:"POST", headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ orderId:orderRef.id, amount:cartTotal, customerName:customer.name, customerEmail:customer.email||"noemail@kakonbala.com", customerPhone:customer.phone, customerAddress:customer.address||"Dhaka" })
+        body:JSON.stringify({ orderId:orderRef.id, amount:total,
+          customerName:customer.name, customerEmail:customer.email||"noemail@kakonbala.com",
+          customerPhone:customer.phone, customerAddress:`${customer.address}, ${customer.city}` })
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) { window.location.href = data.url; }
       else { notify("⚠ " + (data.error || "Payment error")); setPayLoading(false); }
     } catch(e) { notify("⚠ " + e.message); setPayLoading(false); }
   }
@@ -582,6 +668,64 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* Promo Code Manager */}
+            <div style={{ ...glass,padding:20,marginTop:18 }}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14 }}>
+                <div style={{ fontSize:15,fontWeight:800,color:PURPLE }}>🎟 Promo Code Manager</div>
+                <button onClick={() => setShowPromoMgr(p => !p)} style={{ ...btn,padding:"6px 16px",fontSize:12 }}>{showPromoMgr?"Hide":"+ New Code"}</button>
+              </div>
+              {showPromoMgr && (
+                <div style={{ background:"rgba(255,255,255,0.5)",borderRadius:12,padding:16,marginBottom:16 }}>
+                  <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10 }}>
+                    <div>
+                      <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:2 }}>Code *</label>
+                      <input style={inp} type="text" placeholder="EID20" value={newPromo.code} onChange={e => setNewPromo(p => ({ ...p,code:e.target.value.toUpperCase() }))} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:2 }}>Type</label>
+                      <select style={inp} value={newPromo.type} onChange={e => setNewPromo(p => ({ ...p,type:e.target.value }))}>
+                        <option value="percentage">% Percentage</option>
+                        <option value="fixed">৳ Fixed Amount</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:2 }}>Value * {newPromo.type==="percentage"?"(%)":"(৳)"}</label>
+                      <input style={inp} type="number" placeholder={newPromo.type==="percentage"?"e.g. 10":"e.g. 100"} value={newPromo.value} onChange={e => setNewPromo(p => ({ ...p,value:e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:2 }}>Min Order (৳)</label>
+                      <input style={inp} type="number" placeholder="e.g. 500 (optional)" value={newPromo.minOrder} onChange={e => setNewPromo(p => ({ ...p,minOrder:e.target.value }))} />
+                    </div>
+                  </div>
+                  <button onClick={savePromo} style={{ ...btn,fontSize:13 }}>✓ Create Promo Code</button>
+                </div>
+              )}
+              {promoCodes.length===0 ? (
+                <div style={{ textAlign:"center",color:LIGHT,padding:"16px 0",fontSize:13 }}>No promo codes yet. Create one above!</div>
+              ) : (
+                <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+                  <thead><tr>{["Code","Type","Value","Min Order","Status","Action"].map(h => <th key={h} style={{ ...TH,fontSize:11 }}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {promoCodes.map(p => (
+                      <tr key={p.id} style={{ background:"rgba(255,255,255,0.3)" }}>
+                        <td style={{ ...TD,fontWeight:800,color:PRIMARY,fontFamily:"monospace" }}>{p.code}</td>
+                        <td style={TD}>{p.type==="percentage"?"% Percentage":"৳ Fixed"}</td>
+                        <td style={{ ...TD,fontWeight:700 }}>{p.type==="percentage"?`${p.value}%`:`৳${p.value}`}</td>
+                        <td style={TD}>{p.minOrder?`৳${p.minOrder}`:"None"}</td>
+                        <td style={TD}><span style={{ fontSize:11,padding:"2px 10px",borderRadius:10,fontWeight:700,background:p.active?"rgba(232,245,233,0.85)":"rgba(255,235,238,0.85)",color:p.active?SUCCESS:DANGER }}>{p.active?"Active":"Inactive"}</span></td>
+                        <td style={TD}>
+                          <div style={{ display:"flex",gap:6 }}>
+                            <button onClick={() => togglePromo(p.id,p.active)} style={{ fontSize:11,padding:"3px 10px",borderRadius:8,border:`1px solid rgba(173,20,87,0.3)`,background:"rgba(255,255,255,0.7)",cursor:"pointer",fontWeight:600,color:MED }}>{p.active?"Disable":"Enable"}</button>
+                            <button onClick={() => deletePromo(p.id)} style={{ fontSize:11,padding:"3px 10px",borderRadius:8,border:`1px solid rgba(198,40,40,0.3)`,background:"rgba(255,235,238,0.85)",cursor:"pointer",fontWeight:600,color:DANGER }}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         )}
 
@@ -975,30 +1119,98 @@ export default function App() {
       {/* CHECKOUT MODAL */}
       {checkoutModal && (
         <>
-          <div onClick={() => setCheckoutModal(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200 }} />
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:430,background:"rgba(255,255,255,0.92)",backdropFilter:"blur(20px)",borderRadius:20,overflow:"hidden",zIndex:201,boxShadow:"0 20px 60px rgba(173,20,87,0.3)" }}>
-            <div style={{ background:GRAD,padding:"20px 28px" }}>
+          <div onClick={() => { setCheckoutModal(false); }} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200 }} />
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:450,maxHeight:"92vh",overflowY:"auto",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",borderRadius:20,zIndex:201,boxShadow:"0 20px 60px rgba(173,20,87,0.3)" }}>
+            <div style={{ background:GRAD,padding:"18px 26px",position:"sticky",top:0,zIndex:2 }}>
               <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>🌸 {t.completeOrder}</div>
             </div>
-            <div style={{ padding:24 }}>
-              {[[t.fullName,"name","text","Your name"],[t.phoneNum,"phone","tel","01711-000000"],[t.email,"email","email","your@email.com"],[t.address,"address","text","House, Road, City"]].map(([l,k,tp,ph]) => (
+            <div style={{ padding:22 }}>
+              {/* Customer fields */}
+              {[[t.fullName,"name","text","Your name"],[t.phoneNum,"phone","tel","01711-000000"],[t.email,"email","email","your@email.com"]].map(([l,k,tp,ph]) => (
                 <div key={k} style={{ marginBottom:12 }}>
                   <label style={{ fontSize:12,color:MED,fontWeight:700 }}>{l}</label>
                   <input style={inp} type={tp} placeholder={ph} value={customer[k]} onChange={e => setCustomer(c => ({ ...c,[k]:e.target.value }))} />
                 </div>
               ))}
-              <div style={{ background:"rgba(255,240,252,0.6)",borderRadius:10,padding:"12px 16px",marginBottom:18,fontSize:13 }}>
-                <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
-                  <span style={{ color:MED }}>{cartCount} items</span>
-                  <span style={{ fontWeight:700 }}>৳{cartTotal.toLocaleString()}</span>
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12,color:MED,fontWeight:700 }}>শহর / City *</label>
+                <input style={inp} type="text" placeholder="Dhaka / Chittagong / Sylhet..."
+                  value={customer.city} onChange={e => setCustomer(c => ({ ...c,city:e.target.value }))} />
+                {customer.city && (
+                  <div style={{ fontSize:11,marginTop:4,fontWeight:600,color:customer.city.toLowerCase().includes("dhaka")?SUCCESS:WARN }}>
+                    {customer.city.toLowerCase().includes("dhaka")
+                      ? "✓ Dhaka — Delivery charge: ৳80 (COD available)"
+                      : "⚠ Outside Dhaka — Delivery charge: ৳150 (Online payment required)"}
+                  </div>
+                )}
+              </div>
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:12,color:MED,fontWeight:700 }}>{t.address}</label>
+                <input style={inp} type="text" placeholder="House, Road, Area" value={customer.address} onChange={e => setCustomer(c => ({ ...c,address:e.target.value }))} />
+              </div>
+
+              {/* Promo code */}
+              <div style={{ marginBottom:14 }}>
+                <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>🎟 Promo Code</label>
+                {promoApplied ? (
+                  <div style={{ display:"flex",alignItems:"center",gap:10,background:"rgba(46,125,50,0.1)",border:"1px solid rgba(46,125,50,0.3)",borderRadius:10,padding:"8px 14px" }}>
+                    <span style={{ fontSize:13,fontWeight:700,color:SUCCESS,flex:1 }}>✓ "{promoApplied.code}" — {promoApplied.label} (saves ৳{promoApplied.discount})</span>
+                    <button onClick={() => { setPromoApplied(null); setPromoCode(""); }} style={{ background:"none",border:"none",color:DANGER,cursor:"pointer",fontWeight:700,fontSize:16 }}>×</button>
+                  </div>
+                ) : (
+                  <div style={{ display:"flex",gap:8 }}>
+                    <input style={{ ...inp,marginTop:0,flex:1 }} type="text" placeholder="Enter promo code"
+                      value={promoCode} onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                      onKeyDown={e => e.key==="Enter"&&applyPromo()} />
+                    <button onClick={applyPromo} style={{ ...btn,padding:"9px 18px",fontSize:13,flexShrink:0 }}>Apply</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment method */}
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:8 }}>💳 Payment Method</label>
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+                  <button onClick={() => setPayMethod("cod")} style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${payMethod==="cod"?PRIMARY:"rgba(173,20,87,0.2)"}`,background:payMethod==="cod"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",color:payMethod==="cod"?PRIMARY:MED }}>
+                    🚚 Cash on Delivery<br/><span style={{ fontSize:10,fontWeight:400 }}>Dhaka only</span>
+                  </button>
+                  <button onClick={() => setPayMethod("online")} style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${payMethod==="online"?PRIMARY:"rgba(173,20,87,0.2)"}`,background:payMethod==="online"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",color:payMethod==="online"?PRIMARY:MED }}>
+                    💳 Online Payment<br/><span style={{ fontSize:10,fontWeight:400 }}>bKash · Nagad · Card</span>
+                  </button>
                 </div>
-                <div style={{ display:"flex",justifyContent:"space-between" }}>
-                  <span style={{ color:MED }}>{t.delivery}</span>
-                  <span style={{ color:SUCCESS,fontWeight:700 }}>{t.free}</span>
+                {payMethod==="cod" && deliveryCharge()===150 && (
+                  <div style={{ fontSize:11,color:DANGER,fontWeight:600,marginTop:6,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8 }}>
+                    ⚠ Outside Dhaka: Please select Online Payment (advance payment required)
+                  </div>
+                )}
+              </div>
+
+              {/* Order summary */}
+              <div style={{ background:"rgba(255,240,252,0.6)",borderRadius:12,padding:"14px 16px",marginBottom:18,fontSize:13 }}>
+                <div style={{ display:"flex",justifyContent:"space-between",marginBottom:6 }}>
+                  <span style={{ color:MED }}>{cartCount} items</span>
+                  <span style={{ fontWeight:600 }}>৳{cartTotal.toLocaleString()}</span>
+                </div>
+                <div style={{ display:"flex",justifyContent:"space-between",marginBottom:6 }}>
+                  <span style={{ color:MED }}>Delivery charge</span>
+                  <span style={{ fontWeight:600,color:deliveryCharge()===0?LIGHT:DARK }}>
+                    {customer.city ? `৳${deliveryCharge()}` : "Enter city first"}
+                  </span>
+                </div>
+                {promoApplied && (
+                  <div style={{ display:"flex",justifyContent:"space-between",marginBottom:6 }}>
+                    <span style={{ color:SUCCESS }}>Discount ({promoApplied.label})</span>
+                    <span style={{ fontWeight:700,color:SUCCESS }}>−৳{promoApplied.discount}</span>
+                  </div>
+                )}
+                <div style={{ display:"flex",justifyContent:"space-between",paddingTop:8,borderTop:"1px solid rgba(173,20,87,0.15)",marginTop:4 }}>
+                  <span style={{ fontWeight:800,fontSize:14 }}>Total</span>
+                  <span style={{ fontWeight:800,fontSize:16,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>৳{finalTotal().toLocaleString()}</span>
                 </div>
               </div>
+
               <button onClick={handleCheckout} disabled={payLoading} style={{ ...btn,width:"100%",padding:"13px",fontSize:15,opacity:payLoading?0.7:1 }}>
-                {payLoading?t.redirecting:`৳${cartTotal.toLocaleString()} — ${t.payNow}`}
+                {payLoading ? t.redirecting : payMethod==="cod" ? `✓ Place Order (COD) — ৳${finalTotal().toLocaleString()}` : `💳 Pay ৳${finalTotal().toLocaleString()} Online`}
               </button>
               <div style={{ fontSize:11,color:LIGHT,textAlign:"center",marginTop:10 }}>{t.securePayment}</div>
             </div>
