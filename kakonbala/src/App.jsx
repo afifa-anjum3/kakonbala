@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, increment, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db, auth } from "./firebase.js";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
@@ -110,20 +110,21 @@ function TagInput({ values, onChange, placeholder }) {
   );
 }
 
-/* ── Carousel Component ─────────────────────────────────────────── */
+/* ── Carousel (product card thumbnails - simple auto-play) ── */
 function Carousel({ images, emoji, height, primaryImage }) {
   const imgs = images || [];
   const em = emoji || "💍";
   const h = height || 180;
   const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
   const baseImgs = primaryImage ? [primaryImage, ...imgs.filter(u => u && u !== primaryImage)] : imgs;
   const valid = baseImgs.filter(Boolean);
 
   useEffect(() => {
-    if (valid.length <= 1) return;
+    if (valid.length <= 1 || paused) return;
     const timer = setInterval(() => setIdx(i => (i + 1) % valid.length), 2800);
     return () => clearInterval(timer);
-  }, [valid.length]);
+  }, [valid.length, paused]);
 
   if (!valid.length) {
     return (
@@ -133,31 +134,205 @@ function Carousel({ images, emoji, height, primaryImage }) {
     );
   }
 
+  function handlePrev(e) { e.stopPropagation(); setPaused(true); setIdx(i => (i-1+valid.length)%valid.length); }
+  function handleNext(e) { e.stopPropagation(); setPaused(true); setIdx(i => (i+1)%valid.length); }
+
   return (
     <div style={{ position:"relative",width:"100%",height:h,overflow:"hidden",background:"rgba(255,255,255,0.3)" }}>
       <img src={valid[idx]} alt="product"
-        style={{ width:"100%",height:"100%",objectFit:"contain",padding:4,transition:"opacity 0.4s" }}
-        onError={e => { e.target.style.display = "none"; }} />
+        style={{ width:"100%",height:"100%",objectFit:"contain",padding:4,transition:"opacity 0.3s" }}
+        onError={e => { e.target.style.display="none"; }} />
       {valid.length > 1 && (
         <>
-          <button onClick={e => { e.stopPropagation(); setIdx(i => (i - 1 + valid.length) % valid.length); }}
-            style={{ position:"absolute",left:4,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.8)",border:"none",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:700,color:"#AD1457",display:"flex",alignItems:"center",justifyContent:"center" }}>‹</button>
-          <button onClick={e => { e.stopPropagation(); setIdx(i => (i + 1) % valid.length); }}
-            style={{ position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.8)",border:"none",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:700,color:"#AD1457",display:"flex",alignItems:"center",justifyContent:"center" }}>›</button>
-          <div style={{ position:"absolute",bottom:6,left:"50%",transform:"translateX(-50%)",display:"flex",gap:5 }}>
-            {valid.map((_, i) => (
-              <div key={i} onClick={e => { e.stopPropagation(); setIdx(i); }}
-                style={{ width:i===idx?16:7,height:7,borderRadius:4,cursor:"pointer",background:i===idx?"#AD1457":"rgba(255,255,255,0.7)",transition:"all 0.3s" }} />
+          <button onClick={handlePrev} style={{ position:"absolute",left:4,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.8)",border:"none",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:700,color:"#AD1457",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3 }}>‹</button>
+          <button onClick={handleNext} style={{ position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.8)",border:"none",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:700,color:"#AD1457",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3 }}>›</button>
+          <div style={{ position:"absolute",bottom:6,left:"50%",transform:"translateX(-50%)",display:"flex",gap:5,zIndex:3 }}>
+            {valid.map((_,i) => (
+              <div key={i} onClick={e=>{e.stopPropagation();setPaused(true);setIdx(i);}}
+                style={{ width:i===idx?14:6,height:6,borderRadius:3,cursor:"pointer",background:i===idx?"#AD1457":"rgba(255,255,255,0.7)",transition:"all 0.3s" }}/>
             ))}
           </div>
-          <div style={{ position:"absolute",top:6,right:6,background:"rgba(173,20,87,0.75)",color:"#FFF",borderRadius:10,padding:"1px 8px",fontSize:10,fontWeight:700 }}>
-            {idx+1}/{valid.length}
-          </div>
+          <div style={{ position:"absolute",top:6,right:6,background:"rgba(173,20,87,0.75)",color:"#FFF",borderRadius:10,padding:"1px 7px",fontSize:9,fontWeight:700 }}>{idx+1}/{valid.length}</div>
         </>
       )}
     </div>
   );
 }
+
+/* ── ZoomableCarousel (product detail modal - zoom + pan + manual nav) ── */
+function ZoomableCarousel({ images, emoji, height, primaryImage }) {
+  const imgs = images || [];
+  const em = emoji || "💍";
+  const h = height || 300;
+  const baseImgs = primaryImage ? [primaryImage, ...imgs.filter(u => u && u !== primaryImage)] : imgs;
+  const valid = baseImgs.filter(Boolean);
+
+  const [idx, setIdx] = useState(0);
+  const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState({ x:0, y:0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x:0, y:0 });
+  const [manualNav, setManualNav] = useState(false);
+  const containerRef = useRef(null);
+
+  // Reset pan when image changes
+  useEffect(() => { setPan({ x:0, y:0 }); setScale(1); }, [idx]);
+  // Reset idx when primaryImage changes
+  useEffect(() => { setIdx(0); }, [primaryImage]);
+
+  function resetZoom() { setScale(1); setPan({ x:0, y:0 }); }
+
+  function goPrev(e) {
+    e.stopPropagation();
+    setManualNav(true);
+    resetZoom();
+    setIdx(i => (i-1+valid.length)%valid.length);
+  }
+  function goNext(e) {
+    e.stopPropagation();
+    setManualNav(true);
+    resetZoom();
+    setIdx(i => (i+1)%valid.length);
+  }
+  function goDot(i, e) {
+    e.stopPropagation();
+    setManualNav(true);
+    resetZoom();
+    setIdx(i);
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.25 : -0.25;
+    setScale(s => {
+      const ns = Math.max(1, Math.min(4, s + delta));
+      if (ns === 1) setPan({ x:0, y:0 });
+      return ns;
+    });
+  }
+
+  function onMouseDown(e) {
+    if (scale > 1) {
+      e.preventDefault();
+      setDragging(true);
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  }
+  function onMouseMove(e) {
+    if (!dragging) return;
+    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  }
+  function onMouseUp() { setDragging(false); }
+
+  // Touch events for mobile
+  const lastTouchDist = useRef(null);
+  function onTouchStart(e) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastTouchDist.current = Math.sqrt(dx*dx + dy*dy);
+    }
+  }
+  function onTouchMove(e) {
+    if (e.touches.length === 2 && lastTouchDist.current) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const ratio = dist / lastTouchDist.current;
+      lastTouchDist.current = dist;
+      setScale(s => Math.max(1, Math.min(4, s * ratio)));
+    }
+  }
+  function onTouchEnd() { lastTouchDist.current = null; }
+
+  if (!valid.length) {
+    return (
+      <div style={{ width:"100%",height:h,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(255,240,252,0.4)" }}>
+        <span style={{ fontSize:90 }}>{em}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef}
+      style={{ position:"relative",width:"100%",height:h,overflow:"hidden",
+        background:"rgba(255,255,255,0.35)",
+        cursor: scale>1 ? (dragging?"grabbing":"grab") : "default" }}
+      onWheel={onWheel}
+      onMouseDown={onMouseDown} onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+
+      {/* Image */}
+      <img src={valid[idx]} alt="product" draggable={false}
+        style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",
+          transform:"scale("+scale+") translate("+(pan.x/scale)+"px,"+(pan.y/scale)+"px)",
+          transition: dragging?"none":"transform 0.15s",
+          userSelect:"none", pointerEvents:"none" }}
+        onError={e => { e.target.style.display="none"; }} />
+
+      {/* Prev / Next arrows */}
+      {valid.length > 1 && (
+        <>
+          <button onClick={goPrev}
+            style={{ position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",
+              background:"rgba(255,255,255,0.9)",border:"none",borderRadius:"50%",
+              width:40,height:40,cursor:"pointer",fontSize:22,fontWeight:700,
+              color:"#AD1457",display:"flex",alignItems:"center",justifyContent:"center",
+              zIndex:5,boxShadow:"0 2px 10px rgba(0,0,0,0.2)",transition:"all 0.2s" }}
+            onMouseEnter={e=>e.target.style.background="#FFF"}
+            onMouseLeave={e=>e.target.style.background="rgba(255,255,255,0.9)"}>‹</button>
+          <button onClick={goNext}
+            style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
+              background:"rgba(255,255,255,0.9)",border:"none",borderRadius:"50%",
+              width:40,height:40,cursor:"pointer",fontSize:22,fontWeight:700,
+              color:"#AD1457",display:"flex",alignItems:"center",justifyContent:"center",
+              zIndex:5,boxShadow:"0 2px 10px rgba(0,0,0,0.2)",transition:"all 0.2s" }}
+            onMouseEnter={e=>e.target.style.background="#FFF"}
+            onMouseLeave={e=>e.target.style.background="rgba(255,255,255,0.9)"}>›</button>
+        </>
+      )}
+
+      {/* Dot indicators */}
+      {valid.length > 1 && (
+        <div style={{ position:"absolute",bottom:10,left:"50%",transform:"translateX(-50%)",display:"flex",gap:6,zIndex:5 }}>
+          {valid.map((_,i) => (
+            <div key={i} onClick={e=>goDot(i,e)}
+              style={{ width:i===idx?18:8,height:8,borderRadius:4,cursor:"pointer",
+                background:i===idx?"#AD1457":"rgba(255,255,255,0.75)",
+                transition:"all 0.3s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }}/>
+          ))}
+        </div>
+      )}
+
+      {/* Zoom controls */}
+      <div style={{ position:"absolute",top:10,right:10,display:"flex",gap:5,zIndex:5,alignItems:"center" }}>
+        <button onClick={e=>{e.stopPropagation();setScale(s=>Math.min(4,Math.round((s+0.5)*10)/10));}}
+          style={{ background:"rgba(255,255,255,0.92)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,fontWeight:700,color:"#AD1457",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.1)" }}>+</button>
+        <span style={{ background:"rgba(255,255,255,0.92)",borderRadius:8,padding:"0 7px",fontSize:11,fontWeight:700,color:"#6A1B9A",height:30,display:"flex",alignItems:"center",minWidth:40,justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.1)" }}>{Math.round(scale*100)}%</span>
+        <button onClick={e=>{e.stopPropagation();setScale(s=>{const ns=Math.max(1,Math.round((s-0.5)*10)/10);if(ns===1)setPan({x:0,y:0});return ns;});}}
+          style={{ background:"rgba(255,255,255,0.92)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,fontWeight:700,color:"#AD1457",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.1)" }}>−</button>
+        {scale>1&&<button onClick={e=>{e.stopPropagation();resetZoom();}}
+          style={{ background:"rgba(255,255,255,0.92)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:8,padding:"0 9px",height:30,cursor:"pointer",fontSize:11,fontWeight:600,color:"#7B3F9E",boxShadow:"0 1px 4px rgba(0,0,0,0.1)" }}>Reset</button>}
+      </div>
+
+      {/* Hint */}
+      <div style={{ position:"absolute",bottom:10,left:10,background:"rgba(255,255,255,0.75)",borderRadius:6,padding:"2px 8px",fontSize:9,color:"#7B3F9E",zIndex:5 }}>
+        {scale>1?"🖱️ Drag to pan · Scroll to zoom":"🔍 +/− or scroll to zoom"}
+      </div>
+
+      {/* Image counter */}
+      {valid.length>1&&(
+        <div style={{ position:"absolute",top:10,left:10,background:"rgba(173,20,87,0.7)",color:"#FFF",borderRadius:10,padding:"2px 9px",fontSize:10,fontWeight:700,zIndex:5 }}>
+          {idx+1} / {valid.length}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── TagInput Component ─────────────────────────────────────────── */
 
 /* ── Main App ───────────────────────────────────────────────────── */
 export default function App() {
@@ -858,7 +1033,7 @@ export default function App() {
                           <button style={qBtnS} onClick={() => adjustStock(p.id,-1)}>−</button>
                           <button style={qBtnS} onClick={() => adjustStock(p.id,5)}>+5</button>
                           <button style={qBtnS} onClick={() => adjustStock(p.id,10)}>+10</button>
-                          <button onClick={() => setEditProduct({...p,imageUrls:p.imageUrls&&p.imageUrls.length?p.imageUrls:[p.imageUrl||""],sizes:p.sizes||[],colors:p.colors||[],pieceCounts:p.pieceCounts||[]})} style={{ ...qBtnS,width:"auto",padding:"0 10px",background:"rgba(227,242,253,0.9)",color:INFO,border:`1px solid rgba(21,101,192,0.3)`,fontSize:12,fontWeight:700 }}>✏️</button>
+                          <button onClick={() => setEditProduct({...p,imageUrls:p.imageUrls&&p.imageUrls.length?p.imageUrls:[p.imageUrl||""],sizes:p.sizes||[],colors:p.colors||[],pieceCounts:p.pieceCounts||[],packOptions:p.packOptions||[],colorImages:p.colorImages||{}})} style={{ ...qBtnS,width:"auto",padding:"0 10px",background:"rgba(227,242,253,0.9)",color:INFO,border:`1px solid rgba(21,101,192,0.3)`,fontSize:12,fontWeight:700 }}>✏️</button>
                           <button onClick={() => deleteProduct(p.id,p.name)} style={{ ...qBtnS,width:"auto",padding:"0 10px",background:"rgba(255,235,238,0.9)",color:DANGER,border:`1px solid rgba(198,40,40,0.3)`,fontSize:12,fontWeight:700 }}>🗑️</button>
                         </div>
                       </td>
@@ -916,23 +1091,12 @@ export default function App() {
           <div onClick={() => setSelectedProduct(null)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:200,backdropFilter:"blur(4px)" }} />
           <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(600px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.35)" }}>
             <button onClick={() => setSelectedProduct(null)} style={{ position:"absolute",top:14,right:14,zIndex:10,background:"rgba(255,255,255,0.8)",border:"none",width:34,height:34,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
-            <div style={{ height:300,position:"relative",overflow:"hidden",background:"rgba(255,240,252,0.4)" }}>
-              <div style={{ width:"100%",height:"100%",overflow:"hidden",transition:"transform 0.3s",transform:"scale("+zoom+")",transformOrigin:"center center" }}>
-                <Carousel
-                  images={selectedProduct.imageUrls&&selectedProduct.imageUrls.length?selectedProduct.imageUrls:[selectedProduct.imageUrl]}
-                  emoji={selectedProduct.emoji} height={300}
-                  primaryImage={selColor&&selectedProduct.colorImages&&selectedProduct.colorImages[selColor]?selectedProduct.colorImages[selColor]:null}
-                />
-              </div>
-              <div style={{ position:"absolute",bottom:10,right:10,display:"flex",gap:6,alignItems:"center",zIndex:5 }}>
-                <button onClick={()=>setZoom(z=>Math.max(1,Math.round((z-0.25)*100)/100))}
-                  style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",color:"#AD1457" }}>−</button>
-                <span style={{ background:"rgba(255,255,255,0.9)",padding:"4px 8px",borderRadius:8,fontSize:11,fontWeight:700,color:"#7B3F9E",minWidth:42,textAlign:"center" }}>{Math.round(zoom*100)}%</span>
-                <button onClick={()=>setZoom(z=>Math.min(3,Math.round((z+0.25)*100)/100))}
-                  style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",color:"#AD1457" }}>+</button>
-                {zoom>1&&<button onClick={()=>setZoom(1)} style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:10,fontWeight:600,color:"#7B3F9E" }}>Reset</button>}
-              </div>
-              <div style={{ position:"absolute",bottom:10,left:10,background:"rgba(255,255,255,0.75)",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#7B3F9E" }}>🔍 use +/− to zoom</div>
+            <div style={{ height:300,position:"relative",overflow:"hidden" }}>
+              <ZoomableCarousel
+                images={selectedProduct.imageUrls&&selectedProduct.imageUrls.length?selectedProduct.imageUrls:[selectedProduct.imageUrl]}
+                emoji={selectedProduct.emoji} height={300}
+                primaryImage={selColor&&selectedProduct.colorImages&&selectedProduct.colorImages[selColor]?selectedProduct.colorImages[selColor]:null}
+              />
             </div>
             <div style={{ padding:"22px 28px 28px" }}>
               <span style={catBadge(selectedProduct.category)}>{selectedProduct.subcategory||selectedProduct.category}</span>
