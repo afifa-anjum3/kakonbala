@@ -26,7 +26,21 @@ const CATS = {
   clothing:{ emoji:"👗", groups:{ "Women":["Saree","Tops","Skirt","Salwar Kameez","Kurti","Lehenga","Other"], "Men":["Panjabi","T-Shirt","Shirt","Pant","Fotua","Other"], "Child":["Baby Boy","Baby Girl"] } }
 };
 
-const COLOR_MAP = { red:"#E53935",blue:"#1E88E5",green:"#43A047",pink:"#E91E63",purple:"#8E24AA",yellow:"#FDD835",orange:"#FB8C00",black:"#212121",white:"#F5F5F5",gold:"#F9A825",silver:"#9E9E9E",grey:"#757575",gray:"#757575",brown:"#795548",cream:"#FFF8E1",maroon:"#880E4F",navy:"#1A237E",teal:"#00796B",mint:"#B2EBF2",lavender:"#EDE7F6",peach:"#FFCCBC",rose:"#FCE4EC",beige:"#F5F5DC" };
+const COLOR_MAP = {
+  red:"#E53935",crimson:"#DC143C",scarlet:"#FF2400",
+  blue:"#1E88E5",navy:"#1A237E",skyblue:"#87CEEB","sky blue":"#87CEEB",cobalt:"#0047AB",
+  green:"#43A047","dark green":"#1B5E20",lime:"#76FF03",olive:"#827717",emerald:"#50C878",
+  pink:"#E91E63",hotpink:"#FF1493","light pink":"#FFB6C1",lightpink:"#FFB6C1",blush:"#DE5D83",
+  purple:"#8E24AA",violet:"#7F00FF",indigo:"#3F51B5",lavender:"#9575CD",
+  yellow:"#FDD835",golden:"#FFD700",lemon:"#FFF176",mustard:"#FFDB58",
+  orange:"#FB8C00",peach:"#FFAB91",coral:"#FF7043",salmon:"#FA8072",
+  black:"#212121",white:"#FAFAFA",grey:"#757575",gray:"#757575",
+  silver:"#BDBDBD",beige:"#F5F5DC",cream:"#FFF8E1",ivory:"#FFFFF0",
+  gold:"#F9A825",bronze:"#CD7F32",copper:"#B87333",
+  brown:"#795548",chocolate:"#D2691E",maroon:"#880E4F",burgundy:"#800020",
+  teal:"#00796B",cyan:"#00BCD4",turquoise:"#40E0D0",aqua:"#00BCD4",mint:"#98FF98",
+  magenta:"#E91E8F",fuchsia:"#FF00FF",rose:"#FF007F",
+};
 
 const monthlyData = [
   {month:"Nov",revenue:28400,orders:18},{month:"Dec",revenue:45200,orders:31},
@@ -97,12 +111,13 @@ function TagInput({ values, onChange, placeholder }) {
 }
 
 /* ── Carousel Component ─────────────────────────────────────────── */
-function Carousel({ images, emoji, height }) {
+function Carousel({ images, emoji, height, primaryImage }) {
   const imgs = images || [];
   const em = emoji || "💍";
   const h = height || 180;
   const [idx, setIdx] = useState(0);
-  const valid = imgs.filter(Boolean);
+  const baseImgs = primaryImage ? [primaryImage, ...imgs.filter(u => u && u !== primaryImage)] : imgs;
+  const valid = baseImgs.filter(Boolean);
 
   useEffect(() => {
     if (valid.length <= 1) return;
@@ -173,7 +188,7 @@ export default function App() {
   const [authName, setAuthName] = useState("");
   const [authError, setAuthError] = useState("");
   const [authWorking, setAuthWorking] = useState(false);
-  const [newP, setNewP] = useState({ name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrls:[""],subcategory:"",clothingGroup:"",sizes:[],colors:[],pieceCounts:[] });
+  const [newP, setNewP] = useState({ name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrls:[""],subcategory:"",clothingGroup:"",sizes:[],colors:[],pieceCounts:[],packOptions:[],colorImages:{} });
   const [customer, setCustomer] = useState({ name:"",email:"",phone:"",address:"",city:"" });
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(null);
@@ -312,7 +327,8 @@ export default function App() {
       name:editProduct.name, category:editProduct.category, subcategory:editProduct.subcategory||"",
       clothingGroup:editProduct.clothingGroup||"", price:Number(editProduct.price), stock:Number(editProduct.stock),
       desc:editProduct.desc, imageUrl:validUrls[0]||"", imageUrls:validUrls,
-      sizes:editProduct.sizes||[], colors:editProduct.colors||[], pieceCounts:editProduct.pieceCounts||[]
+      sizes:editProduct.sizes||[], colors:editProduct.colors||[], pieceCounts:editProduct.pieceCounts||[],
+      packOptions:editProduct.packOptions||[], colorImages:editProduct.colorImages||{}
     });
     setEditProduct(null);
     notify("✓ Product updated!");
@@ -425,6 +441,14 @@ export default function App() {
     if (cat === "crafts") return CATS.crafts.subs;
     if (cat === "clothing" && cg) return CATS.clothing.groups[cg] || [];
     return [];
+  }
+
+  function getDisplayPrice(product, selPieceArg) {
+    if (selPieceArg && product.packOptions && product.packOptions.length > 0) {
+      const opt = product.packOptions.find(o => o.label === selPieceArg);
+      if (opt) return opt.price;
+    }
+    return product.price;
   }
 
   /* ── Photo URL helpers ── */
@@ -589,7 +613,7 @@ export default function App() {
                     <div onClick={() => setSelectedProduct(p)} style={{ fontSize:14,fontWeight:700,color:DARK,marginBottom:4 }}>{p.name}</div>
                     <div style={{ fontSize:11,color:MED,lineHeight:1.5,marginBottom:10,minHeight:32 }}>{p.desc}</div>
                     <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
-                      <span style={{ fontSize:18,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>৳{p.price.toLocaleString()}</span>
+                      <span style={{ fontSize:18,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>{p.packOptions&&p.packOptions.length>0?"from ":""} ৳{(p.packOptions&&p.packOptions.length>0?Math.min(...p.packOptions.map(o=>o.price)):p.price).toLocaleString()}</span>
                       <span style={stockTag(p.stock)}>{p.stock<=5?`⚠ ${p.stock} ${t.left}`:`${p.stock} ${t.inStock}`}</span>
                     </div>
                     <button onClick={() => addToCart(p)} disabled={p.stock===0}
@@ -795,9 +819,15 @@ export default function App() {
                     <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>🎨 Colors <span style={{ fontSize:10,fontWeight:400 }}>(Enter to add)</span></label>
                     <TagInput values={newP.colors} onChange={v => setNewP(p => ({ ...p,colors:v }))} placeholder="Red, Blue, Gold..." />
                   </div>
+                  {(newP.colors||[]).length>0&&(
+                    <div style={{ gridColumn:"span 2" }}>
+                      <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:6 }}>🖼️ Color Images <span style={{ fontSize:10,fontWeight:400 }}>(link image to each color)</span></label>
+                      <ColorImageMapper colors={newP.colors} colorImages={newP.colorImages||{}} onChange={v=>setNewP(p=>({...p,colorImages:v}))} />
+                    </div>
+                  )}
                   <div style={{ gridColumn:"span 2" }}>
-                    <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>📦 Pack Size <span style={{ fontSize:10,fontWeight:400 }}>(Enter to add)</span></label>
-                    <TagInput values={newP.pieceCounts} onChange={v => setNewP(p => ({ ...p,pieceCounts:v }))} placeholder="1pc, 2pc, Set of 3..." />
+                    <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>📦 Pack Sizes with Prices <span style={{ fontSize:10,fontWeight:400 }}>(each pack = different price)</span></label>
+                    <PackOptionInput options={newP.packOptions||[]} onChange={v=>setNewP(p=>({...p,packOptions:v}))} />
                   </div>
                   <PhotoFields urlArr={newP.imageUrls||[""]} setter={setNewP} />
                 </div>
@@ -886,19 +916,47 @@ export default function App() {
           <div onClick={() => setSelectedProduct(null)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:200,backdropFilter:"blur(4px)" }} />
           <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(600px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.35)" }}>
             <button onClick={() => setSelectedProduct(null)} style={{ position:"absolute",top:14,right:14,zIndex:10,background:"rgba(255,255,255,0.8)",border:"none",width:34,height:34,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
-            <div style={{ height:280,position:"relative",overflow:"hidden" }}>
-              <Carousel images={selectedProduct.imageUrls&&selectedProduct.imageUrls.length?selectedProduct.imageUrls:[selectedProduct.imageUrl]} emoji={selectedProduct.emoji} height={280} />
+            <div style={{ height:300,position:"relative",overflow:"hidden",background:"rgba(255,240,252,0.4)" }}>
+              <div style={{ width:"100%",height:"100%",overflow:"hidden",transition:"transform 0.3s",transform:"scale("+zoom+")",transformOrigin:"center center" }}>
+                <Carousel
+                  images={selectedProduct.imageUrls&&selectedProduct.imageUrls.length?selectedProduct.imageUrls:[selectedProduct.imageUrl]}
+                  emoji={selectedProduct.emoji} height={300}
+                  primaryImage={selColor&&selectedProduct.colorImages&&selectedProduct.colorImages[selColor]?selectedProduct.colorImages[selColor]:null}
+                />
+              </div>
+              <div style={{ position:"absolute",bottom:10,right:10,display:"flex",gap:6,alignItems:"center",zIndex:5 }}>
+                <button onClick={()=>setZoom(z=>Math.max(1,Math.round((z-0.25)*100)/100))}
+                  style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",color:"#AD1457" }}>−</button>
+                <span style={{ background:"rgba(255,255,255,0.9)",padding:"4px 8px",borderRadius:8,fontSize:11,fontWeight:700,color:"#7B3F9E",minWidth:42,textAlign:"center" }}>{Math.round(zoom*100)}%</span>
+                <button onClick={()=>setZoom(z=>Math.min(3,Math.round((z+0.25)*100)/100))}
+                  style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",color:"#AD1457" }}>+</button>
+                {zoom>1&&<button onClick={()=>setZoom(1)} style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:10,fontWeight:600,color:"#7B3F9E" }}>Reset</button>}
+              </div>
+              <div style={{ position:"absolute",bottom:10,left:10,background:"rgba(255,255,255,0.75)",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#7B3F9E" }}>🔍 use +/− to zoom</div>
             </div>
             <div style={{ padding:"22px 28px 28px" }}>
               <span style={catBadge(selectedProduct.category)}>{selectedProduct.subcategory||selectedProduct.category}</span>
               <h2 style={{ fontSize:24,fontWeight:900,color:DARK,margin:"6px 0 8px" }}>{selectedProduct.name}</h2>
               <p style={{ color:MED,fontSize:14,lineHeight:1.7,marginBottom:16 }}>{selectedProduct.desc||"No description."}</p>
-              {selectedProduct.pieceCounts?.length>0 && (
+              {(selectedProduct.packOptions&&selectedProduct.packOptions.length>0) ? (
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:8 }}>📦 Pack Size</div>
+                  <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
+                    {selectedProduct.packOptions.map(opt => (
+                      <button key={opt.label} onClick={() => setSelPiece(opt.label)}
+                        style={{ padding:"8px 16px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",textAlign:"center",border:"1.5px solid "+(selPiece===opt.label?PRIMARY:"rgba(173,20,87,0.25)"),background:selPiece===opt.label?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)" }}>
+                        <div style={{ fontSize:13,fontWeight:700,color:selPiece===opt.label?PRIMARY:MED }}>{opt.label}</div>
+                        <div style={{ fontSize:12,fontWeight:800,color:PRIMARY }}>৳{opt.price.toLocaleString()}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : selectedProduct.pieceCounts&&selectedProduct.pieceCounts.length>0&&(
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:6 }}>📦 Pack Size</div>
                   <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
                     {selectedProduct.pieceCounts.map(pc => (
-                      <button key={pc} onClick={() => setSelPiece(pc)} style={{ padding:"5px 16px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",border:`1.5px solid ${selPiece===pc?PRIMARY:"rgba(173,20,87,0.25)"}`,background:selPiece===pc?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",color:selPiece===pc?PRIMARY:MED }}>{pc}</button>
+                      <button key={pc} onClick={() => setSelPiece(pc)} style={{ padding:"5px 16px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",border:"1.5px solid "+(selPiece===pc?PRIMARY:"rgba(173,20,87,0.25)"),background:selPiece===pc?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",color:selPiece===pc?PRIMARY:MED }}>{pc}</button>
                     ))}
                   </div>
                 </div>
@@ -918,11 +976,20 @@ export default function App() {
                   <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:6 }}>🎨 Color {selColor&&<span style={{ fontWeight:400,color:MED }}>— {selColor}</span>}</div>
                   <div style={{ display:"flex",gap:10,flexWrap:"wrap",alignItems:"center" }}>
                     {selectedProduct.colors.map(cl => {
-                      const hex = COLOR_MAP[cl.toLowerCase()];
-                      return hex ? (
-                        <button key={cl} onClick={() => setSelColor(cl)} title={cl} style={{ width:32,height:32,borderRadius:"50%",cursor:"pointer",background:hex,border:selColor===cl?`3px solid ${PRIMARY}`:`2px solid rgba(255,255,255,0.8)`,boxShadow:selColor===cl?`0 0 0 2px ${PRIMARY},0 2px 8px rgba(0,0,0,0.2)`:"0 2px 6px rgba(0,0,0,0.15)",transition:"all 0.2s" }} />
-                      ) : (
-                        <button key={cl} onClick={() => setSelColor(cl)} style={{ padding:"5px 16px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",border:`1.5px solid ${selColor===cl?PRIMARY:"rgba(173,20,87,0.25)"}`,background:selColor===cl?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",color:selColor===cl?PRIMARY:MED }}>{cl}</button>
+                      const hex = COLOR_MAP[cl.toLowerCase()] || COLOR_MAP[cl.toLowerCase().replace(/\s/g,"_")];
+                      const colorImg = selectedProduct.colorImages&&selectedProduct.colorImages[cl];
+                      return (
+                        <div key={cl} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:3 }}>
+                          <button onClick={() => setSelColor(cl)} title={cl}
+                            style={{ width:36,height:36,borderRadius:"50%",cursor:"pointer",position:"relative",overflow:"hidden",
+                              background:hex||"linear-gradient(135deg,#AD1457,#6A1B9A)",
+                              border:selColor===cl?"3px solid "+PRIMARY:"2px solid rgba(255,255,255,0.8)",
+                              boxShadow:selColor===cl?"0 0 0 2px "+PRIMARY+",0 2px 8px rgba(0,0,0,0.2)":"0 2px 6px rgba(0,0,0,0.15)",
+                              transition:"all 0.2s" }}>
+                            {colorImg&&<img src={colorImg} alt={cl} style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.75,borderRadius:"50%" }} onError={e=>{e.target.style.display="none";}} />}
+                          </button>
+                          <span style={{ fontSize:9,color:selColor===cl?PRIMARY:MED,fontWeight:selColor===cl?700:400,textAlign:"center",maxWidth:40,lineHeight:1.2 }}>{cl}</span>
+                        </div>
                       );
                     })}
                   </div>
@@ -931,11 +998,11 @@ export default function App() {
               <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,240,252,0.6)",borderRadius:12,padding:"14px 18px",marginBottom:20 }}>
                 <div>
                   <div style={{ fontSize:11,color:LIGHT,marginBottom:2 }}>মূল্য / Price</div>
-                  <div style={{ fontSize:28,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>৳{selectedProduct.price.toLocaleString()}</div>
+                  <div style={{ fontSize:28,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>৳{getDisplayPrice(selectedProduct,selPiece).toLocaleString()}</div>
                 </div>
                 <span style={stockTag(selectedProduct.stock)}>{selectedProduct.stock<=5?`⚠ ${selectedProduct.stock} ${t.left}`:`${selectedProduct.stock} ${t.inStock}`}</span>
               </div>
-              <button onClick={() => { addToCart(selectedProduct,{size:selSize,color:selColor,piece:selPiece}); setSelectedProduct(null); }}
+              <button onClick={() => { addToCart({...selectedProduct,price:getDisplayPrice(selectedProduct,selPiece)},{size:selSize,color:selColor,piece:selPiece}); setSelectedProduct(null); }}
                 disabled={selectedProduct.stock===0}
                 style={{ ...btn,width:"100%",padding:"14px",fontSize:16,opacity:selectedProduct.stock===0?0.45:1,cursor:selectedProduct.stock===0?"not-allowed":"pointer" }}>
                 {selectedProduct.stock===0?t.outOfStock:t.addCart}
@@ -1009,9 +1076,15 @@ export default function App() {
                   <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>🎨 Colors</label>
                   <TagInput values={editProduct.colors||[]} onChange={v => setEditProduct(p => ({ ...p,colors:v }))} placeholder="Red, Blue, Gold..." />
                 </div>
+                {(editProduct.colors||[]).length>0&&(
+                  <div style={{ gridColumn:"span 2" }}>
+                    <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:6 }}>🖼️ Color Images</label>
+                    <ColorImageMapper colors={editProduct.colors||[]} colorImages={editProduct.colorImages||{}} onChange={v=>setEditProduct(p=>({...p,colorImages:v}))} />
+                  </div>
+                )}
                 <div style={{ gridColumn:"span 2" }}>
-                  <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>📦 Pack Size</label>
-                  <TagInput values={editProduct.pieceCounts||[]} onChange={v => setEditProduct(p => ({ ...p,pieceCounts:v }))} placeholder="1pc, 2pc, Set of 3..." />
+                  <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>📦 Pack Sizes with Prices</label>
+                  <PackOptionInput options={editProduct.packOptions||[]} onChange={v=>setEditProduct(p=>({...p,packOptions:v}))} />
                 </div>
                 <PhotoFields urlArr={editProduct.imageUrls&&editProduct.imageUrls.length?editProduct.imageUrls:[editProduct.imageUrl||""]} setter={setEditProduct} />
               </div>
