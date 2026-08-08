@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, increment, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db, auth } from "./firebase.js";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
@@ -81,6 +81,26 @@ function statusBadge(s) {
 }
 function metCard(c) {
   return { ...glass,padding:"16px 20px",borderLeft:`4px solid ${c||PRIMARY}` };
+}
+
+
+/* ── Error Boundary ── */
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e.message || String(e) }; }
+  componentDidCatch(e, info) { console.error("Caught:", e, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding:24,margin:16,background:"rgba(255,235,238,0.95)",borderRadius:14,border:"2px solid #E57373",color:"#C62828" }}>
+          <div style={{ fontWeight:800,marginBottom:8,fontSize:15 }}>⚠ Something went wrong — please screenshot this and share</div>
+          <div style={{ fontSize:11,fontFamily:"monospace",wordBreak:"break-all",background:"rgba(255,255,255,0.8)",padding:10,borderRadius:8,marginBottom:12 }}>{this.state.error}</div>
+          <button onClick={() => this.setState({ error:null })} style={{ padding:"7px 16px",background:"#C62828",color:"#FFF",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700 }}>Dismiss</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /* ── TagInput Component ─────────────────────────────────────────── */
@@ -995,6 +1015,7 @@ export default function App() {
               ))}
             </div>
             {showForm && (
+              <ErrorBoundary>
               <div style={{ ...glass,padding:24,marginBottom:20 }}>
                 <div style={{ fontSize:16,fontWeight:800,marginBottom:16,color:PURPLE }}>🌸 New Product</div>
                 <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
@@ -1077,6 +1098,7 @@ export default function App() {
                 </div>
                 <button style={{ ...btn,marginTop:16 }} onClick={addProduct}>{t.saveDb}</button>
               </div>
+              </ErrorBoundary>
             )}
             <div style={{ ...glass,overflow:"hidden" }}>
               <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
@@ -1247,6 +1269,7 @@ export default function App() {
 
       {/* EDIT PRODUCT MODAL */}
       {editProduct && (
+        <ErrorBoundary>
         <>
           <div onClick={() => setEditProduct(null)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.55)",zIndex:200 }} />
           <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:460,maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(20px)",borderRadius:20,zIndex:201,boxShadow:"0 20px 60px rgba(173,20,87,0.3)" }}>
@@ -1349,6 +1372,7 @@ export default function App() {
             </div>
           </div>
         </>
+        </ErrorBoundary>
       )}
 
       {/* AUTH MODAL */}
