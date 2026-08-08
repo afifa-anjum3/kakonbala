@@ -639,34 +639,6 @@ export default function App() {
     setter(p => ({ ...p, imageUrls: [...arr, ""] }));
   }
 
-  function PhotoFields({ urlArr, setter }) {
-    return (
-      <div style={{ gridColumn:"span 2" }}>
-        <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>{t.photo}</label>
-        <div style={{ fontSize:11,color:LIGHT,marginBottom:8 }}>
-          Upload to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{ color:PRIMARY,fontWeight:700 }}>imgbb.com</a> → BBCode → copy URL between [img]...[/img]
-        </div>
-        {urlArr.map((url, i) => (
-          <div key={i} style={{ display:"flex",gap:8,marginBottom:8,alignItems:"center" }}>
-            <span style={{ fontSize:11,color:MED,fontWeight:700,minWidth:20 }}>#{i+1}</span>
-            <input style={{ ...inp,marginTop:0,flex:1 }} type="text" placeholder={`Photo ${i+1} URL`} value={url}
-              onChange={e => updatePhotoUrl(urlArr, i, e.target.value, setter)} />
-            {url && <img src={url} alt="" onError={e => { e.target.style.display="none"; }} style={{ width:40,height:40,objectFit:"cover",borderRadius:6,border:"1px solid rgba(255,255,255,0.6)",flexShrink:0 }} />}
-            {urlArr.length > 1 && (
-              <button type="button" onClick={() => removePhoto(urlArr, i, setter)}
-                style={{ background:"rgba(255,235,238,0.9)",border:`1px solid rgba(198,40,40,0.3)`,color:DANGER,borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:14,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
-            )}
-          </div>
-        ))}
-        {urlArr.length < 5 && (
-          <button type="button" onClick={() => addPhotoSlot(urlArr, setter)}
-            style={{ fontSize:12,color:PRIMARY,background:"rgba(173,20,87,0.08)",border:"1px dashed rgba(173,20,87,0.4)",borderRadius:8,padding:"5px 14px",cursor:"pointer",fontWeight:600,fontFamily:"inherit" }}>
-            + Add another photo
-          </button>
-        )}
-      </div>
-    );
-  }
 
   /* ── Render ─────────────────────────────────────────────────────── */
   return (
@@ -1004,7 +976,28 @@ export default function App() {
                     <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>📦 Pack Sizes with Prices <span style={{ fontSize:10,fontWeight:400 }}>(each pack = different price)</span></label>
                     <PackOptionInput options={newP.packOptions||[]} onChange={v=>setNewP(p=>({...p,packOptions:v}))} />
                   </div>
-                  <PhotoFields urlArr={newP.imageUrls||[""]} setter={setNewP} />
+                  <div style={{ gridColumn:"span 2" }}>
+                    <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>{t.photo}</label>
+                    <div style={{ fontSize:11,color:LIGHT,marginBottom:8 }}>Upload to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{ color:PRIMARY,fontWeight:700 }}>imgbb.com</a> → BBCode → copy URL between [img]...[/img]</div>
+                    {(newP.imageUrls||[""]).map((url,i)=>(
+                      <div key={i} style={{ display:"flex",gap:8,marginBottom:8,alignItems:"center" }}>
+                        <span style={{ fontSize:11,color:MED,fontWeight:700,minWidth:20 }}>#{i+1}</span>
+                        <input style={{ ...inp,marginTop:0,flex:1 }} type="text" placeholder={"Photo "+(i+1)+" URL"} value={url}
+                          onChange={e=>{const a=[...(newP.imageUrls||[""])];a[i]=e.target.value;setNewP(p=>({...p,imageUrls:a,imageUrl:a[0]||""}));}} />
+                        {url&&<img src={url} alt="" onError={e=>{e.target.style.display="none";}} style={{ width:40,height:40,objectFit:"cover",borderRadius:6,border:"1px solid rgba(255,255,255,0.6)",flexShrink:0 }}/>}
+                        {(newP.imageUrls||[""]).length>1&&(
+                          <button type="button" onClick={()=>{const a=[...(newP.imageUrls||[""])];a.splice(i,1);setNewP(p=>({...p,imageUrls:a,imageUrl:a[0]||""}));}}
+                            style={{ background:"rgba(255,235,238,0.9)",border:"1px solid rgba(198,40,40,0.3)",color:DANGER,borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:14,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    {(newP.imageUrls||[""]).length<5&&(
+                      <button type="button" onClick={()=>setNewP(p=>({...p,imageUrls:[...(p.imageUrls||[""]),""]})) }
+                        style={{ fontSize:12,color:PRIMARY,background:"rgba(173,20,87,0.08)",border:"1px dashed rgba(173,20,87,0.4)",borderRadius:8,padding:"5px 14px",cursor:"pointer",fontWeight:600,fontFamily:"inherit" }}>
+                        + Add another photo
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <button style={{ ...btn,marginTop:16 }} onClick={addProduct}>{t.saveDb}</button>
               </div>
@@ -1250,7 +1243,28 @@ export default function App() {
                   <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>📦 Pack Sizes with Prices</label>
                   <PackOptionInput options={editProduct.packOptions||[]} onChange={v=>setEditProduct(p=>({...p,packOptions:v}))} />
                 </div>
-                <PhotoFields urlArr={editProduct.imageUrls&&editProduct.imageUrls.length?editProduct.imageUrls:[editProduct.imageUrl||""]} setter={setEditProduct} />
+                <div style={{ gridColumn:"span 2" }}>
+                  <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:4 }}>📸 Photos (up to 5)</label>
+                  <div style={{ fontSize:11,color:LIGHT,marginBottom:8 }}>Upload to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{ color:PRIMARY,fontWeight:700 }}>imgbb.com</a> → BBCode → copy URL between [img]...[/img]</div>
+                  {(editProduct.imageUrls&&editProduct.imageUrls.length?editProduct.imageUrls:[editProduct.imageUrl||""]).map((url,i)=>(
+                    <div key={i} style={{ display:"flex",gap:8,marginBottom:8,alignItems:"center" }}>
+                      <span style={{ fontSize:11,color:MED,fontWeight:700,minWidth:20 }}>#{i+1}</span>
+                      <input style={{ ...inp,marginTop:0,flex:1 }} type="text" placeholder={"Photo "+(i+1)+" URL"} value={url||""}
+                        onChange={e=>{const base=editProduct.imageUrls&&editProduct.imageUrls.length?[...editProduct.imageUrls]:[editProduct.imageUrl||""];base[i]=e.target.value;setEditProduct(p=>({...p,imageUrls:base,imageUrl:base[0]||""}));}} />
+                      {url&&<img src={url} alt="" onError={e=>{e.target.style.display="none";}} style={{ width:40,height:40,objectFit:"cover",borderRadius:6,border:"1px solid rgba(255,255,255,0.6)",flexShrink:0 }}/>}
+                      {(editProduct.imageUrls&&editProduct.imageUrls.length?editProduct.imageUrls:[editProduct.imageUrl||""]).length>1&&(
+                        <button type="button" onClick={()=>{const base=editProduct.imageUrls&&editProduct.imageUrls.length?[...editProduct.imageUrls]:[editProduct.imageUrl||""];base.splice(i,1);setEditProduct(p=>({...p,imageUrls:base,imageUrl:base[0]||""}));}}
+                          style={{ background:"rgba(255,235,238,0.9)",border:"1px solid rgba(198,40,40,0.3)",color:DANGER,borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:14,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                  {(editProduct.imageUrls&&editProduct.imageUrls.length?editProduct.imageUrls:[editProduct.imageUrl||""]).length<5&&(
+                    <button type="button" onClick={()=>{const base=editProduct.imageUrls&&editProduct.imageUrls.length?[...editProduct.imageUrls]:[editProduct.imageUrl||""];setEditProduct(p=>({...p,imageUrls:[...base,""]}));}}
+                      style={{ fontSize:12,color:PRIMARY,background:"rgba(173,20,87,0.08)",border:"1px dashed rgba(173,20,87,0.4)",borderRadius:8,padding:"5px 14px",cursor:"pointer",fontWeight:600,fontFamily:"inherit" }}>
+                      + Add another photo
+                    </button>
+                  )}
+                </div>
               </div>
               <div style={{ display:"flex",gap:10,marginTop:18 }}>
                 <button onClick={saveEdit} style={{ ...btn,flex:1,padding:"11px",fontSize:14 }}>✓ Save Changes</button>
