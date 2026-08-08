@@ -332,7 +332,83 @@ function ZoomableCarousel({ images, emoji, height, primaryImage }) {
   );
 }
 
-/* ── TagInput Component ─────────────────────────────────────────── */
+
+/* ── Pack Option Input ── */
+function PackOptionInput({ options, onChange }) {
+  const opts = options || [];
+  const [lbl, setLbl] = useState("");
+  const [prc, setPrc] = useState("");
+  function addOpt() {
+    if (!lbl.trim() || !prc) return;
+    onChange([...opts, { label: lbl.trim(), price: Number(prc) }]);
+    setLbl(""); setPrc("");
+  }
+  return (
+    <div>
+      <div style={{ display:"flex",flexDirection:"column",gap:6,marginBottom:8 }}>
+        {opts.map((o, i) => (
+          <div key={i} style={{ display:"flex",alignItems:"center",gap:8,background:"rgba(173,20,87,0.06)",borderRadius:8,padding:"6px 10px" }}>
+            <span style={{ fontSize:12,fontWeight:700,color:"#AD1457",flex:1 }}>{o.label}</span>
+            <span style={{ fontSize:12,fontWeight:800,color:"#2D0A3F" }}>৳{o.price}</span>
+            <button onClick={() => onChange(opts.filter((_, k) => k !== i))}
+              style={{ background:"none",border:"none",color:"#C62828",cursor:"pointer",fontSize:14,fontWeight:700,padding:0,lineHeight:1 }}>×</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+        <input value={lbl} onChange={e => setLbl(e.target.value)} placeholder="e.g. 1pc / Set of 3"
+          style={{ flex:2,padding:"7px 10px",border:"1.5px solid rgba(173,20,87,0.25)",borderRadius:8,fontSize:12,fontFamily:"inherit",background:"rgba(255,255,255,0.85)" }}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addOpt(); } }} />
+        <input value={prc} onChange={e => setPrc(e.target.value)} placeholder="৳ Price" type="number"
+          style={{ flex:1,padding:"7px 10px",border:"1.5px solid rgba(173,20,87,0.25)",borderRadius:8,fontSize:12,fontFamily:"inherit",background:"rgba(255,255,255,0.85)" }}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addOpt(); } }} />
+        <button onClick={addOpt}
+          style={{ padding:"7px 14px",background:"linear-gradient(135deg,#AD1457,#6A1B9A)",color:"#FFF",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",whiteSpace:"nowrap" }}>+ Add</button>
+      </div>
+      <div style={{ fontSize:10,color:"#B39DCA",marginTop:4 }}>Each pack size can have a different price</div>
+    </div>
+  );
+}
+
+/* ── Color Image Mapper ── */
+function ColorImageMapper({ colors, colorImages, onChange }) {
+  const imgs = colorImages || {};
+  const [expanded, setExpanded] = useState(null);
+  const cmap = {red:"#E53935",blue:"#1E88E5",green:"#43A047",pink:"#E91E63",purple:"#8E24AA",yellow:"#FDD835",orange:"#FB8C00",black:"#212121",white:"#FAFAFA",gold:"#F9A825",silver:"#BDBDBD",grey:"#757575",brown:"#795548",maroon:"#880E4F",teal:"#00796B",coral:"#FF7043",navy:"#1A237E",lavender:"#9575CD",rose:"#FF007F",cream:"#FFF8E1",peach:"#FFAB91",mint:"#98FF98"};
+  if (!colors || colors.length === 0) return null;
+  return (
+    <div style={{ border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:10,padding:12,background:"rgba(255,255,255,0.6)" }}>
+      <div style={{ fontSize:11,color:"#7B3F9E",fontWeight:700,marginBottom:8 }}>Link each color to a photo — customer sees this image when selecting that color</div>
+      {colors.map(color => {
+        const hex = cmap[color.toLowerCase()];
+        return (
+          <div key={color} style={{ marginBottom:8 }}>
+            <div style={{ display:"flex",alignItems:"center",gap:8,cursor:"pointer" }}
+              onClick={() => setExpanded(prev => prev === color ? null : color)}>
+              <div style={{ width:18,height:18,borderRadius:"50%",background:hex||"linear-gradient(135deg,#AD1457,#6A1B9A)",border:"2px solid rgba(0,0,0,0.12)",flexShrink:0 }}/>
+              <span style={{ fontSize:12,fontWeight:600,color:"#2D0A3F",flex:1 }}>{color}</span>
+              {imgs[color] && <span style={{ fontSize:10,color:"#2E7D32",fontWeight:600 }}>✓</span>}
+              <span style={{ fontSize:11,color:"#7B3F9E" }}>{expanded === color ? "▲" : "▼"}</span>
+            </div>
+            {expanded === color && (
+              <div style={{ marginTop:6,display:"flex",gap:8,alignItems:"center" }}>
+                <input type="text" placeholder={"Image URL for " + color}
+                  value={imgs[color] || ""}
+                  onChange={e => onChange({ ...imgs, [color]: e.target.value })}
+                  style={{ flex:1,padding:"6px 10px",border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:8,fontSize:11,fontFamily:"inherit",background:"rgba(255,255,255,0.85)" }} />
+                {imgs[color] && (
+                  <img src={imgs[color]} alt={color}
+                    onError={e => { e.target.style.display = "none"; }}
+                    style={{ width:36,height:36,objectFit:"cover",borderRadius:6,border:"1px solid rgba(173,20,87,0.2)",flexShrink:0 }} />
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /* ── Main App ───────────────────────────────────────────────────── */
 export default function App() {
