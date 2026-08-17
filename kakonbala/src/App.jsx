@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, increment, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, increment, serverTimestamp, query, orderBy, writeBatch } from "firebase/firestore";
 import { db, auth } from "./firebase.js";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from "recharts";
@@ -126,6 +126,23 @@ function TagInput({ values, onChange, placeholder }) {
         onBlur={addTag}
         placeholder={vals.length===0 ? ph : ""}
         style={{ border:"none",outline:"none",background:"transparent",fontSize:12,minWidth:80,flex:1 }} />
+      {/* FOOTER */}
+      <footer style={{ marginTop:48,background:"rgba(255,255,255,0.6)",backdropFilter:BLUR,borderTop:"1px solid rgba(173,20,87,0.15)",padding:"32px",textAlign:"center" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:8,marginBottom:16 }}>
+          <img src="/logo.jpg" alt="logo" style={{ width:40,height:40,borderRadius:"50%",border:"2px solid rgba(173,20,87,0.3)",objectFit:"cover" }} />
+          <div style={{ textAlign:"left" }}>
+            <div style={{ fontSize:16,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>কাঁকনবালা</div>
+            <div style={{ fontSize:10,color:MED }}>Handmade with Love</div>
+          </div>
+        </div>
+        <div style={{ display:"flex",justifyContent:"center",gap:20,marginBottom:16,flexWrap:"wrap" }}>
+          {[["home","Home"],["shop","Shop"],["collections","Collections"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{ background:"none",border:"none",color:MED,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:500 }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ fontSize:11,color:LIGHT }}>© 2026 কাঁকনবালা · All rights reserved · Handcrafted with 🌸</div>
+      </footer>
+
     </div>
   );
 }
@@ -175,6 +192,23 @@ function Carousel({ images, emoji, height, primaryImage }) {
           <div style={{ position:"absolute",top:6,right:6,background:"rgba(173,20,87,0.75)",color:"#FFF",borderRadius:10,padding:"1px 7px",fontSize:9,fontWeight:700 }}>{idx+1}/{valid.length}</div>
         </>
       )}
+      {/* FOOTER */}
+      <footer style={{ marginTop:48,background:"rgba(255,255,255,0.6)",backdropFilter:BLUR,borderTop:"1px solid rgba(173,20,87,0.15)",padding:"32px",textAlign:"center" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:8,marginBottom:16 }}>
+          <img src="/logo.jpg" alt="logo" style={{ width:40,height:40,borderRadius:"50%",border:"2px solid rgba(173,20,87,0.3)",objectFit:"cover" }} />
+          <div style={{ textAlign:"left" }}>
+            <div style={{ fontSize:16,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>কাঁকনবালা</div>
+            <div style={{ fontSize:10,color:MED }}>Handmade with Love</div>
+          </div>
+        </div>
+        <div style={{ display:"flex",justifyContent:"center",gap:20,marginBottom:16,flexWrap:"wrap" }}>
+          {[["home","Home"],["shop","Shop"],["collections","Collections"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{ background:"none",border:"none",color:MED,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:500 }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ fontSize:11,color:LIGHT }}>© 2026 কাঁকনবালা · All rights reserved · Handcrafted with 🌸</div>
+      </footer>
+
     </div>
   );
 }
@@ -348,6 +382,23 @@ function ZoomableCarousel({ images, emoji, height, primaryImage }) {
           {idx+1} / {valid.length}
         </div>
       )}
+      {/* FOOTER */}
+      <footer style={{ marginTop:48,background:"rgba(255,255,255,0.6)",backdropFilter:BLUR,borderTop:"1px solid rgba(173,20,87,0.15)",padding:"32px",textAlign:"center" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:8,marginBottom:16 }}>
+          <img src="/logo.jpg" alt="logo" style={{ width:40,height:40,borderRadius:"50%",border:"2px solid rgba(173,20,87,0.3)",objectFit:"cover" }} />
+          <div style={{ textAlign:"left" }}>
+            <div style={{ fontSize:16,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>কাঁকনবালা</div>
+            <div style={{ fontSize:10,color:MED }}>Handmade with Love</div>
+          </div>
+        </div>
+        <div style={{ display:"flex",justifyContent:"center",gap:20,marginBottom:16,flexWrap:"wrap" }}>
+          {[["home","Home"],["shop","Shop"],["collections","Collections"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{ background:"none",border:"none",color:MED,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:500 }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ fontSize:11,color:LIGHT }}>© 2026 কাঁকনবালা · All rights reserved · Handcrafted with 🌸</div>
+      </footer>
+
     </div>
   );
 }
@@ -386,6 +437,23 @@ function PackOptionInput({ options, onChange }) {
           style={{ padding:"7px 14px",background:"linear-gradient(135deg,#AD1457,#6A1B9A)",color:"#FFF",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",whiteSpace:"nowrap" }}>+ Add</button>
       </div>
       <div style={{ fontSize:10,color:"#B39DCA",marginTop:4 }}>Each pack size can have a different price</div>
+      {/* FOOTER */}
+      <footer style={{ marginTop:48,background:"rgba(255,255,255,0.6)",backdropFilter:BLUR,borderTop:"1px solid rgba(173,20,87,0.15)",padding:"32px",textAlign:"center" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:8,marginBottom:16 }}>
+          <img src="/logo.jpg" alt="logo" style={{ width:40,height:40,borderRadius:"50%",border:"2px solid rgba(173,20,87,0.3)",objectFit:"cover" }} />
+          <div style={{ textAlign:"left" }}>
+            <div style={{ fontSize:16,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>কাঁকনবালা</div>
+            <div style={{ fontSize:10,color:MED }}>Handmade with Love</div>
+          </div>
+        </div>
+        <div style={{ display:"flex",justifyContent:"center",gap:20,marginBottom:16,flexWrap:"wrap" }}>
+          {[["home","Home"],["shop","Shop"],["collections","Collections"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{ background:"none",border:"none",color:MED,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:500 }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ fontSize:11,color:LIGHT }}>© 2026 কাঁকনবালা · All rights reserved · Handcrafted with 🌸</div>
+      </footer>
+
     </div>
   );
 }
@@ -426,14 +494,35 @@ function ColorImageMapper({ colors, colorImages, onChange }) {
           </div>
         );
       })}
+      {/* FOOTER */}
+      <footer style={{ marginTop:48,background:"rgba(255,255,255,0.6)",backdropFilter:BLUR,borderTop:"1px solid rgba(173,20,87,0.15)",padding:"32px",textAlign:"center" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:8,marginBottom:16 }}>
+          <img src="/logo.jpg" alt="logo" style={{ width:40,height:40,borderRadius:"50%",border:"2px solid rgba(173,20,87,0.3)",objectFit:"cover" }} />
+          <div style={{ textAlign:"left" }}>
+            <div style={{ fontSize:16,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>কাঁকনবালা</div>
+            <div style={{ fontSize:10,color:MED }}>Handmade with Love</div>
+          </div>
+        </div>
+        <div style={{ display:"flex",justifyContent:"center",gap:20,marginBottom:16,flexWrap:"wrap" }}>
+          {[["home","Home"],["shop","Shop"],["collections","Collections"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{ background:"none",border:"none",color:MED,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:500 }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ fontSize:11,color:LIGHT }}>© 2026 কাঁকনবালা · All rights reserved · Handcrafted with 🌸</div>
+      </footer>
+
     </div>
   );
 }
 
 /* ── Main App ───────────────────────────────────────────────────── */
 export default function App() {
-  const [lang, setLang]     = useState("bn");
-  const [tab, setTab]       = useState("shop");
+  const [lang, setLang]       = useState("bn");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [wishlist, setWishlist] = useState([]);
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const [tab, setTab]       = useState("home");
   const [products, setProducts]   = useState([]);
   const [orders, setOrders]       = useState([]);
   const [cart, setCart]           = useState([]);
@@ -521,6 +610,10 @@ export default function App() {
     if (catFilter !== "all" && p.category !== catFilter) return false;
     if (catFilter === "clothing" && clothingGroup !== "all" && p.clothingGroup !== clothingGroup) return false;
     if (subFilter !== "all" && p.subcategory !== subFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (p.name||"").toLowerCase().includes(q) || (p.desc||"").toLowerCase().includes(q) || (p.category||"").toLowerCase().includes(q) || (p.subcategory||"").toLowerCase().includes(q);
+    }
     return true;
   });
 
@@ -664,6 +757,12 @@ export default function App() {
     notify("✓ Promo deleted");
   }
 
+  function toggleWishlist(productId) {
+    setWishlist(prev =>
+      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+    );
+  }
+
   async function handleCheckout() {
     if (!customer.name || !customer.phone || !customer.city) {
       notify("⚠ Enter name, phone and city"); return;
@@ -684,7 +783,14 @@ export default function App() {
         notify("⚠ Outside Dhaka orders must pay online. Please select Online Payment.");
         return;
       }
-      await addDoc(collection(db, "orders"), { ...orderData, status:"processing" });
+      // Batch: create order + deduct stock atomically
+      const batch = writeBatch(db);
+      const orderRef = doc(collection(db, "orders"));
+      batch.set(orderRef, { ...orderData, status:"processing" });
+      for (const item of cart) {
+        batch.update(doc(db, "products", item.product.id), { stock: increment(-item.qty) });
+      }
+      await batch.commit();
       setCart([]); setCheckoutModal(false); setPromoApplied(null); setPromoCode("");
       notify("✓ Order placed! Cash on delivery confirmed 🎉");
       return;
@@ -740,32 +846,70 @@ export default function App() {
   return (
     <div style={{ fontFamily:"'Hind Siliguri','Segoe UI',Arial,sans-serif",background:"linear-gradient(160deg,#FFE4F0 0%,#F8D7F8 20%,#EDD6FF 40%,#F5D0FF 60%,#FFD6EC 80%,#FFE8F5 100%)",minHeight:"100vh",color:DARK }}>
 
-      {/* HEADER */}
-      <header style={{ background:"rgba(255,255,255,0.22)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.4)",color:DARK,padding:"0 24px",display:"flex",alignItems:"center",justifyContent:"space-between",height:70,position:"sticky",top:0,zIndex:50,boxShadow:"0 4px 20px rgba(173,20,87,0.1)" }}>
-        <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-          <img src="/logo.jpg" alt="logo" style={{ width:50,height:50,borderRadius:"50%",border:`2px solid rgba(173,20,87,0.4)`,objectFit:"cover" }} />
+      {/* ANNOUNCEMENT BAR */}
+      <div style={{ background:GRAD,color:"#FFF",fontSize:12,fontWeight:600,padding:"7px 0",textAlign:"center",position:"sticky",top:0,zIndex:60,overflow:"hidden" }}>
+        <div style={{ display:"inline-flex",gap:40,animation:"ticker 20s linear infinite",whiteSpace:"nowrap" }}>
+          {"🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available  •  ✨ New Arrivals Every Week  •  💎 100% Authentic Handmade  •  🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available".split("  •  ").map((item, i) => (
+            <span key={i}>{item} &nbsp;•&nbsp; </span>
+          ))}
+        </div>
+        <style>{`@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}`}</style>
+      </div>
+
+      {/* MAIN HEADER */}
+      <header style={{ background:"rgba(255,255,255,0.88)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(173,20,87,0.1)",padding:"0 32px",display:"flex",alignItems:"center",justifyContent:"space-between",height:68,position:"sticky",top:36,zIndex:50,boxShadow:"0 2px 20px rgba(173,20,87,0.08)" }}>
+        {/* Logo */}
+        <div style={{ display:"flex",alignItems:"center",gap:10,cursor:"pointer" }} onClick={()=>setTab("home")}>
+          <img src="/logo.jpg" alt="logo" style={{ width:48,height:48,borderRadius:"50%",border:"2px solid rgba(173,20,87,0.35)",objectFit:"cover" }} />
           <div>
-            <div style={{ fontSize:22,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>{t.shopName}</div>
-            <div style={{ fontSize:10,color:MED,letterSpacing:1.5,textTransform:"uppercase" }}>{t.tagline}</div>
+            <div style={{ fontSize:20,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",lineHeight:1.1 }}>{t.shopName}</div>
+            <div style={{ fontSize:9,color:MED,letterSpacing:1.5,textTransform:"uppercase" }}>{t.tagline}</div>
           </div>
         </div>
-        <nav style={{ display:"flex",gap:4 }}>
-          {(isAdmin ? [["shop",t.shop],["dashboard",t.dashboard],["inventory",t.inventory],["orders",t.orders]] : [["shop",t.shop]]).map(([key,label]) => (
-            <button key={key} onClick={() => setTab(key)} style={{ background:tab===key?GRAD:"rgba(255,255,255,0.3)",color:tab===key?"#FFF":DARK,border:tab===key?"none":"1px solid rgba(255,255,255,0.5)",padding:"7px 14px",borderRadius:20,cursor:"pointer",fontSize:12,fontFamily:"inherit",fontWeight:tab===key?700:500,transition:"all 0.2s" }}>{label}</button>
+
+        {/* Navigation */}
+        <nav style={{ display:"flex",gap:2,alignItems:"center" }}>
+          {(isAdmin ? [["home","Home"],["shop","Shop"],["collections","Collections"],["dashboard","Dashboard"],["inventory","Inventory"],["orders","Orders"]] : [["home","Home"],["shop","Shop"],["collections","Collections"]]).map(([key,label]) => (
+            <button key={key} onClick={() => setTab(key)}
+              style={{ background:"transparent",color:tab===key?PRIMARY:DARK,border:"none",padding:"8px 14px",cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:tab===key?700:500,borderBottom:tab===key?`2px solid ${PRIMARY}`:"2px solid transparent",transition:"all 0.2s",borderRadius:0 }}>{label}</button>
           ))}
         </nav>
-        <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-          <button onClick={() => setLang(l => l==="en"?"bn":"en")} style={{ background:"rgba(255,255,255,0.4)",backdropFilter:BLUR,border:`1.5px solid rgba(173,20,87,0.3)`,color:DARK,padding:"5px 14px",borderRadius:20,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit" }}>{lang==="en"?"বাংলা":"English"}</button>
-          {user ? (
-            <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-              <span style={{ fontSize:11,color:MED }}>{isAdmin?"👑 Admin":"👤 "+user.email.split("@")[0]}</span>
-              <button onClick={handleLogout} style={{ background:"rgba(255,255,255,0.3)",border:`1.5px solid rgba(173,20,87,0.3)`,color:DARK,padding:"5px 12px",borderRadius:20,cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit" }}>Logout</button>
+
+        {/* Right icons */}
+        <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+          {/* Search */}
+          {searchOpen ? (
+            <div style={{ display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.9)",border:`1.5px solid rgba(173,20,87,0.3)`,borderRadius:20,padding:"4px 12px" }}>
+              <span style={{ fontSize:14 }}>🔍</span>
+              <input autoFocus value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Escape"){setSearchOpen(false);setSearchQuery("");}if(e.key==="Enter"&&searchQuery.trim()){setTab("shop");}}}
+                placeholder="Search products..." style={{ border:"none",outline:"none",background:"transparent",fontSize:13,width:160,fontFamily:"inherit",color:DARK }} />
+              <button onClick={()=>{setSearchOpen(false);setSearchQuery("");}} style={{ background:"none",border:"none",cursor:"pointer",color:MED,fontSize:16,lineHeight:1 }}>✕</button>
             </div>
           ) : (
-            <button onClick={() => { setShowAuth(true); setAuthError(""); }} style={{ background:"rgba(255,255,255,0.3)",border:`1.5px solid rgba(173,20,87,0.3)`,color:DARK,padding:"5px 14px",borderRadius:20,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit" }}>Login / Sign Up</button>
+            <button onClick={()=>setSearchOpen(true)} style={{ background:"rgba(255,255,255,0.5)",border:`1px solid rgba(173,20,87,0.2)`,borderRadius:"50%",width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center" }} title="Search">🔍</button>
           )}
-          <button onClick={() => setCartOpen(true)} style={{ ...btn,display:"flex",alignItems:"center",gap:8,padding:"8px 16px" }}>
-            {t.cart} {cartCount>0 && <span style={{ background:GOLD,color:DARK,borderRadius:10,padding:"1px 7px",fontSize:11,fontWeight:800 }}>{cartCount}</span>}
+          {/* Wishlist */}
+          <button onClick={()=>setTab("wishlist")} style={{ background:"rgba(255,255,255,0.5)",border:`1px solid rgba(173,20,87,0.2)`,borderRadius:"50%",width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",position:"relative" }} title="Wishlist">
+            ❤️
+            {wishlist.length>0&&<span style={{ position:"absolute",top:-2,right:-2,background:PRIMARY,color:"#FFF",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center" }}>{wishlist.length}</span>}
+          </button>
+          {/* Lang */}
+          <button onClick={() => setLang(l => l==="en"?"bn":"en")} style={{ background:"rgba(255,255,255,0.5)",border:`1px solid rgba(173,20,87,0.2)`,borderRadius:16,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",color:MED }}>
+            {lang==="en"?"বাং":"EN"}
+          </button>
+          {/* Auth */}
+          {user ? (
+            <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+              <span style={{ fontSize:11,color:MED,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{isAdmin?"👑":""}{user.email.split("@")[0]}</span>
+              <button onClick={handleLogout} style={{ background:"rgba(255,255,255,0.5)",border:`1px solid rgba(173,20,87,0.2)`,color:MED,padding:"5px 12px",borderRadius:16,cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit" }}>Logout</button>
+            </div>
+          ) : (
+            <button onClick={() => { setShowAuth(true); setAuthError(""); }} style={{ ...btn,padding:"7px 16px",fontSize:12 }}>Login</button>
+          )}
+          {/* Cart */}
+          <button onClick={() => setCartOpen(true)} style={{ ...btn,display:"flex",alignItems:"center",gap:6,padding:"8px 16px",fontSize:13 }}>
+            🛒 {cartCount>0 && <span style={{ background:GOLD,color:DARK,borderRadius:10,padding:"1px 7px",fontSize:11,fontWeight:800 }}>{cartCount}</span>}
           </button>
         </div>
       </header>
@@ -774,6 +918,288 @@ export default function App() {
       {notif && <div style={{ position:"fixed",top:80,right:24,background:GRAD,color:"#FFF",padding:"12px 22px",borderRadius:12,zIndex:300,fontSize:13,fontWeight:600,boxShadow:"0 4px 20px rgba(173,20,87,0.4)" }}>{notif}</div>}
 
       <main style={{ padding:"28px 32px",maxWidth:1140,margin:"0 auto",position:"relative",zIndex:1 }}>
+
+        {/* HOME TAB */}
+        {tab==="home" && (
+          <div>
+            {/* Hero Section */}
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:32,alignItems:"center",marginBottom:48,minHeight:340 }}>
+              <div>
+                <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 14px",fontSize:12,color:PRIMARY,fontWeight:600,marginBottom:16 }}>🌸 Handmade with Love</div>
+                <h1 style={{ fontSize:42,fontWeight:900,color:DARK,lineHeight:1.15,margin:"0 0 16px" }}>
+                  Where Every<br/>
+                  <span style={{ background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Piece Tells</span><br/>
+                  a Story
+                </h1>
+                <p style={{ fontSize:15,color:MED,lineHeight:1.7,marginBottom:28,maxWidth:420 }}>
+                  Discover handcrafted jewelry, elegant clothing, handmade arts & crafts, and beautiful accessories designed to celebrate every moment.
+                </p>
+                <div style={{ display:"flex",gap:12 }}>
+                  <button onClick={()=>setTab("shop")} style={{ ...btn,padding:"12px 28px",fontSize:15 }}>Shop Collection</button>
+                  <button onClick={()=>setTab("collections")} style={{ background:"transparent",border:`2px solid ${PRIMARY}`,color:PRIMARY,padding:"12px 28px",fontSize:15,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700,transition:"all 0.2s" }}>New Arrivals</button>
+                </div>
+              </div>
+              <div style={{ position:"relative" }}>
+                <div style={{ borderRadius:24,overflow:"hidden",boxShadow:"0 20px 60px rgba(173,20,87,0.25)" }}>
+                  <img src="/banner.png" alt="Kakonbala" style={{ width:"100%",height:320,objectFit:"cover" }} />
+                </div>
+                <div style={{ position:"absolute",bottom:-16,left:-16,background:"#FFF",borderRadius:16,padding:"12px 18px",boxShadow:"0 8px 24px rgba(173,20,87,0.15)",display:"flex",alignItems:"center",gap:10 }}>
+                  <span style={{ fontSize:24 }}>🌸</span>
+                  <div><div style={{ fontSize:13,fontWeight:800,color:DARK }}>{products.length}+ Products</div><div style={{ fontSize:11,color:MED }}>All handmade</div></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Category Cards */}
+            <div style={{ marginBottom:48 }}>
+              <h2 style={{ fontSize:26,fontWeight:800,color:DARK,marginBottom:6 }}>Shop by Category</h2>
+              <p style={{ color:MED,fontSize:14,marginBottom:24 }}>Explore our handcrafted collections</p>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
+                {[{cat:"jewelry",emoji:"💍",label:"Jewelry",sub:"Bangles, Rings, Earrings & more",color:"rgba(173,20,87,0.08)",border:"rgba(173,20,87,0.2)"},{cat:"crafts",emoji:"🏺",label:"Crafts",sub:"Mandala, Canvas, Clay Art & more",color:"rgba(106,27,154,0.08)",border:"rgba(106,27,154,0.2)"},{cat:"clothing",emoji:"👗",label:"Clothing",sub:"Saree, Tops, Panjabi & more",color:"rgba(249,168,37,0.08)",border:"rgba(249,168,37,0.3)"}].map(c=>(
+                  <div key={c.cat} onClick={()=>{setCatFilter(c.cat);setTab("shop");}}
+                    style={{ ...glass,padding:28,textAlign:"center",cursor:"pointer",background:c.color,border:`1.5px solid ${c.border}`,transition:"all 0.25s" }}
+                    onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-6px)";e.currentTarget.style.boxShadow="0 16px 40px rgba(173,20,87,0.2)";}}
+                    onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="";}}>
+                    <div style={{ fontSize:52,marginBottom:12 }}>{c.emoji}</div>
+                    <div style={{ fontSize:18,fontWeight:800,color:DARK,marginBottom:4 }}>{c.label}</div>
+                    <div style={{ fontSize:12,color:MED }}>{c.sub}</div>
+                    <div style={{ marginTop:14,fontSize:12,fontWeight:700,color:PRIMARY }}>Shop Now →</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* New Arrivals - latest 6 products */}
+            <div style={{ marginBottom:48 }}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24 }}>
+                <div>
+                  <h2 style={{ fontSize:26,fontWeight:800,color:DARK,margin:0 }}>New Arrivals</h2>
+                  <p style={{ color:MED,fontSize:14,margin:"4px 0 0" }}>Fresh handmade pieces just for you</p>
+                </div>
+                <button onClick={()=>setTab("shop")} style={{ background:"transparent",border:`2px solid ${PRIMARY}`,color:PRIMARY,padding:"8px 20px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit" }}>View All →</button>
+              </div>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:18 }}>
+                {[...products].slice(0,6).map(p=>(
+                  <div key={p.id} style={{ ...glass,overflow:"hidden",cursor:"pointer",transition:"transform 0.2s" }}
+                    onMouseEnter={e=>e.currentTarget.style.transform="translateY(-4px)"}
+                    onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}
+                    onClick={()=>setSelectedProduct(p)}>
+                    <div style={{ height:150,position:"relative",overflow:"hidden" }}>
+                      <Carousel images={p.imageUrls&&p.imageUrls.length?p.imageUrls:[p.imageUrl]} emoji={p.emoji} height={150} />
+                      <button onClick={ev=>{ev.stopPropagation();toggleWishlist(p.id);}} style={{ position:"absolute",top:8,right:8,background:"rgba(255,255,255,0.85)",border:"none",borderRadius:"50%",width:30,height:30,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",zIndex:3 }}>
+                        {wishlist.includes(p.id)?"❤️":"🤍"}
+                      </button>
+                    </div>
+                    <div style={{ padding:"10px 12px" }}>
+                      <div style={{ fontSize:13,fontWeight:700,color:DARK,marginBottom:2 }}>{p.name}</div>
+                      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                        <span style={{ fontSize:15,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>৳{(p.packOptions&&p.packOptions.length>0?Math.min(...p.packOptions.map(o=>o.price)):p.price).toLocaleString()}</span>
+                        <span style={{ fontSize:10,color:p.stock<=5?DANGER:SUCCESS,fontWeight:700 }}>{p.stock<=5?"⚠ Low":p.stock+" left"}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Wishlist section */}
+            {wishlist.length>0&&(
+              <div style={{ marginBottom:48 }}>
+                <h2 style={{ fontSize:22,fontWeight:800,color:DARK,marginBottom:20 }}>❤️ Your Wishlist ({wishlist.length})</h2>
+                <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:18 }}>
+                  {products.filter(p=>wishlist.includes(p.id)).map(p=>(
+                    <div key={p.id} style={{ ...glass,overflow:"hidden",cursor:"pointer" }} onClick={()=>setSelectedProduct(p)}>
+                      <div style={{ height:120,position:"relative" }}>
+                        <Carousel images={p.imageUrls&&p.imageUrls.length?p.imageUrls:[p.imageUrl]} emoji={p.emoji} height={120} />
+                        <button onClick={ev=>{ev.stopPropagation();toggleWishlist(p.id);}} style={{ position:"absolute",top:6,right:6,background:"rgba(255,255,255,0.85)",border:"none",borderRadius:"50%",width:26,height:26,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",zIndex:3 }}>❤️</button>
+                      </div>
+                      <div style={{ padding:"8px 12px" }}>
+                        <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{p.name}</div>
+                        <div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{p.price.toLocaleString()}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── ABOUT US SECTION ── */}
+            <div id="about" style={{ marginBottom:48 }}>
+
+              {/* Section heading */}
+              <div style={{ textAlign:"center",marginBottom:40 }}>
+                <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 16px",fontSize:12,color:PRIMARY,fontWeight:600,marginBottom:12 }}>🌸 Our Story</div>
+                <h2 style={{ fontSize:32,fontWeight:900,color:DARK,margin:"0 0 12px" }}>About <span style={{ background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>কাঁকনবালা</span></h2>
+                <div style={{ width:60,height:3,background:GRAD,borderRadius:4,margin:"0 auto" }}/>
+              </div>
+
+              {/* Story + image grid */}
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:48,alignItems:"center",marginBottom:48 }}>
+                <div>
+                  <h3 style={{ fontSize:22,fontWeight:800,color:DARK,marginBottom:16 }}>Handcrafted with Love, Rooted in Tradition</h3>
+                  <p style={{ color:MED,fontSize:14,lineHeight:1.9,marginBottom:16 }}>
+                    কাঁকনবালা was born from a deep love for Bangladesh's rich artisan heritage. Every piece in our collection is lovingly handcrafted by skilled artisans who pour their heart and soul into their craft.
+                  </p>
+                  <p style={{ color:MED,fontSize:14,lineHeight:1.9,marginBottom:20 }}>
+                    We believe that handmade is not just a product — it's a story, a tradition, and a connection between the maker and the wearer. Each purchase you make directly supports local artisans and helps preserve traditional craftsmanship for future generations.
+                  </p>
+                  <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+                    {[
+                      ["🌸","Our Mission","To celebrate handmade culture and connect artisans with customers who appreciate genuine craftsmanship."],
+                      ["💎","Our Promise","Every product is 100% authentic, handmade with premium quality materials and finished with care."],
+                      ["🤝","Our Community","By shopping with us, you support local artisans and help sustain traditional art forms in Bangladesh."]
+                    ].map(([icon,title,desc])=>(
+                      <div key={title} style={{ display:"flex",gap:14,alignItems:"flex-start",padding:"14px 16px",background:"rgba(173,20,87,0.04)",borderRadius:12,border:"1px solid rgba(173,20,87,0.12)" }}>
+                        <span style={{ fontSize:22,flexShrink:0 }}>{icon}</span>
+                        <div>
+                          <div style={{ fontSize:14,fontWeight:700,color:DARK,marginBottom:3 }}>{title}</div>
+                          <div style={{ fontSize:12,color:MED,lineHeight:1.6 }}>{desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ position:"relative" }}>
+                  <div style={{ borderRadius:24,overflow:"hidden",boxShadow:"0 20px 60px rgba(173,20,87,0.2)" }}>
+                    <img src="/banner.png" alt="About Kakonbala" style={{ width:"100%",height:380,objectFit:"cover" }} />
+                    <div style={{ position:"absolute",inset:0,background:"rgba(173,20,87,0.08)",borderRadius:24 }}/>
+                  </div>
+                  {/* Stats badge */}
+                  <div style={{ position:"absolute",bottom:-20,right:-20,background:"#FFF",borderRadius:16,padding:"16px 22px",boxShadow:"0 8px 30px rgba(173,20,87,0.2)",border:`1px solid rgba(173,20,87,0.15)` }}>
+                    <div style={{ display:"flex",gap:20 }}>
+                      {[["100+","Products"],["500+","Happy Customers"],["5★","Reviews"]].map(([num,label])=>(
+                        <div key={label} style={{ textAlign:"center" }}>
+                          <div style={{ fontSize:18,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>{num}</div>
+                          <div style={{ fontSize:10,color:MED,fontWeight:600 }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Why Choose Us */}
+              <div style={{ marginBottom:40 }}>
+                <h3 style={{ fontSize:22,fontWeight:800,color:DARK,textAlign:"center",marginBottom:24 }}>Why Choose কাঁকনবালা?</h3>
+                <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:18 }}>
+                  {[
+                    {icon:"🚚",title:"Fast Delivery",desc:"Reliable delivery across Bangladesh",color:"rgba(173,20,87,0.06)"},
+                    {icon:"💎",title:"Premium Quality",desc:"Every product is carefully handcrafted",color:"rgba(106,27,154,0.06)"},
+                    {icon:"🎁",title:"Gift Ready",desc:"Beautiful packaging for every order",color:"rgba(249,168,37,0.08)"},
+                    {icon:"✨",title:"Unique Designs",desc:"Exclusive handmade collections you won't find elsewhere",color:"rgba(46,125,50,0.06)"},
+                  ].map(f=>(
+                    <div key={f.title} style={{ ...glass,padding:"28px 20px",textAlign:"center",background:f.color,transition:"all 0.25s" }}
+                      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-6px)";e.currentTarget.style.boxShadow="0 16px 40px rgba(173,20,87,0.18)";}}
+                      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="";}}>
+                      <div style={{ width:56,height:56,borderRadius:"50%",background:"rgba(173,20,87,0.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 16px" }}>{f.icon}</div>
+                      <div style={{ fontSize:15,fontWeight:800,color:DARK,marginBottom:8 }}>{f.title}</div>
+                      <div style={{ fontSize:12,color:MED,lineHeight:1.6 }}>{f.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Contact strip */}
+              <div style={{ ...glass,background:GRAD,borderRadius:20,padding:"32px 40px",textAlign:"center" }}>
+                <h3 style={{ fontSize:22,fontWeight:800,color:"#FFF",margin:"0 0 8px" }}>Get in Touch</h3>
+                <p style={{ color:"rgba(255,255,255,0.85)",fontSize:14,margin:"0 0 20px" }}>Have a question or want a custom order? We'd love to hear from you!</p>
+                <div style={{ display:"flex",justifyContent:"center",gap:16,flexWrap:"wrap" }}>
+                  {[["📱","WhatsApp","01711-000000"],["📧","Email","kakonbala@gmail.com"],["📍","Location","Dhaka, Bangladesh"]].map(([icon,label,val])=>(
+                    <div key={label} style={{ background:"rgba(255,255,255,0.15)",borderRadius:12,padding:"10px 18px",display:"flex",alignItems:"center",gap:8 }}>
+                      <span style={{ fontSize:18 }}>{icon}</span>
+                      <div style={{ textAlign:"left" }}>
+                        <div style={{ fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:600 }}>{label}</div>
+                        <div style={{ fontSize:12,color:"#FFF",fontWeight:700 }}>{val}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* COLLECTIONS TAB */}
+        {tab==="collections" && (
+          <div>
+            <h1 style={{ fontSize:28,fontWeight:800,margin:"0 0 6px",background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Collections</h1>
+            <p style={{ color:MED,fontSize:14,marginBottom:28 }}>Browse by category and find your perfect piece</p>
+            {Object.entries({jewelry:{emoji:"💍",label:"Jewelry / গহনা",subs:CATS.jewelry.subs},crafts:{emoji:"🏺",label:"Crafts / ক্রাফট",subs:CATS.crafts.subs},clothing:{emoji:"👗",label:"Clothing / পোশাক",subs:["Women","Men","Child"]}}).map(([cat,info])=>{
+              const catProducts = products.filter(p=>p.category===cat);
+              if (!catProducts.length) return null;
+              return (
+                <div key={cat} style={{ marginBottom:36 }}>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16 }}>
+                    <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                      <span style={{ fontSize:28 }}>{info.emoji}</span>
+                      <div>
+                        <h2 style={{ fontSize:20,fontWeight:800,color:DARK,margin:0 }}>{info.label}</h2>
+                        <div style={{ display:"flex",gap:6,marginTop:4,flexWrap:"wrap" }}>
+                          {info.subs.slice(0,5).map(s=>(
+                            <span key={s} onClick={()=>{setCatFilter(cat);setSubFilter(s);setTab("shop");}} style={{ fontSize:10,padding:"2px 10px",borderRadius:10,background:"rgba(173,20,87,0.08)",color:PRIMARY,cursor:"pointer",fontWeight:600 }}>{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={()=>{setCatFilter(cat);setSubFilter("all");setTab("shop");}} style={{ background:"transparent",border:`1.5px solid ${PRIMARY}`,color:PRIMARY,padding:"6px 16px",borderRadius:20,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit" }}>View All →</button>
+                  </div>
+                  <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:14 }}>
+                    {catProducts.slice(0,4).map(p=>(
+                      <div key={p.id} style={{ ...glass,overflow:"hidden",cursor:"pointer",transition:"transform 0.2s" }}
+                        onMouseEnter={e=>e.currentTarget.style.transform="translateY(-4px)"}
+                        onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}
+                        onClick={()=>setSelectedProduct(p)}>
+                        <div style={{ height:130 }}>
+                          <Carousel images={p.imageUrls&&p.imageUrls.length?p.imageUrls:[p.imageUrl]} emoji={p.emoji} height={130} />
+                        </div>
+                        <div style={{ padding:"8px 12px" }}>
+                          <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:2 }}>{p.name}</div>
+                          <div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{(p.packOptions&&p.packOptions.length>0?Math.min(...p.packOptions.map(o=>o.price)):p.price).toLocaleString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* WISHLIST TAB */}
+        {tab==="wishlist" && (
+          <div>
+            <h1 style={{ fontSize:24,fontWeight:800,margin:"0 0 22px",background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>❤️ Wishlist ({wishlist.length})</h1>
+            {wishlist.length===0?(
+              <div style={{ ...glass,textAlign:"center",padding:"60px 0",color:MED }}>
+                <div style={{ fontSize:50,marginBottom:12 }}>🤍</div>
+                <div style={{ fontSize:16,fontWeight:700,marginBottom:8 }}>Your wishlist is empty</div>
+                <button onClick={()=>setTab("shop")} style={{ ...btn,marginTop:8 }}>Browse Products</button>
+              </div>
+            ):(
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:20 }}>
+                {products.filter(p=>wishlist.includes(p.id)).map(p=>(
+                  <div key={p.id} style={{ ...glass,overflow:"hidden",cursor:"pointer",transition:"transform 0.2s" }}
+                    onMouseEnter={e=>e.currentTarget.style.transform="translateY(-4px)"}
+                    onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}
+                    onClick={()=>setSelectedProduct(p)}>
+                    <div style={{ height:160,position:"relative" }}>
+                      <Carousel images={p.imageUrls&&p.imageUrls.length?p.imageUrls:[p.imageUrl]} emoji={p.emoji} height={160} />
+                      <button onClick={ev=>{ev.stopPropagation();toggleWishlist(p.id);}} style={{ position:"absolute",top:8,right:8,background:"rgba(255,255,255,0.85)",border:"none",borderRadius:"50%",width:30,height:30,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",zIndex:3 }}>❤️</button>
+                    </div>
+                    <div style={{ padding:"12px 14px" }}>
+                      <div style={{ fontSize:14,fontWeight:700,color:DARK,marginBottom:4 }}>{p.name}</div>
+                      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+                        <span style={{ fontSize:16,fontWeight:800,color:PRIMARY }}>৳{p.price.toLocaleString()}</span>
+                        <span style={stockTag(p.stock)}>{p.stock<=5?"⚠ Low":p.stock+" left"}</span>
+                      </div>
+                      <button onClick={ev=>{ev.stopPropagation();addToCart(p);}} disabled={p.stock===0} style={{ ...btn,width:"100%",padding:"9px",fontSize:13,opacity:p.stock===0?0.45:1 }}>{p.stock===0?t.outOfStock:t.addCart}</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* SHOP TAB */}
         {tab==="shop" && (
@@ -839,7 +1265,20 @@ export default function App() {
               )}
             </div>
 
+            {searchQuery.trim()&&(
+              <div style={{ ...glass,padding:"10px 18px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <span style={{ fontSize:13,color:MED }}>🔍 Showing results for "<b style={{color:PRIMARY}}>{searchQuery}</b>" — {visible.length} found</span>
+                <button onClick={()=>{setSearchQuery("");setSearchOpen(false);}} style={{ background:"none",border:"none",color:DANGER,cursor:"pointer",fontSize:12,fontWeight:700 }}>✕ Clear</button>
+              </div>
+            )}
             {products.length===0 && <div style={{ ...glass,textAlign:"center",padding:"60px 0",color:MED }}><div style={{ fontSize:50,marginBottom:12 }}>🌸</div><div>Loading products...</div></div>}
+            {visible.length===0&&products.length>0&&(
+              <div style={{ ...glass,textAlign:"center",padding:"40px 0",color:MED }}>
+                <div style={{ fontSize:40,marginBottom:10 }}>🔍</div>
+                <div style={{ fontWeight:700,marginBottom:8 }}>No products found</div>
+                <button onClick={()=>{setSearchQuery("");setCatFilter("all");setSubFilter("all");}} style={{ ...btn,fontSize:12,padding:"8px 18px" }}>Clear filters</button>
+              </div>
+            )}
 
             {/* Product Grid */}
             <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:20 }}>
@@ -850,7 +1289,10 @@ export default function App() {
                   <div onClick={() => setSelectedProduct(p)} style={{ position:"relative" }}>
                     <Carousel images={p.imageUrls&&p.imageUrls.length?p.imageUrls:[p.imageUrl]} emoji={p.emoji} height={180} />
                     <span style={{ ...catBadge(p.category),position:"absolute",top:8,left:8,zIndex:3 }}>{p.subcategory||p.category}</span>
-                    <span style={{ position:"absolute",bottom:8,right:8,background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"2px 8px",fontSize:10,color:MED,zIndex:3 }}>🔍 View</span>
+                    <button onClick={ev=>{ev.stopPropagation();toggleWishlist(p.id);}} style={{ position:"absolute",top:8,right:8,background:"rgba(255,255,255,0.85)",border:"none",borderRadius:"50%",width:30,height:30,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",zIndex:3 }}>
+                      {wishlist.includes(p.id)?"❤️":"🤍"}
+                    </button>
+                    <span style={{ position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"2px 8px",fontSize:10,color:MED,zIndex:3 }}>🔍 View</span>
                   </div>
                   <div style={{ padding:"14px 16px" }}>
                     <div onClick={() => setSelectedProduct(p)} style={{ fontSize:14,fontWeight:700,color:DARK,marginBottom:4 }}>{p.name}</div>
@@ -1568,6 +2010,23 @@ export default function App() {
           </div>
         </>
       )}
+      {/* FOOTER */}
+      <footer style={{ marginTop:48,background:"rgba(255,255,255,0.6)",backdropFilter:BLUR,borderTop:"1px solid rgba(173,20,87,0.15)",padding:"32px",textAlign:"center" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:8,marginBottom:16 }}>
+          <img src="/logo.jpg" alt="logo" style={{ width:40,height:40,borderRadius:"50%",border:"2px solid rgba(173,20,87,0.3)",objectFit:"cover" }} />
+          <div style={{ textAlign:"left" }}>
+            <div style={{ fontSize:16,fontWeight:800,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>কাঁকনবালা</div>
+            <div style={{ fontSize:10,color:MED }}>Handmade with Love</div>
+          </div>
+        </div>
+        <div style={{ display:"flex",justifyContent:"center",gap:20,marginBottom:16,flexWrap:"wrap" }}>
+          {[["home","Home"],["shop","Shop"],["collections","Collections"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{ background:"none",border:"none",color:MED,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:500 }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ fontSize:11,color:LIGHT }}>© 2026 কাঁকনবালা · All rights reserved · Handcrafted with 🌸</div>
+      </footer>
+
     </div>
   );
 }
