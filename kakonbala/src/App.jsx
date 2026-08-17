@@ -931,6 +931,9 @@ export default function App() {
                 <div style={{ display:"inline-block",background:"rgba(173,20,87,0.12)",border:"1px solid rgba(173,20,87,0.25)",borderRadius:20,padding:"4px 14px",fontSize:11,color:PRIMARY,fontWeight:700,marginBottom:14,alignSelf:"flex-start" }}>
                   🌸 Handmade with Love
                 </div>
+                <div style={{ fontSize:15,fontWeight:700,color:MED,marginBottom:8,textShadow:"0 1px 3px rgba(255,255,255,0.8)",letterSpacing:0.3 }}>
+                  Welcome to কাঁকনবালা! 🌸
+                </div>
                 <h1 style={{ fontSize:40,fontWeight:900,color:DARK,lineHeight:1.18,margin:"0 0 14px",textShadow:"0 1px 4px rgba(255,255,255,0.6)" }}>
                   Where Every<br/>
                   <span style={{ background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Piece Tells</span><br/>
