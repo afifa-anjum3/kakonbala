@@ -922,46 +922,36 @@ export default function App() {
         {/* HOME TAB */}
         {tab==="home" && (
           <div>
-            {/* Hero Section */}
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:32,alignItems:"center",marginBottom:48,minHeight:340 }}>
-              <div>
-                <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 14px",fontSize:12,color:PRIMARY,fontWeight:600,marginBottom:16 }}>🌸 Handmade with Love</div>
-                <h1 style={{ fontSize:42,fontWeight:900,color:DARK,lineHeight:1.15,margin:"0 0 16px" }}>
+            {/* Hero Section — full-width banner with text overlay */}
+            <div style={{ position:"relative",borderRadius:24,overflow:"hidden",marginBottom:48,minHeight:320,backgroundImage:"url('/banner.png')",backgroundSize:"cover",backgroundPosition:"center center",boxShadow:"0 12px 40px rgba(173,20,87,0.25)" }}>
+              {/* Light overlay on left for text readability */}
+              <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(255,240,252,0.82) 0%,rgba(255,240,252,0.55) 55%,rgba(255,240,252,0.1) 100%)" }}/>
+              {/* Content */}
+              <div style={{ position:"relative",zIndex:2,padding:"48px 48px",maxWidth:"55%",minHeight:320,display:"flex",flexDirection:"column",justifyContent:"center" }}>
+                <div style={{ display:"inline-block",background:"rgba(173,20,87,0.12)",border:"1px solid rgba(173,20,87,0.25)",borderRadius:20,padding:"4px 14px",fontSize:11,color:PRIMARY,fontWeight:700,marginBottom:14,alignSelf:"flex-start" }}>
+                  🌸 Handmade with Love
+                </div>
+                <h1 style={{ fontSize:40,fontWeight:900,color:DARK,lineHeight:1.18,margin:"0 0 14px",textShadow:"0 1px 4px rgba(255,255,255,0.6)" }}>
                   Where Every<br/>
                   <span style={{ background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Piece Tells</span><br/>
                   a Story
                 </h1>
-                <p style={{ fontSize:15,color:MED,lineHeight:1.7,marginBottom:28,maxWidth:420 }}>
+                <p style={{ fontSize:14,color:MED,lineHeight:1.75,marginBottom:26,fontWeight:500,textShadow:"0 1px 3px rgba(255,255,255,0.7)" }}>
                   Discover handcrafted jewelry, elegant clothing, handmade arts & crafts, and beautiful accessories designed to celebrate every moment.
                 </p>
-                <div style={{ display:"flex",gap:12 }}>
-                  <button onClick={()=>setTab("shop")} style={{ ...btn,padding:"12px 28px",fontSize:15 }}>Shop Collection</button>
-                  <button onClick={()=>setTab("collections")} style={{ background:"transparent",border:`2px solid ${PRIMARY}`,color:PRIMARY,padding:"12px 28px",fontSize:15,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700,transition:"all 0.2s" }}>New Arrivals</button>
+                <div style={{ display:"flex",gap:12,flexWrap:"wrap" }}>
+                  <button onClick={()=>setTab("shop")} style={{ ...btn,padding:"11px 26px",fontSize:14 }}>Shop Collection</button>
+                  <button onClick={()=>setTab("collections")} style={{ background:"rgba(255,255,255,0.75)",backdropFilter:"blur(8px)",border:`2px solid ${PRIMARY}`,color:PRIMARY,padding:"11px 26px",fontSize:14,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700 }}>New Arrivals</button>
                 </div>
-              </div>
-              <div style={{ position:"relative" }}>
-                {/* Decorative background circle */}
-                <div style={{ position:"absolute",top:-20,right:-20,width:340,height:340,borderRadius:"50%",background:"linear-gradient(135deg,rgba(173,20,87,0.12),rgba(106,27,154,0.12))",zIndex:0 }}/>
-                {/* Banner image - full width, properly fitted */}
-                <div style={{ position:"relative",zIndex:1,borderRadius:24,overflow:"hidden",boxShadow:"0 20px 60px rgba(173,20,87,0.22)",border:"2px solid rgba(173,20,87,0.1)" }}>
-                  <img src="/banner.png" alt="Kakonbala"
-                    style={{ width:"100%",height:"auto",maxHeight:340,objectFit:"contain",display:"block",background:"linear-gradient(135deg,#FFF0F8,#F3E5F5)" }} />
+                {/* Stats row */}
+                <div style={{ display:"flex",gap:20,marginTop:24 }}>
+                  {[["🌸",products.length+"+ Products"],["⭐","5★ Rated"],["🚚","Fast Delivery"]].map(([icon,label])=>(
+                    <div key={label} style={{ display:"flex",alignItems:"center",gap:5 }}>
+                      <span style={{ fontSize:14 }}>{icon}</span>
+                      <span style={{ fontSize:11,fontWeight:700,color:MED }}>{label}</span>
+                    </div>
+                  ))}
                 </div>
-                {/* Floating logo */}
-                <div style={{ position:"absolute",top:-18,left:-18,zIndex:2,background:"#FFF",borderRadius:"50%",padding:4,boxShadow:"0 6px 20px rgba(173,20,87,0.2)" }}>
-                  <img src="/logo.jpg" alt="logo" style={{ width:60,height:60,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(173,20,87,0.25)" }}/>
-                </div>
-                {/* Stats badge */}
-                <div style={{ position:"absolute",bottom:-18,left:-18,zIndex:2,background:"#FFF",borderRadius:16,padding:"12px 18px",boxShadow:"0 8px 24px rgba(173,20,87,0.18)",display:"flex",alignItems:"center",gap:10,border:"1px solid rgba(173,20,87,0.1)" }}>
-                  <span style={{ fontSize:22 }}>🌸</span>
-                  <div>
-                    <div style={{ fontSize:14,fontWeight:800,color:DARK }}>{products.length}+ Products</div>
-                    <div style={{ fontSize:11,color:MED }}>All handmade</div>
-                  </div>
-                </div>
-                {/* Sparkle decoration */}
-                <div style={{ position:"absolute",top:12,right:12,zIndex:2,fontSize:22,opacity:0.6 }}>✨</div>
-                <div style={{ position:"absolute",bottom:60,right:-10,zIndex:2,fontSize:18,opacity:0.5 }}>🦋</div>
               </div>
             </div>
 
