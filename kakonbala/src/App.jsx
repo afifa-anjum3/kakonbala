@@ -940,13 +940,28 @@ export default function App() {
                 </div>
               </div>
               <div style={{ position:"relative" }}>
-                <div style={{ borderRadius:24,overflow:"hidden",boxShadow:"0 20px 60px rgba(173,20,87,0.25)" }}>
-                  <img src="/banner.png" alt="Kakonbala" style={{ width:"100%",height:320,objectFit:"cover" }} />
+                {/* Decorative background circle */}
+                <div style={{ position:"absolute",top:-20,right:-20,width:340,height:340,borderRadius:"50%",background:"linear-gradient(135deg,rgba(173,20,87,0.12),rgba(106,27,154,0.12))",zIndex:0 }}/>
+                {/* Banner image - full width, properly fitted */}
+                <div style={{ position:"relative",zIndex:1,borderRadius:24,overflow:"hidden",boxShadow:"0 20px 60px rgba(173,20,87,0.22)",border:"2px solid rgba(173,20,87,0.1)" }}>
+                  <img src="/banner.png" alt="Kakonbala"
+                    style={{ width:"100%",height:"auto",maxHeight:340,objectFit:"contain",display:"block",background:"linear-gradient(135deg,#FFF0F8,#F3E5F5)" }} />
                 </div>
-                <div style={{ position:"absolute",bottom:-16,left:-16,background:"#FFF",borderRadius:16,padding:"12px 18px",boxShadow:"0 8px 24px rgba(173,20,87,0.15)",display:"flex",alignItems:"center",gap:10 }}>
-                  <span style={{ fontSize:24 }}>🌸</span>
-                  <div><div style={{ fontSize:13,fontWeight:800,color:DARK }}>{products.length}+ Products</div><div style={{ fontSize:11,color:MED }}>All handmade</div></div>
+                {/* Floating logo */}
+                <div style={{ position:"absolute",top:-18,left:-18,zIndex:2,background:"#FFF",borderRadius:"50%",padding:4,boxShadow:"0 6px 20px rgba(173,20,87,0.2)" }}>
+                  <img src="/logo.jpg" alt="logo" style={{ width:60,height:60,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(173,20,87,0.25)" }}/>
                 </div>
+                {/* Stats badge */}
+                <div style={{ position:"absolute",bottom:-18,left:-18,zIndex:2,background:"#FFF",borderRadius:16,padding:"12px 18px",boxShadow:"0 8px 24px rgba(173,20,87,0.18)",display:"flex",alignItems:"center",gap:10,border:"1px solid rgba(173,20,87,0.1)" }}>
+                  <span style={{ fontSize:22 }}>🌸</span>
+                  <div>
+                    <div style={{ fontSize:14,fontWeight:800,color:DARK }}>{products.length}+ Products</div>
+                    <div style={{ fontSize:11,color:MED }}>All handmade</div>
+                  </div>
+                </div>
+                {/* Sparkle decoration */}
+                <div style={{ position:"absolute",top:12,right:12,zIndex:2,fontSize:22,opacity:0.6 }}>✨</div>
+                <div style={{ position:"absolute",bottom:60,right:-10,zIndex:2,fontSize:18,opacity:0.5 }}>🦋</div>
               </div>
             </div>
 
