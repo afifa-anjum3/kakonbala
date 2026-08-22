@@ -84,6 +84,37 @@ function metCard(c) {
 }
 
 
+
+/* ── Bangladesh Address Data ── */
+const BD_ADDRESS = {"Dhaka": {"Dhanmondi": {"Dhanmondi": ["Dhanmondi HO - 1209", "Jigatola - 1209", "Kalabagan - 1205"], "Hazaribagh": ["Hazaribagh - 1209", "Rayerbazar - 1209"], "Lalbagh": ["Lalbagh - 1211", "Azimpur - 1205", "Bangshal - 1100"]}, "Gulshan": {"Gulshan": ["Gulshan - 1212", "Baridhara - 1212", "Niketon - 1212"], "Banani": ["Banani - 1213", "Mohakhali - 1212"], "Badda": ["Badda - 1212", "Rampura - 1219"]}, "Mirpur": {"Mirpur": ["Mirpur-1 - 1216", "Mirpur-10 - 1216", "Pallabi - 1216"], "Kafrul": ["Kafrul - 1215", "Taltola - 1215"], "Shah Ali": ["Shah Ali - 1216", "Rupnagar - 1216"]}, "Uttara": {"Uttara": ["Uttara - 1230", "Uttara Model Town - 1230"], "Turag": ["Turag - 1230", "Diabari - 1230"], "Dakshinkhan": ["Dakshinkhan - 1230", "Ashkona - 1229"]}, "Motijheel": {"Motijheel": ["Motijheel - 1000", "Arambagh - 1000", "Fakirapool - 1000"], "Tejgaon": ["Tejgaon - 1215", "Farmgate - 1215", "Kawran Bazar - 1215"], "Paltan": ["Paltan - 1000", "Nayapaltan - 1000", "Bijoynagar - 1000"]}, "Demra": {"Demra": ["Demra - 1361", "Shyampur - 1204"], "Kadamtali": ["Kadamtali - 1204", "Matuail - 1362"]}, "Savar": {"Savar": ["Savar - 1340", "Ashulia - 1341", "Birulia - 1341"], "Keraniganj": ["Keraniganj - 1310", "Aganagar - 1311"]}}, "Gazipur": {"Gazipur Sadar": {"Gazipur Sadar": ["Gazipur - 1700", "Tongi - 1712", "Pubail - 1724"], "Tongi": ["Tongi - 1712", "Bhulta - 1460"]}, "Kaliakair": {"Kaliakair": ["Kaliakair - 1750", "Chandra - 1751"]}, "Kapasia": {"Kapasia": ["Kapasia - 1730", "Ghagutia - 1732"]}}, "Narayanganj": {"Narayanganj Sadar": {"Narayanganj": ["Narayanganj - 1400", "Siddhirganj - 1401"], "Fatullah": ["Fatullah - 1421", "Enayetnagar - 1421"]}, "Araihazar": {"Araihazar": ["Araihazar - 1450", "Gouripur - 1452"]}, "Rupganj": {"Rupganj": ["Rupganj - 1460", "Bhulta - 1460", "Kanchan - 1461"]}}, "Chittagong": {"Chittagong Sadar": {"Kotwali": ["Chittagong HO - 4000", "Anderkilla - 4000", "Chawk Bazar - 4000"], "Double Mooring": ["Double Mooring - 4100", "Patenga - 4204"], "Pahartali": ["Pahartali - 4202", "Baizid Bostami - 4210"]}, "Hathazari": {"Hathazari": ["Hathazari - 4330", "Meorazari - 4332"]}, "Chandgaon": {"Chandgaon": ["Chandgaon - 4212", "Nasirabad - 4210"]}, "Sitakunda": {"Sitakunda": ["Sitakunda - 4310", "Bhatiyari - 4311"]}}, "Cox's Bazar": {"Cox's Bazar Sadar": {"Cox's Bazar": ["Cox's Bazar - 4700", "Kolatoli - 4700"]}, "Ukhia": {"Ukhia": ["Ukhia - 4730", "Teknaf - 4761"]}, "Teknaf": {"Teknaf": ["Teknaf - 4761", "Shah Porir Dwip - 4762"]}}, "Sylhet": {"Sylhet Sadar": {"Sylhet": ["Sylhet HO - 3100", "Ambarkhana - 3100", "Zindabazar - 3100"], "Kotwali": ["Kotwali - 3100", "Bondor Bazar - 3100"]}, "Golapganj": {"Golapganj": ["Golapganj - 3170", "Fulbari - 3172"]}, "Beanibazar": {"Beanibazar": ["Beanibazar - 3150", "Mograbajar - 3152"]}}, "Rajshahi": {"Rajshahi Sadar": {"Rajshahi": ["Rajshahi HO - 6000", "Shaheb Bazar - 6000", "Uposhahar - 6202"], "Boalia": ["Boalia - 6100", "Rajpara - 6000"]}, "Godagari": {"Godagari": ["Godagari - 6280", "Paba - 6240"]}, "Puthia": {"Puthia": ["Puthia - 6250", "Belpukur - 6252"]}}, "Khulna": {"Khulna Sadar": {"Khulna": ["Khulna HO - 9000", "Boyra - 9000", "Daulatpur - 9210"], "Sonadanga": ["Sonadanga - 9000", "Khalishpur - 9000"]}, "Batiaghata": {"Batiaghata": ["Batiaghata - 9351", "Surkhali - 9352"]}, "Rupsha": {"Rupsha": ["Rupsha - 9221", "Alaipur - 9220"]}}, "Barisal": {"Barisal Sadar": {"Barisal": ["Barisal HO - 8200", "Nathullabad - 8201", "Rupatali - 8202"], "Kotwali": ["Kotwali - 8200", "Band Road - 8200"]}, "Bakerganj": {"Bakerganj": ["Bakerganj - 8210", "Vadra - 8213"]}, "Wazirpur": {"Wazirpur": ["Wazirpur - 8260", "Bambaria - 8261"]}}, "Rangpur": {"Rangpur Sadar": {"Rangpur": ["Rangpur HO - 5400", "Dhap - 5400", "Modern - 5401"], "Kotwali": ["Kotwali - 5400", "Shapla Chattar - 5400"]}, "Mithapukur": {"Mithapukur": ["Mithapukur - 5460", "Parbatipur - 5250"]}, "Pirganj": {"Pirganj": ["Pirganj - 5450", "Misripara - 5451"]}}, "Mymensingh": {"Mymensingh Sadar": {"Mymensingh": ["Mymensingh HO - 2200", "Brahmaputra - 2200", "Ganginarpar - 2201"], "Kotwali": ["Kotwali - 2200", "Kewatkhali - 2201"]}, "Trishal": {"Trishal": ["Trishal - 2240", "Dhanikhola - 2241"]}, "Muktagachha": {"Muktagachha": ["Muktagachha - 2210", "Bhabkhali - 2211"]}}, "Comilla": {"Comilla Sadar": {"Comilla": ["Comilla HO - 3500", "Kandirpar - 3500", "Tomsom Bridge - 3500"], "Kotwali": ["Kotwali - 3500", "Laksham Road - 3500"]}, "Brahmanpara": {"Brahmanpara": ["Brahmanpara - 3540", "Siddhi - 3542"]}, "Chandina": {"Chandina": ["Chandina - 3510", "Maijchar - 3511"]}}, "Bogra": {"Bogra Sadar": {"Bogra": ["Bogra HO - 5800", "Sherpur Road - 5800", "Malopara - 5800"], "Kotwali": ["Kotwali - 5800", "Station Road - 5800"]}, "Sherpur": {"Sherpur": ["Sherpur - 5840", "Bheluripara - 5841"]}}, "Jessore": {"Jessore Sadar": {"Jessore": ["Jessore HO - 7400", "Chanchra - 7400", "Monirampur Road - 7400"], "Kotwali": ["Kotwali - 7400", "Boro Bazar - 7400"]}, "Benapole": {"Benapole": ["Benapole - 7431", "Sharsha - 7430"]}, "Jhikargachha": {"Jhikargachha": ["Jhikargachha - 7420", "Godkhali - 7421"]}}, "Dinajpur": {"Dinajpur Sadar": {"Dinajpur": ["Dinajpur HO - 5200", "Munshipara - 5200", "Ful Bari - 5200"]}, "Birampur": {"Birampur": ["Birampur - 5220", "Nandoil - 5221"]}}, "Faridpur": {"Faridpur Sadar": {"Faridpur": ["Faridpur HO - 7800", "Alipur - 7800"]}, "Bhanga": {"Bhanga": ["Bhanga - 7810", "Charbhadrasan - 7840"]}}, "Tangail": {"Tangail Sadar": {"Tangail": ["Tangail HO - 1900", "Akur Takur Para - 1900"]}, "Ghatail": {"Ghatail": ["Ghatail - 1980", "Dhopakandi - 1981"]}, "Sakhipur": {"Sakhipur": ["Sakhipur - 1960", "Kakraid - 1961"]}}, "Narsingdi": {"Narsingdi Sadar": {"Narsingdi": ["Narsingdi HO - 1600", "Shibpur - 1620"]}, "Palash": {"Palash": ["Palash - 1610", "Ghoda Shail - 1611"]}}, "Manikganj": {"Manikganj Sadar": {"Manikganj": ["Manikganj HO - 1800", "Ghior - 1840"]}, "Singair": {"Singair": ["Singair - 1820", "Bayra - 1821"]}}, "Munshiganj": {"Munshiganj Sadar": {"Munshiganj": ["Munshiganj HO - 1500", "Mirkadim - 1501"]}, "Srinagar": {"Srinagar": ["Srinagar - 1540", "Shyamside - 1541"]}}, "Madaripur": {"Madaripur Sadar": {"Madaripur": ["Madaripur HO - 7900", "Kalikapur - 7900"]}, "Shibchar": {"Shibchar": ["Shibchar - 7910", "Bandhabari - 7912"]}}, "Shariatpur": {"Shariatpur Sadar": {"Shariatpur": ["Shariatpur HO - 8000", "Palong - 8021"]}, "Damudya": {"Damudya": ["Damudya - 8010", "Rudrakar - 8011"]}}, "Gopalganj": {"Gopalganj Sadar": {"Gopalganj": ["Gopalganj HO - 8100", "Kashiani - 8120"]}, "Kotalipara": {"Kotalipara": ["Kotalipara - 8110", "Ratail - 8111"]}}, "Kishoreganj": {"Kishoreganj Sadar": {"Kishoreganj": ["Kishoreganj HO - 2300", "Kuliarchar - 2310"]}, "Bajitpur": {"Bajitpur": ["Bajitpur - 2330", "Saraswati - 2332"]}}, "Netrokona": {"Netrokona Sadar": {"Netrokona": ["Netrokona HO - 2400", "Mohanganj - 2440"]}, "Kendua": {"Kendua": ["Kendua - 2420", "Baro Sona - 2421"]}}, "Jamalpur": {"Jamalpur Sadar": {"Jamalpur": ["Jamalpur HO - 2000", "Sarishabari - 2040"]}, "Melandaha": {"Melandaha": ["Melandaha - 2020", "Jhaugara - 2021"]}}, "Sherpur": {"Sherpur Sadar": {"Sherpur": ["Sherpur HO - 2100", "Jhenaigati - 2120"]}, "Nakla": {"Nakla": ["Nakla - 2110", "Urfa - 2111"]}}, "Pabna": {"Pabna Sadar": {"Pabna": ["Pabna HO - 6600", "Santhia - 6640"]}, "Chatmohar": {"Chatmohar": ["Chatmohar - 6620", "Faridpur - 6621"]}}, "Natore": {"Natore Sadar": {"Natore": ["Natore HO - 6400", "Baraigram - 6430"]}, "Lalpur": {"Lalpur": ["Lalpur - 6420", "Duaria - 6421"]}}, "Naogaon": {"Naogaon Sadar": {"Naogaon": ["Naogaon HO - 6500", "Manda - 6530"]}, "Raninagar": {"Raninagar": ["Raninagar - 6560", "Abhaynagar - 6561"]}}, "Chapainawabganj": {"Chapainawabganj Sadar": {"Chapainawabganj": ["Chapainawabganj HO - 6300", "Shibganj - 6310"]}, "Gomastapur": {"Gomastapur": ["Gomastapur - 6320", "Nachol - 6330"]}}, "Joypurhat": {"Joypurhat Sadar": {"Joypurhat": ["Joypurhat HO - 5900", "Akkelpur - 5910"]}, "Panchbibi": {"Panchbibi": ["Panchbibi - 5930", "Atapur - 5931"]}}, "Sirajganj": {"Sirajganj Sadar": {"Sirajganj": ["Sirajganj HO - 6700", "Kazipur - 6730"]}, "Ullapara": {"Ullapara": ["Ullapara - 6720", "Hatikumrul - 6721"]}}, "Kushtia": {"Kushtia Sadar": {"Kushtia": ["Kushtia HO - 7000", "Kumarkhali - 7020"]}, "Khoksa": {"Khoksa": ["Khoksa - 7010", "Jagati - 7011"]}}, "Chuadanga": {"Chuadanga Sadar": {"Chuadanga": ["Chuadanga HO - 7200", "Alamdanga - 7210"]}, "Damurhuda": {"Damurhuda": ["Damurhuda - 7220", "Jibanpur - 7221"]}}, "Meherpur": {"Meherpur Sadar": {"Meherpur": ["Meherpur HO - 7100", "Gangni - 7110"]}, "Mujibnagar": {"Mujibnagar": ["Mujibnagar - 7120", "Bahadurpur - 7121"]}}, "Jhenaidah": {"Jhenaidah Sadar": {"Jhenaidah": ["Jhenaidah HO - 7300", "Kaliganj - 7340"]}, "Shailkupa": {"Shailkupa": ["Shailkupa - 7320", "Durbachara - 7321"]}}, "Magura": {"Magura Sadar": {"Magura": ["Magura HO - 7600", "Shalikha - 7620"]}, "Mohammadpur": {"Mohammadpur": ["Mohammadpur - 7610", "Binodpur - 7611"]}}, "Narail": {"Narail Sadar": {"Narail": ["Narail HO - 7500", "Lohagara - 7530"]}, "Kalia": {"Kalia": ["Kalia - 7520", "Naragati - 7521"]}}, "Satkhira": {"Satkhira Sadar": {"Satkhira": ["Satkhira HO - 9400", "Tala - 9420"]}, "Kaliganj": {"Kaliganj": ["Kaliganj - 9410", "Nalta - 9411"]}}, "Bagerhat": {"Bagerhat Sadar": {"Bagerhat": ["Bagerhat HO - 9300", "Kachua - 9320"]}, "Mongla": {"Mongla": ["Mongla - 9350", "Rampal - 9360"]}}, "Patuakhali": {"Patuakhali Sadar": {"Patuakhali": ["Patuakhali HO - 8600", "Bauphal - 8620"]}, "Kalapara": {"Kalapara": ["Kalapara - 8640", "Nil Ganj - 8641"]}}, "Barguna": {"Barguna Sadar": {"Barguna": ["Barguna HO - 8700", "Amtali - 8710"]}, "Betagi": {"Betagi": ["Betagi - 8720", "Bamna - 8730"]}}, "Bhola": {"Bhola Sadar": {"Bhola": ["Bhola HO - 8300", "Lalmohan - 8320"]}, "Char Fasson": {"Char Fasson": ["Char Fasson - 8340", "Daulatkhan - 8310"]}}, "Pirojpur": {"Pirojpur Sadar": {"Pirojpur": ["Pirojpur HO - 8500", "Nazirpur - 8510"]}, "Bhandaria": {"Bhandaria": ["Bhandaria - 8520", "Patharghata - 8540"]}}, "Jhalokati": {"Jhalokati Sadar": {"Jhalokati": ["Jhalokati HO - 8400", "Nalchity - 8420"]}, "Kathalia": {"Kathalia": ["Kathalia - 8410", "Rajapur - 8430"]}}, "Feni": {"Feni Sadar": {"Feni": ["Feni HO - 3900", "Daganbhuiyan - 3940"]}, "Chhagalnaiya": {"Chhagalnaiya": ["Chhagalnaiya - 3920", "Subarna Char - 3941"]}}, "Noakhali": {"Noakhali Sadar": {"Noakhali": ["Noakhali HO - 3800", "Maijdee - 3800", "Begumganj - 3820"]}, "Chatkhil": {"Chatkhil": ["Chatkhil - 3840", "Sonaimuri - 3860"]}}, "Lakshmipur": {"Lakshmipur Sadar": {"Lakshmipur": ["Lakshmipur HO - 3700", "Raipur - 3740"]}, "Ramganj": {"Ramganj": ["Ramganj - 3720", "Ramgati - 3750"]}}, "Chandpur": {"Chandpur Sadar": {"Chandpur": ["Chandpur HO - 3600", "Faridganj - 3630"]}, "Hajiganj": {"Hajiganj": ["Hajiganj - 3610", "Kachua - 3620"]}}, "Brahmanbaria": {"Brahmanbaria Sadar": {"Brahmanbaria": ["Brahmanbaria HO - 3400", "Nabinagar - 3430"]}, "Kasba": {"Kasba": ["Kasba - 3410", "Akhaura - 3440"]}}, "Habiganj": {"Habiganj Sadar": {"Habiganj": ["Habiganj HO - 3300", "Chunarughat - 3320"]}, "Madhabpur": {"Madhabpur": ["Madhabpur - 3310", "Shayestaganj - 3330"]}}, "Moulvibazar": {"Moulvibazar Sadar": {"Moulvibazar": ["Moulvibazar HO - 3200", "Srimangal - 3210"]}, "Barlekha": {"Barlekha": ["Barlekha - 3230", "Kulaura - 3220"]}}, "Sunamganj": {"Sunamganj Sadar": {"Sunamganj": ["Sunamganj HO - 3000", "Tahirpur - 3030"]}, "Dharmapasha": {"Dharmapasha": ["Dharmapasha - 3040", "Jagannathpur - 3060"]}}, "Kurigram": {"Kurigram Sadar": {"Kurigram": ["Kurigram HO - 5600", "Nageshwari - 5640"]}, "Ulipur": {"Ulipur": ["Ulipur - 5620", "Chilmari - 5630"]}}, "Gaibandha": {"Gaibandha Sadar": {"Gaibandha": ["Gaibandha HO - 5700", "Gobindaganj - 5740"]}, "Palashbari": {"Palashbari": ["Palashbari - 5720", "Fulchari - 5730"]}}, "Nilphamari": {"Nilphamari Sadar": {"Nilphamari": ["Nilphamari HO - 5300", "Saidpur - 5310"]}, "Jaldhaka": {"Jaldhaka": ["Jaldhaka - 5320", "Domar - 5330"]}}, "Lalmonirhat": {"Lalmonirhat Sadar": {"Lalmonirhat": ["Lalmonirhat HO - 5500", "Aditmari - 5510"]}, "Kaliganj": {"Kaliganj": ["Kaliganj - 5520", "Hatibandha - 5530"]}}, "Panchagarh": {"Panchagarh Sadar": {"Panchagarh": ["Panchagarh HO - 5010", "Tetulia - 5020"]}, "Boda": {"Boda": ["Boda - 5030", "Atwari - 5040"]}}, "Thakurgaon": {"Thakurgaon Sadar": {"Thakurgaon": ["Thakurgaon HO - 5100", "Pirganj - 5110"]}, "Baliadangi": {"Baliadangi": ["Baliadangi - 5120", "Haripur - 5130"]}}, "Rajbari": {"Rajbari Sadar": {"Rajbari": ["Rajbari HO - 7700", "Pangsha - 7720"]}, "Kalukhali": {"Kalukhali": ["Kalukhali - 7710", "Baliakandi - 7730"]}}, "Khagrachhari": {"Khagrachhari Sadar": {"Khagrachhari": ["Khagrachhari HO - 4400", "Mahalchhari - 4410"]}, "Ramgarh": {"Ramgarh": ["Ramgarh - 4420", "Matiranga - 4430"]}}, "Rangamati": {"Rangamati Sadar": {"Rangamati": ["Rangamati HO - 4500", "Kaptai - 4530"]}, "Barkal": {"Barkal": ["Barkal - 4540", "Belaichhari - 4550"]}}, "Bandarban": {"Bandarban Sadar": {"Bandarban": ["Bandarban HO - 4600", "Lama - 4620"]}, "Ruma": {"Ruma": ["Ruma - 4630", "Rowangchhari - 4640"]}}};
+const BD_DISTRICTS = Object.keys(BD_ADDRESS).sort();
+
+function getAreas(district) {
+  return district ? Object.keys(BD_ADDRESS[district] || {}).sort() : [];
+}
+function getThanas(district, area) {
+  return district && area ? Object.keys((BD_ADDRESS[district] || {})[area] || {}).sort() : [];
+}
+function getPostOffices(district, area, thana) {
+  return district && area && thana ? ((BD_ADDRESS[district] || {})[area] || {})[thana] || [] : [];
+}
+
+/* ── Validation helpers ── */
+function validatePhone(phone) {
+  const clean = phone.replace(/\s+/g, '');
+  // Accept: 01XXXXXXXXX (11 digits) or +8801XXXXXXXXX (14 chars)
+  const local = /^01[3-9]\d{8}$/;
+  const intl  = /^\+8801[3-9]\d{8}$/;
+  return local.test(clean) || intl.test(clean);
+}
+function formatPhone(val) {
+  // Only allow digits and leading +
+  return val.replace(/[^\d+]/g, '').slice(0, 14);
+}
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+}
+
 /* ── Error Boundary ── */
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -549,7 +580,7 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [authWorking, setAuthWorking] = useState(false);
   const [newP, setNewP] = useState({ name:"",category:"jewelry",price:"",stock:"",desc:"",imageUrls:[""],subcategory:"",clothingGroup:"",sizes:[],colors:[],pieceCounts:[],packOptions:[],colorImages:{} });
-  const [customer, setCustomer] = useState({ name:"",email:"",phone:"",address:"",city:"" });
+  const [customer, setCustomer] = useState({ name:"",email:"",phone:"",district:"",area:"",thana:"",postOffice:"",houseRoad:"",city:"" });
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(null);
   const [payMethod, setPayMethod] = useState("cod");
@@ -709,9 +740,9 @@ export default function App() {
   }
 
   function deliveryCharge() {
-    const city = (customer.city || "").toLowerCase();
-    if (!city) return 0;
-    if (city.includes("dhaka")) return 80;
+    const dist = (customer.district || customer.city || "").toLowerCase();
+    if (!dist) return 0;
+    if (dist.includes("dhaka")) return 80;
     return 150;
   }
 
@@ -764,9 +795,10 @@ export default function App() {
   }
 
   async function handleCheckout() {
-    if (!customer.name || !customer.phone || !customer.city) {
-      notify("⚠ Enter name, phone and city"); return;
-    }
+    if (!customer.name) { notify("⚠ Please enter your name"); return; }
+    if (!customer.phone || !validatePhone(customer.phone)) { notify("⚠ Enter valid BD phone: 01XXXXXXXXX"); return; }
+    if (customer.email && !validateEmail(customer.email)) { notify("⚠ Enter a valid email address"); return; }
+    if (!customer.district || !customer.area || !customer.thana || !customer.postOffice || !customer.houseRoad) { notify("⚠ Please complete all address fields"); return; }
     const dc = deliveryCharge();
     const disc = promoApplied ? promoApplied.discount : 0;
     const total = cartTotal + dc - disc;
@@ -804,7 +836,7 @@ export default function App() {
         method:"POST", headers:{ "Content-Type":"application/json" },
         body:JSON.stringify({ orderId:orderRef.id, amount:total,
           customerName:customer.name, customerEmail:customer.email||"noemail@kakonbala.com",
-          customerPhone:customer.phone, customerAddress:`${customer.address}, ${customer.city}` })
+          customerPhone:customer.phone, customerAddress:`${customer.houseRoad}, ${customer.thana}, ${customer.area}, ${customer.district} - ${customer.postOffice}` })
       });
       const data = await res.json();
       if (data.url) { window.location.href = data.url; }
@@ -986,7 +1018,7 @@ export default function App() {
                 </div>
                 <button onClick={()=>setTab("shop")} style={{ background:"transparent",border:`2px solid ${PRIMARY}`,color:PRIMARY,padding:"8px 20px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit" }}>View All →</button>
               </div>
-              <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:18 }}>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
                 {[...products].slice(0,6).map(p=>(
                   <div key={p.id} style={{ ...glass,overflow:"hidden",cursor:"pointer",transition:"transform 0.2s" }}
                     onMouseEnter={e=>e.currentTarget.style.transform="translateY(-4px)"}
@@ -1014,7 +1046,7 @@ export default function App() {
             {wishlist.length>0&&(
               <div style={{ marginBottom:48 }}>
                 <h2 style={{ fontSize:22,fontWeight:800,color:DARK,marginBottom:20 }}>❤️ Your Wishlist ({wishlist.length})</h2>
-                <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:18 }}>
+                <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
                   {products.filter(p=>wishlist.includes(p.id)).map(p=>(
                     <div key={p.id} style={{ ...glass,overflow:"hidden",cursor:"pointer" }} onClick={()=>setSelectedProduct(p)}>
                       <div style={{ height:120,position:"relative" }}>
@@ -1184,7 +1216,7 @@ export default function App() {
                 <button onClick={()=>setTab("shop")} style={{ ...btn,marginTop:8 }}>Browse Products</button>
               </div>
             ):(
-              <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:20 }}>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:22 }}>
                 {products.filter(p=>wishlist.includes(p.id)).map(p=>(
                   <div key={p.id} style={{ ...glass,overflow:"hidden",cursor:"pointer",transition:"transform 0.2s" }}
                     onMouseEnter={e=>e.currentTarget.style.transform="translateY(-4px)"}
@@ -1289,7 +1321,7 @@ export default function App() {
             )}
 
             {/* Product Grid */}
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:20 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:22 }}>
               {visible.map(p => (
                 <div key={p.id} style={{ ...glass,overflow:"hidden",transition:"transform 0.2s",cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.transform="translateY(-6px)"}
@@ -1926,28 +1958,102 @@ export default function App() {
               <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>🌸 {t.completeOrder}</div>
             </div>
             <div style={{ padding:22 }}>
-              {/* Customer fields */}
-              {[[t.fullName,"name","text","Your name"],[t.phoneNum,"phone","tel","01711-000000"],[t.email,"email","email","your@email.com"]].map(([l,k,tp,ph]) => (
-                <div key={k} style={{ marginBottom:12 }}>
-                  <label style={{ fontSize:12,color:MED,fontWeight:700 }}>{l}</label>
-                  <input style={inp} type={tp} placeholder={ph} value={customer[k]} onChange={e => setCustomer(c => ({ ...c,[k]:e.target.value }))} />
-                </div>
-              ))}
+              {/* Name */}
               <div style={{ marginBottom:12 }}>
-                <label style={{ fontSize:12,color:MED,fontWeight:700 }}>শহর / City *</label>
-                <input style={inp} type="text" placeholder="Dhaka / Chittagong / Sylhet..."
-                  value={customer.city} onChange={e => setCustomer(c => ({ ...c,city:e.target.value }))} />
-                {customer.city && (
-                  <div style={{ fontSize:11,marginTop:4,fontWeight:600,color:customer.city.toLowerCase().includes("dhaka")?SUCCESS:WARN }}>
-                    {customer.city.toLowerCase().includes("dhaka")
-                      ? "✓ Dhaka — Delivery charge: ৳80 (COD available)"
-                      : "⚠ Outside Dhaka — Delivery charge: ৳150 (Online payment required)"}
+                <label style={{ fontSize:12,color:MED,fontWeight:700 }}>{t.fullName}</label>
+                <input style={inp} type="text" placeholder="Your full name" value={customer.name}
+                  onChange={e=>setCustomer(c=>({...c,name:e.target.value}))} />
+              </div>
+
+              {/* Phone with BD validation */}
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12,color:MED,fontWeight:700 }}>{t.phoneNum}</label>
+                <input style={{...inp,borderColor:customer.phone&&!validatePhone(customer.phone)?DANGER:customer.phone&&validatePhone(customer.phone)?SUCCESS:"rgba(173,20,87,0.25)"}}
+                  type="tel" placeholder="01XXXXXXXXX or +8801XXXXXXXXX"
+                  value={customer.phone}
+                  onChange={e=>setCustomer(c=>({...c,phone:formatPhone(e.target.value)}))}
+                  maxLength={14} />
+                {customer.phone&&!validatePhone(customer.phone)&&<div style={{fontSize:10,color:DANGER,marginTop:3,fontWeight:600}}>⚠ Enter valid BD number: 01XXXXXXXXX (11 digits)</div>}
+                {customer.phone&&validatePhone(customer.phone)&&<div style={{fontSize:10,color:SUCCESS,marginTop:3,fontWeight:600}}>✓ Valid number</div>}
+              </div>
+
+              {/* Email with validation */}
+              <div style={{ marginBottom:14 }}>
+                <label style={{ fontSize:12,color:MED,fontWeight:700 }}>{t.email} (optional)</label>
+                <input style={{...inp,borderColor:customer.email&&!validateEmail(customer.email)?DANGER:customer.email&&validateEmail(customer.email)?SUCCESS:"rgba(173,20,87,0.25)"}}
+                  type="email" placeholder="your@email.com"
+                  value={customer.email}
+                  onChange={e=>setCustomer(c=>({...c,email:e.target.value}))} />
+                {customer.email&&!validateEmail(customer.email)&&<div style={{fontSize:10,color:DANGER,marginTop:3,fontWeight:600}}>⚠ Enter a valid email address</div>}
+              </div>
+
+              {/* Address — 5 level */}
+              <div style={{...inp.bg,border:`1.5px solid rgba(173,20,87,0.2)`,borderRadius:12,padding:14,marginBottom:14,background:"rgba(255,255,255,0.6)"}}>
+                <div style={{fontSize:12,color:MED,fontWeight:700,marginBottom:10}}>📍 Delivery Address</div>
+
+                {/* District */}
+                <div style={{marginBottom:8}}>
+                  <label style={{fontSize:11,color:MED,fontWeight:600,display:"block",marginBottom:3}}>1. District (জেলা) *</label>
+                  <select style={{...inp,marginTop:0,fontSize:12}}
+                    value={customer.district}
+                    onChange={e=>setCustomer(c=>({...c,district:e.target.value,area:"",thana:"",postOffice:"",city:e.target.value}))}>
+                    <option value="">-- Select District --</option>
+                    {BD_DISTRICTS.map(d=><option key={d} value={d}>{d}</option>)}
+                  </select>
+                  {customer.district&&(
+                    <div style={{fontSize:10,marginTop:3,fontWeight:600,color:customer.district==="Dhaka"?SUCCESS:WARN}}>
+                      {customer.district==="Dhaka"?"✓ Dhaka — Delivery ৳80 (COD available)":"⚠ Outside Dhaka — Delivery ৳150 (Online payment required)"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Area/Upazila */}
+                {customer.district&&(
+                  <div style={{marginBottom:8}}>
+                    <label style={{fontSize:11,color:MED,fontWeight:600,display:"block",marginBottom:3}}>2. Area / Upazila *</label>
+                    <select style={{...inp,marginTop:0,fontSize:12}}
+                      value={customer.area}
+                      onChange={e=>setCustomer(c=>({...c,area:e.target.value,thana:"",postOffice:""}))}>
+                      <option value="">-- Select Area --</option>
+                      {getAreas(customer.district).map(a=><option key={a} value={a}>{a}</option>)}
+                    </select>
                   </div>
                 )}
-              </div>
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:12,color:MED,fontWeight:700 }}>{t.address}</label>
-                <input style={inp} type="text" placeholder="House, Road, Area" value={customer.address} onChange={e => setCustomer(c => ({ ...c,address:e.target.value }))} />
+
+                {/* Thana/Police Station */}
+                {customer.area&&(
+                  <div style={{marginBottom:8}}>
+                    <label style={{fontSize:11,color:MED,fontWeight:600,display:"block",marginBottom:3}}>3. Police Station / Thana *</label>
+                    <select style={{...inp,marginTop:0,fontSize:12}}
+                      value={customer.thana}
+                      onChange={e=>setCustomer(c=>({...c,thana:e.target.value,postOffice:""}))}>
+                      <option value="">-- Select Thana --</option>
+                      {getThanas(customer.district,customer.area).map(t2=><option key={t2} value={t2}>{t2}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* Post Office */}
+                {customer.thana&&(
+                  <div style={{marginBottom:8}}>
+                    <label style={{fontSize:11,color:MED,fontWeight:600,display:"block",marginBottom:3}}>4. Post Office *</label>
+                    <select style={{...inp,marginTop:0,fontSize:12}}
+                      value={customer.postOffice}
+                      onChange={e=>setCustomer(c=>({...c,postOffice:e.target.value}))}>
+                      <option value="">-- Select Post Office --</option>
+                      {getPostOffices(customer.district,customer.area,customer.thana).map(po=><option key={po} value={po}>{po}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* House / Road */}
+                <div>
+                  <label style={{fontSize:11,color:MED,fontWeight:600,display:"block",marginBottom:3}}>5. House No, Road No, Block *</label>
+                  <input style={{...inp,marginTop:0,fontSize:12}} type="text"
+                    placeholder="e.g. House 12, Road 5, Block C"
+                    value={customer.houseRoad}
+                    onChange={e=>setCustomer(c=>({...c,houseRoad:e.target.value}))} />
+                </div>
               </div>
 
               {/* Promo code */}
