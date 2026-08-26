@@ -1101,7 +1101,8 @@ function Carousel({ images, emoji, height, primaryImage }) {
           width: "100%",
           height: "100%",
           objectFit: "contain",
-          padding: 4,
+          objectPosition: "center",
+          background: "#fff",
           transition: "opacity 0.3s",
         }}
         onError={(e) => {
@@ -2982,32 +2983,31 @@ export default function App() {
                   gap: 18,
                 }}
               >
-                {[
-                  {
-                    cat: "jewelry",
-                    emoji: "💍",
-                    label: "Jewelry",
-                    sub: "Bangles, Rings, Earrings & more",
-                    color: "rgba(173,20,87,0.08)",
-                    border: "rgba(173,20,87,0.2)",
-                  },
-                  {
-                    cat: "crafts",
-                    emoji: "🏺",
-                    label: "Crafts",
-                    sub: "Mandala, Canvas, Clay Art & more",
-                    color: "rgba(106,27,154,0.08)",
-                    border: "rgba(106,27,154,0.2)",
-                  },
-                  {
-                    cat: "clothing",
-                    emoji: "👗",
-                    label: "Clothing",
-                    sub: "Saree, Tops, Panjabi & more",
-                    color: "rgba(249,168,37,0.08)",
-                    border: "rgba(249,168,37,0.3)",
-                  },
-                ].map((c) => (
+                {["jewelry","crafts","clothing"].map(cat => {
+  const catProduct = products.find(p => p.category === cat && p.imageUrl);
+  const labels = {jewelry:"💍 Jewelry / গহনা", crafts:"🏺 Crafts / ক্রাফট", clothing:"👗 Clothing / পোশাক"};
+  const subs = {jewelry:"Bangles, Rings, Earrings & more", crafts:"Mandala, Canvas, Clay Art & more", clothing:"Saree, Tops, Panjabi & more"};
+  return (
+    <div key={cat}
+      onClick={()=>{setCatFilter(cat);setTab("shop");}}
+      style={{ position:"relative",borderRadius:20,overflow:"hidden",cursor:"pointer",height:320,background:"#f0e0f0" }}
+      onMouseEnter={e=>{e.currentTarget.querySelector("img")&&(e.currentTarget.querySelector("img").style.transform="scale(1.07)");}}
+      onMouseLeave={e=>{e.currentTarget.querySelector("img")&&(e.currentTarget.querySelector("img").style.transform="scale(1)");}}>
+      {catProduct
+        ? <img src={catProduct.imageUrl} alt={cat} style={{ width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.5s ease" }} />
+        : <div style={{ width:"100%",height:"100%",background:"linear-gradient(135deg,rgba(173,20,87,0.15),rgba(106,27,154,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:80 }}>{cat==="jewelry"?"💍":cat==="crafts"?"🏺":"👗"}</div>
+      }
+      {/* Dark gradient overlay at bottom */}
+      <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(20,0,30,0.75) 0%,rgba(20,0,30,0.15) 50%,transparent 100%)" }}/>
+      {/* Text at bottom */}
+      <div style={{ position:"absolute",bottom:0,left:0,right:0,padding:"20px 22px" }}>
+        <div style={{ fontSize:22,fontWeight:900,color:"#FFF",letterSpacing:1,textTransform:"uppercase",textShadow:"0 2px 8px rgba(0,0,0,0.5)" }}>{labels[cat]}</div>
+        <div style={{ fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:3 }}>{subs[cat]}</div>
+        <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.9)",marginTop:8,display:"flex",alignItems:"center",gap:4 }}>Shop Now <span style={{fontSize:14}}>→</span></div>
+      </div>
+    </div>
+  );
+})}
                   <div
                     key={c.cat}
                     onClick={() => {
