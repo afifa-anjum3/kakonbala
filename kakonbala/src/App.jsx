@@ -3125,6 +3125,7 @@ export default function App() {
                         style={{
                           position: "absolute",
                           inset: 0,
+                          zIndex: 1,
                           background:
                             "linear-gradient(to top,rgba(20,0,30,0.82) 0%,rgba(20,0,30,0.1) 55%,transparent 100%)",
                         }}
@@ -3136,6 +3137,7 @@ export default function App() {
                           left: 0,
                           right: 0,
                           padding: "18px 20px",
+                          zIndex: 2,
                         }}
                       >
                         <div
