@@ -561,6 +561,8 @@ export default function App() {
   const lowStock   = products.filter(p => p.stock <= 5);
   const totalStock = products.reduce((s, p) => s + p.stock, 0);
   const totalRev   = monthlyData.reduce((s, m) => s + m.revenue, 0);
+  const realIncome = orders.filter(o => o.status==="delivered"||o.status==="paid").reduce((s,o) => s+(o.total||0), 0);
+  const pendingIncome = orders.filter(o => o.status==="processing"||o.status==="in_packaging"||o.status==="shipped").reduce((s,o) => s+(o.total||0), 0);
 
   const visible = products.filter(p => {
     if (catFilter !== "all" && p.category !== catFilter) return false;
@@ -717,6 +719,27 @@ export default function App() {
     setWishlist(prev =>
       prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
     );
+  }
+
+  // All possible order statuses
+  const ORDER_STATUSES = [
+    { value:"processing",    label:"🔄 Processing",    color:"#E65100", bg:"rgba(255,243,224,0.9)" },
+    { value:"in_packaging",  label:"📦 In Packaging",  color:"#1565C0", bg:"rgba(227,242,253,0.9)" },
+    { value:"shipped",       label:"🚚 Shipped",        color:"#6A1B9A", bg:"rgba(237,231,246,0.9)" },
+    { value:"delivered",     label:"✅ Delivered",      color:"#2E7D32", bg:"rgba(232,245,233,0.9)" },
+    { value:"payment_due",   label:"💳 Payment Due",   color:"#C62828", bg:"rgba(255,235,238,0.9)" },
+    { value:"cancelled",     label:"❌ Cancelled",      color:"#757575", bg:"rgba(245,245,245,0.9)" },
+    { value:"pending_payment",label:"⏳ Pending Pay",  color:"#E65100", bg:"rgba(255,243,224,0.9)" },
+  ];
+
+  async function updateOrderStatus(orderId, newStatus) {
+    await updateDoc(doc(db, "orders", orderId), { status: newStatus, updatedAt: serverTimestamp() });
+    notify("✓ Order status updated to: " + newStatus.replace("_"," "));
+  }
+
+  async function clearDashboard() {
+    if (!window.confirm("Clear dashboard stats? This won't delete orders, just resets the static chart data.")) return;
+    notify("✓ Dashboard cleared");
   }
 
   async function handleCheckout() {
@@ -1340,11 +1363,21 @@ export default function App() {
         {tab==="dashboard" && isAdmin && (
           <div>
             <h1 style={{ fontSize:24,fontWeight:800,margin:"0 0 22px",background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>📊 {t.dashTitle}</h1>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16 }}>
+              <div/>
+              <button onClick={clearDashboard} style={{ background:"rgba(255,255,255,0.6)",border:`1px solid rgba(173,20,87,0.3)`,color:MED,padding:"6px 14px",borderRadius:12,cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit" }}>🔄 Reset Stats</button>
+            </div>
             <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:22 }}>
-              {[{label:t.totalRevenue,value:`৳${(totalRev/1000).toFixed(0)}K`,c:PRIMARY},{label:t.allOrders,value:orders.length,c:PURPLE},{label:t.products,value:products.length,c:GOLD},{label:t.totalStock,value:totalStock,c:SUCCESS}].map((m,i) => (
+              {[
+                {label:"💰 Total Income (Delivered)",value:`৳${realIncome.toLocaleString()}`,sub:`${orders.filter(o=>o.status==="delivered"||o.status==="paid").length} orders`,c:SUCCESS},
+                {label:"⏳ Pending Revenue",value:`৳${pendingIncome.toLocaleString()}`,sub:`${orders.filter(o=>o.status==="processing"||o.status==="in_packaging"||o.status==="shipped").length} in progress`,c:WARN},
+                {label:"📦 Total Orders",value:orders.length,sub:"All time",c:PURPLE},
+                {label:"🛍 Products",value:products.length,sub:`${lowStock.length} low stock`,c:GOLD},
+              ].map((m,i) => (
                 <div key={i} style={metCard(m.c)}>
-                  <div style={{ fontSize:11,color:LIGHT,textTransform:"uppercase",letterSpacing:1,marginBottom:4 }}>{m.label}</div>
-                  <div style={{ fontSize:24,fontWeight:800,color:DARK }}>{m.value}</div>
+                  <div style={{ fontSize:10,color:LIGHT,textTransform:"uppercase",letterSpacing:0.8,marginBottom:4 }}>{m.label}</div>
+                  <div style={{ fontSize:22,fontWeight:800,color:DARK }}>{m.value}</div>
+                  <div style={{ fontSize:10,color:MED,marginTop:3 }}>{m.sub}</div>
                 </div>
               ))}
             </div>
@@ -1607,30 +1640,41 @@ export default function App() {
           <div>
             <h1 style={{ fontSize:24,fontWeight:800,margin:"0 0 8px",background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>📋 {t.ordersTitle}</h1>
             <p style={{ color:LIGHT,fontSize:13,marginBottom:22 }}>{orders.length} {t.ordersLive}</p>
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:22 }}>
-              {[["paid",t.paid,SUCCESS,"rgba(232,245,233,0.75)"],["processing",t.processing,WARN,"rgba(255,243,224,0.75)"],["shipped",t.shipped,INFO,"rgba(227,242,253,0.75)"],["pending_payment",t.pendingPay,DANGER,"rgba(255,235,238,0.75)"]].map(([s,l,c,bg]) => (
-                <div key={s} style={{ ...glass,background:bg,padding:"14px 18px",textAlign:"center" }}>
-                  <div style={{ fontSize:26,fontWeight:800,color:c }}>{orders.filter(o => o.status===s).length}</div>
-                  <div style={{ fontSize:12,color:c,marginTop:3,fontWeight:600 }}>{l}</div>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:22 }}>
+              {ORDER_STATUSES.map(s => (
+                <div key={s.value} style={{ ...glass,background:s.bg,padding:"12px 14px",textAlign:"center",borderLeft:`3px solid ${s.color}` }}>
+                  <div style={{ fontSize:22,fontWeight:800,color:s.color }}>{orders.filter(o=>o.status===s.value).length}</div>
+                  <div style={{ fontSize:11,color:s.color,marginTop:2,fontWeight:700 }}>{s.label}</div>
                 </div>
               ))}
             </div>
             <div style={{ ...glass,overflow:"hidden",marginBottom:18 }}>
               <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
-                <thead><tr>{[t.orderId,t.date,t.customer,t.phone,t.items,"Total",t.status].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+                <thead><tr>{["Order ID","Date","Customer","Items","Total","Update Status"].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
                 <tbody>
                   {orders.length===0 && <tr><td colSpan={7} style={{ ...TD,textAlign:"center",color:LIGHT,padding:40 }}>{t.noOrders}</td></tr>}
-                  {orders.map(o => (
+                  {orders.map(o => {
+                    const st = ORDER_STATUSES.find(s=>s.value===o.status)||{color:MED,bg:"rgba(245,245,245,0.9)"};
+                    return (
                     <tr key={o.id} style={{ background:"rgba(255,255,255,0.15)" }}>
                       <td style={{ ...TD,fontWeight:600,color:PRIMARY,fontFamily:"monospace",fontSize:11 }}>{(o.id||"").slice(0,8)}…</td>
-                      <td style={{ ...TD,color:MED,fontSize:12 }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString():"—"}</td>
-                      <td style={{ ...TD,fontWeight:600 }}>{o.customer?.name||"—"}</td>
-                      <td style={{ ...TD,fontSize:12,color:MED }}>{o.customer?.phone||"—"}</td>
-                      <td style={{ ...TD,color:MED,fontSize:12 }}>{(o.items||[]).slice(0,2).map(i => i.name).join(", ")}{(o.items||[]).length>2?` +${o.items.length-2}`:""}</td>
-                      <td style={{ ...TD,fontWeight:800,color:PRIMARY }}>৳{(o.total||0).toLocaleString()}</td>
-                      <td style={TD}><span style={statusBadge(o.status)}>{(o.status||"").replace("_"," ")}</span></td>
+                      <td style={{ ...TD,color:MED,fontSize:11 }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString():"—"}</td>
+                      <td style={{ ...TD,fontWeight:600,fontSize:12 }}>{o.customer?.name||"—"}<br/><span style={{fontSize:10,color:MED}}>{o.customer?.phone||""}</span></td>
+                      <td style={{ ...TD,color:MED,fontSize:11 }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")}{(o.items||[]).length>2?` +${o.items.length-2}`:""}</td>
+                      <td style={{ ...TD,fontWeight:800,color:PRIMARY,fontSize:13 }}>৳{(o.total||0).toLocaleString()}</td>
+                      <td style={{ ...TD,minWidth:160 }}>
+                        <select
+                          value={o.status||"processing"}
+                          onChange={e=>updateOrderStatus(o.id,e.target.value)}
+                          style={{ width:"100%",padding:"6px 8px",borderRadius:8,border:`1.5px solid ${st.color}`,background:st.bg,color:st.color,fontWeight:700,fontSize:11,fontFamily:"inherit",cursor:"pointer" }}>
+                          {ORDER_STATUSES.map(s=>(
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
