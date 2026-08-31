@@ -4139,7 +4139,7 @@ export default function App() {
                         }
                         onClick={() => setSelectedProduct(p)}
                       >
-                        <div style={{ height: 130 }}>
+                        <div style={{ height: 200, overflow: "hidden" }}>
                           <Carousel
                             images={
                               p.imageUrls && p.imageUrls.length
