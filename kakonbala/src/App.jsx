@@ -482,6 +482,7 @@ export default function App() {
   const [showFilters, setShowFilters] = useState(false);
   const [wishlist, setWishlist] = useState([]);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState(null);
   const [tab, setTab]       = useState("home");
   const [products, setProducts]   = useState([]);
   const [orders, setOrders]       = useState([]);
@@ -851,6 +852,169 @@ export default function App() {
   return (
     <div style={{ fontFamily:"'Hind Siliguri','Segoe UI',Arial,sans-serif",background:"linear-gradient(160deg,#FFE4F0 0%,#F8D7F8 20%,#EDD6FF 40%,#F5D0FF 60%,#FFD6EC 80%,#FFE8F5 100%)",minHeight:"100vh",color:DARK }}>
 
+      {/* ══ SIDE MENU DRAWER ══ */}
+      {mobileMenu && (
+        <div onClick={()=>setMobileMenu(false)}
+          style={{ position:"fixed",inset:0,background:"rgba(10,0,20,0.6)",zIndex:300,backdropFilter:"blur(3px)" }}/>
+      )}
+      <div style={{ position:"fixed",top:0,left:0,bottom:0,width:300,
+        background:"#FFF",zIndex:301,
+        transform:mobileMenu?"translateX(0)":"translateX(-100%)",
+        transition:"transform 0.35s cubic-bezier(0.4,0,0.2,1)",
+        boxShadow:mobileMenu?"8px 0 40px rgba(0,0,0,0.2)":"none",
+        display:"flex",flexDirection:"column",overflowY:"auto" }}>
+
+        {/* Header */}
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 16px",borderBottom:`1px solid rgba(173,20,87,0.12)` }}>
+          <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+            <img src="/logo.jpg" alt="logo" style={{ width:36,height:36,borderRadius:"50%",objectFit:"cover",border:`1.5px solid rgba(173,20,87,0.3)` }}/>
+            <div style={{ fontSize:16,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>কাঁকনবালা</div>
+          </div>
+          <button onClick={()=>setMobileMenu(false)}
+            style={{ background:"none",border:"none",fontSize:22,cursor:"pointer",color:DARK,lineHeight:1 }}>✕</button>
+        </div>
+
+        {/* Menu items */}
+        <div style={{ flex:1,padding:"8px 0" }}>
+
+          {/* Home */}
+          {[["home","🏠 Home"],["shop","🛍 Shop"],["collections","📦 Collections"],["wishlist","❤️ Wishlist"]].map(([key,label])=>(
+            <button key={key} onClick={()=>{setTab(key);setMobileMenu(false);}}
+              style={{ width:"100%",textAlign:"left",padding:"13px 22px",background:tab===key?"rgba(173,20,87,0.06)":"transparent",
+                border:"none",cursor:"pointer",fontSize:14,fontWeight:tab===key?700:500,
+                color:tab===key?PRIMARY:DARK,fontFamily:"inherit",borderLeft:tab===key?`3px solid ${PRIMARY}`:"3px solid transparent",
+                transition:"all 0.15s" }}>
+              {label}
+            </button>
+          ))}
+
+          <div style={{ height:1,background:"rgba(173,20,87,0.1)",margin:"8px 20px" }}/>
+
+          {/* Collections expandable */}
+          <div style={{ padding:"4px 0" }}>
+            <div style={{ padding:"10px 22px 6px",fontSize:10,color:LIGHT,fontWeight:700,letterSpacing:2,textTransform:"uppercase" }}>Shop by Category</div>
+
+            {/* Jewelry */}
+            <div>
+              <button onClick={()=>setExpandedMenu(e=>e==="jewelry"?null:"jewelry")}
+                style={{ width:"100%",textAlign:"left",padding:"11px 22px",background:"transparent",border:"none",cursor:"pointer",
+                  fontSize:13,fontWeight:600,color:DARK,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <span>💍 Jewelry / গহনা</span>
+                <span style={{ fontSize:12,transition:"transform 0.2s",transform:expandedMenu==="jewelry"?"rotate(90deg)":"rotate(0deg)" }}>›</span>
+              </button>
+              {expandedMenu==="jewelry"&&(
+                <div style={{ background:"rgba(173,20,87,0.03)",borderLeft:`2px solid rgba(173,20,87,0.15)`,marginLeft:22 }}>
+                  {CATS.jewelry.subs.map(s=>(
+                    <button key={s} onClick={()=>{setCatFilter("jewelry");setSubFilter(s);setTab("shop");setMobileMenu(false);}}
+                      style={{ width:"100%",textAlign:"left",padding:"8px 18px",background:"transparent",border:"none",cursor:"pointer",
+                        fontSize:12,color:MED,fontFamily:"inherit",transition:"color 0.15s" }}
+                      onMouseEnter={e=>e.target.style.color=PRIMARY}
+                      onMouseLeave={e=>e.target.style.color=MED}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Crafts */}
+            <div>
+              <button onClick={()=>setExpandedMenu(e=>e==="crafts"?null:"crafts")}
+                style={{ width:"100%",textAlign:"left",padding:"11px 22px",background:"transparent",border:"none",cursor:"pointer",
+                  fontSize:13,fontWeight:600,color:DARK,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <span>🏺 Crafts / ক্রাফট</span>
+                <span style={{ fontSize:12,transition:"transform 0.2s",transform:expandedMenu==="crafts"?"rotate(90deg)":"rotate(0deg)" }}>›</span>
+              </button>
+              {expandedMenu==="crafts"&&(
+                <div style={{ background:"rgba(106,27,154,0.03)",borderLeft:`2px solid rgba(106,27,154,0.15)`,marginLeft:22 }}>
+                  {CATS.crafts.subs.map(s=>(
+                    <button key={s} onClick={()=>{setCatFilter("crafts");setSubFilter(s);setTab("shop");setMobileMenu(false);}}
+                      style={{ width:"100%",textAlign:"left",padding:"8px 18px",background:"transparent",border:"none",cursor:"pointer",
+                        fontSize:12,color:MED,fontFamily:"inherit" }}
+                      onMouseEnter={e=>e.target.style.color=PURPLE}
+                      onMouseLeave={e=>e.target.style.color=MED}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Clothing */}
+            <div>
+              <button onClick={()=>setExpandedMenu(e=>e==="clothing"?null:"clothing")}
+                style={{ width:"100%",textAlign:"left",padding:"11px 22px",background:"transparent",border:"none",cursor:"pointer",
+                  fontSize:13,fontWeight:600,color:DARK,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <span>👗 Clothing / পোশাক</span>
+                <span style={{ fontSize:12,transition:"transform 0.2s",transform:expandedMenu==="clothing"?"rotate(90deg)":"rotate(0deg)" }}>›</span>
+              </button>
+              {expandedMenu==="clothing"&&(
+                <div style={{ background:"rgba(249,168,37,0.04)",borderLeft:`2px solid rgba(249,168,37,0.3)`,marginLeft:22 }}>
+                  {Object.entries(CATS.clothing.groups).map(([group, subs])=>(
+                    <div key={group}>
+                      <button onClick={()=>setExpandedMenu(e=>e===group?null:group)}
+                        style={{ width:"100%",textAlign:"left",padding:"8px 18px",background:"transparent",border:"none",cursor:"pointer",
+                          fontSize:12,fontWeight:700,color:"#B8860B",fontFamily:"inherit",display:"flex",justifyContent:"space-between" }}>
+                        <span>{group==="Women"?"👩 Women":group==="Men"?"👨 Men":"👶 Child"}</span>
+                        <span style={{ fontSize:11 }}>{expandedMenu===group?"▲":"▼"}</span>
+                      </button>
+                      {expandedMenu===group&&(
+                        <div style={{ paddingLeft:12 }}>
+                          {subs.map(s=>(
+                            <button key={s} onClick={()=>{setCatFilter("clothing");setClothingGroup(group);setSubFilter(s);setTab("shop");setMobileMenu(false);setExpandedMenu(null);}}
+                              style={{ width:"100%",textAlign:"left",padding:"7px 18px",background:"transparent",border:"none",cursor:"pointer",
+                                fontSize:11,color:MED,fontFamily:"inherit" }}
+                              onMouseEnter={e=>e.target.style.color="#B8860B"}
+                              onMouseLeave={e=>e.target.style.color=MED}>
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ height:1,background:"rgba(173,20,87,0.1)",margin:"8px 20px" }}/>
+
+          {/* About & Contact */}
+          <button onClick={()=>{setTab("home");setMobileMenu(false);setTimeout(()=>document.getElementById("about")?.scrollIntoView({behavior:"smooth"}),300);}}
+            style={{ width:"100%",textAlign:"left",padding:"13px 22px",background:"transparent",border:"none",cursor:"pointer",fontSize:14,fontWeight:500,color:DARK,fontFamily:"inherit" }}>
+            🌸 About Us
+          </button>
+          <a href="https://wa.me/8801920895985" target="_blank" rel="noreferrer"
+            style={{ display:"block",padding:"13px 22px",textDecoration:"none",fontSize:14,fontWeight:500,color:DARK }}>
+            📱 WhatsApp Us
+          </a>
+          <a href="mailto:kakonbala.official@gmail.com"
+            style={{ display:"block",padding:"13px 22px",textDecoration:"none",fontSize:14,fontWeight:500,color:DARK }}>
+            📧 Email Us
+          </a>
+        </div>
+
+        {/* Auth at bottom */}
+        <div style={{ borderTop:`1px solid rgba(173,20,87,0.12)`,padding:"16px 22px" }}>
+          {user ? (
+            <div>
+              <div style={{ fontSize:12,color:MED,marginBottom:8 }}>{isAdmin?"👑 Admin":("👤 "+user.email.split("@")[0])}</div>
+              <button onClick={()=>{handleLogout();setMobileMenu(false);}}
+                style={{ width:"100%",padding:"10px",background:"rgba(255,235,238,0.8)",border:`1px solid rgba(198,40,40,0.2)`,
+                  color:DANGER,borderRadius:10,cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit" }}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button onClick={()=>{setShowAuth(true);setMobileMenu(false);}}
+              style={{ width:"100%",padding:"12px",...btn,borderRadius:10,fontSize:14 }}>
+              Login / Sign Up
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ANNOUNCEMENT BAR */}
       <div style={{ background:GRAD,color:"#FFF",fontSize:12,fontWeight:600,padding:"7px 0",textAlign:"center",position:"sticky",top:0,zIndex:60,overflow:"hidden" }}>
         <div style={{ display:"inline-flex",gap:40,animation:"ticker 20s linear infinite",whiteSpace:"nowrap" }}>
@@ -863,6 +1027,14 @@ export default function App() {
 
       {/* MAIN HEADER */}
       <header style={{ background:"rgba(255,255,255,0.88)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(173,20,87,0.1)",padding:"0 32px",display:"flex",alignItems:"center",justifyContent:"space-between",height:68,position:"sticky",top:36,zIndex:50,boxShadow:"0 2px 20px rgba(173,20,87,0.08)" }}>
+        {/* Hamburger */}
+        <button onClick={()=>setMobileMenu(true)}
+          style={{ background:"none",border:"none",cursor:"pointer",fontSize:22,color:DARK,padding:"4px 8px",display:"flex",flexDirection:"column",gap:5,justifyContent:"center",marginRight:8 }}>
+          <span style={{ display:"block",width:22,height:2,background:DARK,borderRadius:2 }}/>
+          <span style={{ display:"block",width:22,height:2,background:DARK,borderRadius:2 }}/>
+          <span style={{ display:"block",width:22,height:2,background:DARK,borderRadius:2 }}/>
+        </button>
+
         {/* Logo */}
         <div style={{ display:"flex",alignItems:"center",gap:10,cursor:"pointer" }} onClick={()=>setTab("home")}>
           <img src="/logo.jpg" alt="logo" style={{ width:48,height:48,borderRadius:"50%",border:"2px solid rgba(173,20,87,0.35)",objectFit:"cover" }} />
