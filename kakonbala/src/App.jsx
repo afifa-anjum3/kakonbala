@@ -497,6 +497,10 @@ export default function App() {
   const [payLoading, setPayLoading] = useState(false);
   const [notif, setNotif]   = useState(null);
   const [selSize, setSelSize]   = useState("");
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
+  const [pan, setPan] = useState({x:0,y:0});
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({x:0,y:0});
   const [selColor, setSelColor] = useState("");
   const [selPiece, setSelPiece] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -552,10 +556,12 @@ export default function App() {
 
   useEffect(() => {
     if (selectedProduct) {
-      setSelSize(selectedProduct.sizes?.[0] || "");
-      setSelColor(selectedProduct.colors?.[0] || "");
-      setSelPiece(selectedProduct.pieceCounts?.[0] || "");
+      setSelSize("");
+      setSelColor("");
+      setSelPiece(selectedProduct.packOptions?.[0]?.label || "");
       setZoom(1);
+      setActiveImgIdx(0);
+      setPan({x:0,y:0});
     }
   }, [selectedProduct]);
 
@@ -1792,98 +1798,224 @@ export default function App() {
         )}
       </main>
 
-      {/* PRODUCT DETAIL MODAL */}
+      {/* PRODUCT DETAIL MODAL — Kingsbury style */}
       {selectedProduct && (
         <>
-          <div onClick={() => setSelectedProduct(null)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:200,backdropFilter:"blur(4px)" }} />
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(600px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.35)" }}>
-            <button onClick={() => setSelectedProduct(null)} style={{ position:"absolute",top:14,right:14,zIndex:10,background:"rgba(255,255,255,0.8)",border:"none",width:34,height:34,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
-            <div style={{ height:300,position:"relative",overflow:"hidden" }}>
-              <ZoomableCarousel
-                images={selectedProduct.imageUrls&&selectedProduct.imageUrls.length?selectedProduct.imageUrls:[selectedProduct.imageUrl]}
-                emoji={selectedProduct.emoji} height={300}
-                primaryImage={selColor&&selectedProduct.colorImages&&selectedProduct.colorImages[selColor]?selectedProduct.colorImages[selColor]:null}
-              />
+          <div onClick={()=>{setSelectedProduct(null);setZoom(1);}}
+            style={{ position:"fixed",inset:0,background:"rgba(10,0,20,0.75)",zIndex:200,backdropFilter:"blur(6px)" }}/>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",
+            width:"min(1100px,96vw)",maxHeight:"92vh",overflowY:"auto",
+            background:"#FFF",borderRadius:20,zIndex:201,
+            display:"grid",gridTemplateColumns:"1fr 1fr",
+            boxShadow:"0 32px 100px rgba(0,0,0,0.4)" }}>
+
+            {/* ── LEFT: Image Gallery ── */}
+            <div style={{ position:"relative",background:"#F9F0F8",borderRadius:"20px 0 0 20px",overflow:"hidden",minHeight:500 }}>
+              {/* Main large image with zoom */}
+              <div style={{ height:420,overflow:"hidden",
+                transform:`scale(${zoom})`,transformOrigin:"center center",
+                transition:dragging?"none":"transform 0.2s",
+                cursor:zoom>1?"grab":"zoom-in" }}
+                onMouseDown={e=>{if(zoom>1){setDragging(true);setDragStart({x:e.clientX,y:e.clientY});}}}
+                onMouseMove={e=>{if(dragging){setPan({x:pan.x+(e.clientX-dragStart.x)*0.5,y:pan.y+(e.clientY-dragStart.y)*0.5});setDragStart({x:e.clientX,y:e.clientY});}}}
+                onMouseUp={()=>setDragging(false)}
+                onMouseLeave={()=>setDragging(false)}
+                onClick={()=>zoom===1&&setZoom(2)}>
+                {(() => {
+                  const imgs = selectedProduct.imageUrls&&selectedProduct.imageUrls.length
+                    ? selectedProduct.imageUrls : [selectedProduct.imageUrl];
+                  const colorImg = selColor&&selectedProduct.colorImages&&selectedProduct.colorImages[selColor];
+                  const allImgs = colorImg ? [colorImg,...imgs.filter(u=>u&&u!==colorImg)] : imgs;
+                  const validImgs = allImgs.filter(Boolean);
+                  const mainImg = validImgs[activeImgIdx]||validImgs[0];
+                  return mainImg
+                    ? <img src={mainImg} alt={selectedProduct.name}
+                        style={{ width:"100%",height:"100%",objectFit:"contain",
+                          transform:`translate(${pan.x}px,${pan.y}px)`,
+                          transition:dragging?"none":"transform 0.1s",
+                          userSelect:"none",pointerEvents:"none",padding:8 }}
+                        draggable={false}/>
+                    : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",fontSize:100}}>{selectedProduct.emoji}</div>;
+                })()}
+              </div>
+              {/* Zoom controls */}
+              <div style={{ position:"absolute",top:10,right:10,display:"flex",gap:6,zIndex:5 }}>
+                <button onClick={()=>{setZoom(z=>Math.min(3,z+0.5));setPan({x:0,y:0});}}
+                  style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:14,fontWeight:700,color:PRIMARY,display:"flex",alignItems:"center",justifyContent:"center" }}>+</button>
+                <span style={{ background:"rgba(255,255,255,0.9)",borderRadius:8,padding:"0 7px",fontSize:11,fontWeight:700,color:MED,height:30,display:"flex",alignItems:"center" }}>{Math.round(zoom*100)}%</span>
+                <button onClick={()=>{setZoom(z=>Math.max(1,z-0.5));if(zoom<=1.5)setPan({x:0,y:0});}}
+                  style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.3)",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:14,fontWeight:700,color:PRIMARY,display:"flex",alignItems:"center",justifyContent:"center" }}>−</button>
+                {zoom>1&&<button onClick={()=>{setZoom(1);setPan({x:0,y:0});}}
+                  style={{ background:"rgba(255,255,255,0.9)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:8,padding:"0 8px",height:30,cursor:"pointer",fontSize:10,fontWeight:600,color:MED }}>Reset</button>}
+              </div>
+              {/* Thumbnail strip */}
+              {(() => {
+                const imgs = selectedProduct.imageUrls&&selectedProduct.imageUrls.length
+                  ? selectedProduct.imageUrls : [selectedProduct.imageUrl];
+                const colorImg = selColor&&selectedProduct.colorImages&&selectedProduct.colorImages[selColor];
+                const allImgs = colorImg ? [colorImg,...imgs.filter(u=>u&&u!==colorImg)] : imgs;
+                const validImgs = allImgs.filter(Boolean);
+                if (validImgs.length <= 1) return null;
+                return (
+                  <div style={{ display:"flex",gap:8,padding:"10px 12px",overflowX:"auto" }}>
+                    {validImgs.map((img,i)=>(
+                      <img key={i} src={img} alt=""
+                        onClick={()=>{setActiveImgIdx(i);setZoom(1);setPan({x:0,y:0});}}
+                        style={{ width:64,height:64,objectFit:"cover",borderRadius:8,cursor:"pointer",flexShrink:0,
+                          border:activeImgIdx===i?`2.5px solid ${PRIMARY}`:"2px solid rgba(173,20,87,0.15)",
+                          opacity:activeImgIdx===i?1:0.7,transition:"all 0.2s" }}/>
+                    ))}
+                  </div>
+                );
+              })()}
+              {/* Close button */}
+              <button onClick={()=>{setSelectedProduct(null);setZoom(1);setPan({x:0,y:0});setActiveImgIdx(0);}}
+                style={{ position:"absolute",top:10,left:10,background:"rgba(255,255,255,0.9)",border:"none",
+                  width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:16,fontWeight:700,
+                  display:"flex",alignItems:"center",justifyContent:"center",zIndex:5,color:DARK }}>✕</button>
             </div>
-            <div style={{ padding:"22px 28px 28px" }}>
-              <span style={catBadge(selectedProduct.category)}>{selectedProduct.subcategory||selectedProduct.category}</span>
-              <h2 style={{ fontSize:24,fontWeight:900,color:DARK,margin:"6px 0 8px" }}>{selectedProduct.name}</h2>
-              <p style={{ color:MED,fontSize:14,lineHeight:1.7,marginBottom:16 }}>{selectedProduct.desc||"No description."}</p>
-              {(selectedProduct.packOptions&&selectedProduct.packOptions.length>0) ? (
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:8 }}>📦 Pack Size</div>
+
+            {/* ── RIGHT: Product Info ── */}
+            <div style={{ padding:"32px 28px",overflowY:"auto",maxHeight:"92vh" }}>
+              {/* Brand tag */}
+              <div style={{ fontSize:11,color:LIGHT,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:4 }}>কাঁকনবালা</div>
+              {/* Subcategory badge */}
+              <span style={{ ...catBadge(selectedProduct.category),marginBottom:10 }}>{selectedProduct.subcategory||selectedProduct.category}</span>
+              {/* Name */}
+              <h1 style={{ fontSize:26,fontWeight:900,color:DARK,margin:"8px 0 12px",lineHeight:1.2 }}>{selectedProduct.name}</h1>
+
+              {/* Price */}
+              <div style={{ fontSize:28,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:6 }}>
+                ৳{getDisplayPrice(selectedProduct,selPiece).toLocaleString()}
+              </div>
+
+              {/* Stock status */}
+              <div style={{ marginBottom:18 }}>
+                {selectedProduct.stock===0
+                  ? <span style={{ fontSize:12,fontWeight:700,color:DANGER }}>● Out of Stock</span>
+                  : selectedProduct.stock<=5
+                    ? <span style={{ fontSize:12,fontWeight:700,color:WARN }}>● Only {selectedProduct.stock} left</span>
+                    : <span style={{ fontSize:12,fontWeight:700,color:SUCCESS }}>● In Stock</span>
+                }
+              </div>
+
+              {/* Pack sizes with prices */}
+              {selectedProduct.packOptions&&selectedProduct.packOptions.length>0&&(
+                <div style={{ marginBottom:18 }}>
+                  <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:8,letterSpacing:0.5,textTransform:"uppercase" }}>📦 Pack Size</div>
                   <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
-                    {selectedProduct.packOptions.map(opt => (
-                      <button key={opt.label} onClick={() => setSelPiece(opt.label)}
-                        style={{ padding:"8px 16px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",textAlign:"center",border:"1.5px solid "+(selPiece===opt.label?PRIMARY:"rgba(173,20,87,0.25)"),background:selPiece===opt.label?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)" }}>
-                        <div style={{ fontSize:13,fontWeight:700,color:selPiece===opt.label?PRIMARY:MED }}>{opt.label}</div>
-                        <div style={{ fontSize:12,fontWeight:800,color:PRIMARY }}>৳{opt.price.toLocaleString()}</div>
+                    {selectedProduct.packOptions.map(opt=>(
+                      <button key={opt.label} onClick={()=>setSelPiece(opt.label)}
+                        style={{ padding:"10px 16px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",textAlign:"center",
+                          border:`2px solid ${selPiece===opt.label?PRIMARY:"rgba(173,20,87,0.2)"}`,
+                          background:selPiece===opt.label?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.8)" }}>
+                        <div style={{ fontSize:12,fontWeight:700,color:selPiece===opt.label?PRIMARY:MED }}>{opt.label}</div>
+                        <div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{opt.price}</div>
                       </button>
                     ))}
                   </div>
                 </div>
-              ) : selectedProduct.pieceCounts&&selectedProduct.pieceCounts.length>0&&(
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:6 }}>📦 Pack Size</div>
+              )}
+
+              {/* Sizes */}
+              {selectedProduct.sizes&&selectedProduct.sizes.length>0&&(
+                <div style={{ marginBottom:18 }}>
+                  <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:8,letterSpacing:0.5,textTransform:"uppercase" }}>📏 Size Guide</div>
                   <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
-                    {selectedProduct.pieceCounts.map(pc => (
-                      <button key={pc} onClick={() => setSelPiece(pc)} style={{ padding:"5px 16px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",border:"1.5px solid "+(selPiece===pc?PRIMARY:"rgba(173,20,87,0.25)"),background:selPiece===pc?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",color:selPiece===pc?PRIMARY:MED }}>{pc}</button>
+                    {selectedProduct.sizes.map(sz=>(
+                      <button key={sz} onClick={()=>setSelSize(sz)}
+                        style={{ width:50,height:50,borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",
+                          border:`2px solid ${selSize===sz?PRIMARY:"rgba(173,20,87,0.2)"}`,
+                          background:selSize===sz?"rgba(173,20,87,0.08)":"#FFF",
+                          color:selSize===sz?PRIMARY:DARK }}>
+                        {sz}
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
-              {selectedProduct.sizes?.length>0 && (
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:6 }}>📏 Size</div>
-                  <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
-                    {selectedProduct.sizes.map(sz => (
-                      <button key={sz} onClick={() => setSelSize(sz)} style={{ padding:"5px 18px",borderRadius:20,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",border:`1.5px solid ${selSize===sz?PRIMARY:"rgba(173,20,87,0.25)"}`,background:selSize===sz?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",color:selSize===sz?PRIMARY:MED }}>{sz}</button>
-                    ))}
+
+              {/* Colors */}
+              {selectedProduct.colors&&selectedProduct.colors.length>0&&(
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:8,letterSpacing:0.5,textTransform:"uppercase" }}>
+                    🎨 Colors ({selectedProduct.colors.length} available){selColor&&<span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}> — {selColor}</span>}
                   </div>
-                </div>
-              )}
-              {selectedProduct.colors?.length>0 && (
-                <div style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:12,fontWeight:700,color:DARK,marginBottom:6 }}>🎨 Color {selColor&&<span style={{ fontWeight:400,color:MED }}>— {selColor}</span>}</div>
                   <div style={{ display:"flex",gap:10,flexWrap:"wrap",alignItems:"center" }}>
-                    {selectedProduct.colors.map(cl => {
-                      const hex = COLOR_MAP[cl.toLowerCase()] || COLOR_MAP[cl.toLowerCase().replace(/\s/g,"_")];
-                      const colorImg = selectedProduct.colorImages&&selectedProduct.colorImages[cl];
+                    {selectedProduct.colors.map(cl=>{
+                      const hex=COLOR_MAP[cl.toLowerCase()]||COLOR_MAP[cl.toLowerCase().replace(/\s/g,"_")];
+                      const colorImg=selectedProduct.colorImages&&selectedProduct.colorImages[cl];
                       return (
-                        <div key={cl} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:3 }}>
-                          <button onClick={() => setSelColor(cl)} title={cl}
-                            style={{ width:36,height:36,borderRadius:"50%",cursor:"pointer",position:"relative",overflow:"hidden",
+                        <div key={cl} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:4 }}>
+                          <button onClick={()=>{setSelColor(cl);setActiveImgIdx(0);}}
+                            title={cl}
+                            style={{ width:38,height:38,borderRadius:"50%",cursor:"pointer",position:"relative",overflow:"hidden",
                               background:hex||"linear-gradient(135deg,#AD1457,#6A1B9A)",
-                              border:selColor===cl?"3px solid "+PRIMARY:"2px solid rgba(255,255,255,0.8)",
-                              boxShadow:selColor===cl?"0 0 0 2px "+PRIMARY+",0 2px 8px rgba(0,0,0,0.2)":"0 2px 6px rgba(0,0,0,0.15)",
-                              transition:"all 0.2s" }}>
-                            {colorImg&&<img src={colorImg} alt={cl} style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.75,borderRadius:"50%" }} onError={e=>{e.target.style.display="none";}} />}
+                              border:selColor===cl?`3px solid ${PRIMARY}`:`2px solid rgba(255,255,255,0.9)`,
+                              boxShadow:selColor===cl?`0 0 0 2px ${PRIMARY},0 2px 10px rgba(0,0,0,0.2)`:"0 2px 6px rgba(0,0,0,0.15)",
+                              outline:"none",transition:"all 0.2s" }}>
+                            {colorImg&&<img src={colorImg} alt={cl} style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%",opacity:0.85 }} onError={e=>{e.target.style.display="none";}}/>}
                           </button>
-                          <span style={{ fontSize:9,color:selColor===cl?PRIMARY:MED,fontWeight:selColor===cl?700:400,textAlign:"center",maxWidth:40,lineHeight:1.2 }}>{cl}</span>
+                          <span style={{ fontSize:9,color:selColor===cl?PRIMARY:LIGHT,fontWeight:selColor===cl?700:400,textAlign:"center",maxWidth:44,lineHeight:1.2 }}>{cl}</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
               )}
-              <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,240,252,0.6)",borderRadius:12,padding:"14px 18px",marginBottom:20 }}>
-                <div>
-                  <div style={{ fontSize:11,color:LIGHT,marginBottom:2 }}>মূল্য / Price</div>
-                  <div style={{ fontSize:28,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>৳{getDisplayPrice(selectedProduct,selPiece).toLocaleString()}</div>
-                </div>
-                <span style={stockTag(selectedProduct.stock)}>{selectedProduct.stock<=5?`⚠ ${selectedProduct.stock} ${t.left}`:`${selectedProduct.stock} ${t.inStock}`}</span>
-              </div>
-              <button onClick={() => { addToCart({...selectedProduct,price:getDisplayPrice(selectedProduct,selPiece)},{size:selSize,color:selColor,piece:selPiece}); setSelectedProduct(null); }}
+
+              {/* Add to Cart button */}
+              <button onClick={()=>{addToCart({...selectedProduct,price:getDisplayPrice(selectedProduct,selPiece)},{size:selSize,color:selColor,piece:selPiece});setSelectedProduct(null);setZoom(1);setActiveImgIdx(0);}}
                 disabled={selectedProduct.stock===0}
-                style={{ ...btn,width:"100%",padding:"14px",fontSize:16,opacity:selectedProduct.stock===0?0.45:1,cursor:selectedProduct.stock===0?"not-allowed":"pointer" }}>
-                {selectedProduct.stock===0?t.outOfStock:t.addCart}
+                style={{ width:"100%",padding:"16px",fontSize:15,fontWeight:800,letterSpacing:1,textTransform:"uppercase",
+                  background:selectedProduct.stock===0?"#DDD":GRAD,color:"#FFF",border:"none",borderRadius:12,
+                  cursor:selectedProduct.stock===0?"not-allowed":"pointer",marginBottom:12,
+                  boxShadow:selectedProduct.stock===0?"none":"0 6px 20px rgba(173,20,87,0.4)",
+                  transition:"all 0.2s",fontFamily:"inherit" }}>
+                {selectedProduct.stock===0?"Out of Stock":"Add to Cart 🛒"}
               </button>
+
+              {/* Wishlist button */}
+              <button onClick={()=>toggleWishlist(selectedProduct.id)}
+                style={{ width:"100%",padding:"13px",fontSize:14,fontWeight:700,fontFamily:"inherit",
+                  background:"transparent",color:wishlist.includes(selectedProduct.id)?DANGER:MED,
+                  border:`2px solid ${wishlist.includes(selectedProduct.id)?DANGER:"rgba(173,20,87,0.25)"}`,
+                  borderRadius:12,cursor:"pointer",marginBottom:20,transition:"all 0.2s" }}>
+                {wishlist.includes(selectedProduct.id)?"❤️ Saved to Wishlist":"🤍 Add to Wishlist"}
+              </button>
+
+              {/* Description accordion */}
+              <div style={{ borderTop:`1px solid rgba(173,20,87,0.12)`,paddingTop:16 }}>
+                <div style={{ fontSize:12,fontWeight:700,color:DARK,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8 }}>Description</div>
+                <p style={{ fontSize:13,color:MED,lineHeight:1.8,margin:0 }}>{selectedProduct.desc||"No description available."}</p>
+              </div>
+
+              {/* You may also like */}
+              {products.filter(p=>p.category===selectedProduct.category&&p.id!==selectedProduct.id).length>0&&(
+                <div style={{ marginTop:24,borderTop:`1px solid rgba(173,20,87,0.12)`,paddingTop:16 }}>
+                  <div style={{ fontSize:12,fontWeight:700,color:DARK,letterSpacing:0.5,textTransform:"uppercase",marginBottom:12 }}>You May Also Like</div>
+                  <div style={{ display:"flex",gap:10,overflowX:"auto",paddingBottom:8 }}>
+                    {products.filter(p=>p.category===selectedProduct.category&&p.id!==selectedProduct.id).slice(0,4).map(p=>(
+                      <div key={p.id} onClick={()=>{setSelectedProduct(p);setSelSize("");setSelColor("");setSelPiece("");setActiveImgIdx(0);setZoom(1);setPan({x:0,y:0});}}
+                        style={{ flexShrink:0,width:100,cursor:"pointer" }}>
+                        <div style={{ height:100,borderRadius:8,overflow:"hidden",background:"#F9F0F8",marginBottom:5 }}>
+                          {p.imageUrl
+                            ?<img src={p.imageUrl} alt={p.name} style={{ width:"100%",height:"100%",objectFit:"cover" }} onError={e=>{e.target.style.display="none";}}/>
+                            :<div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"100%",fontSize:32 }}>{p.emoji}</div>}
+                        </div>
+                        <div style={{ fontSize:10,fontWeight:700,color:DARK,lineHeight:1.3,marginBottom:2 }}>{p.name}</div>
+                        <div style={{ fontSize:11,fontWeight:800,color:PRIMARY }}>৳{p.price}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </>
       )}
 
-      {/* EDIT PRODUCT MODAL */}
+            {/* EDIT PRODUCT MODAL */}
       {editProduct && (
         <ErrorBoundary>
         <>
