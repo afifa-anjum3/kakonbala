@@ -4776,7 +4776,7 @@ export default function App() {
                         }
                         onClick={() => setSelectedProduct(p)}
                       >
-                        <div style={{ height: 200, overflow: "hidden" }}>
+                        <div style={{ height: 130 }}>
                           <Carousel
                             images={
                               p.imageUrls && p.imageUrls.length
@@ -9653,6 +9653,43 @@ export default function App() {
                     payment required)
                   </div>
                 )}
+              </div>
+
+              {/* Cart items — editable */}
+              <div style={{ marginBottom:14 }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+                  <div style={{ fontSize:13,fontWeight:800,color:DARK }}>🛒 Your Order ({cartCount} items)</div>
+                  <button onClick={()=>{setCheckoutModal(false);setCartOpen(true);}}
+                    style={{ fontSize:11,color:PRIMARY,fontWeight:700,background:"none",border:"none",cursor:"pointer",textDecoration:"underline",fontFamily:"inherit" }}>
+                    Edit Cart
+                  </button>
+                </div>
+                {cart.map(item=>(
+                  <div key={item.cKey} style={{ display:"flex",gap:10,padding:"10px 12px",background:"rgba(255,255,255,0.7)",borderRadius:12,marginBottom:8,alignItems:"center",border:"1px solid rgba(173,20,87,0.08)" }}>
+                    {/* Image */}
+                    <div style={{ width:52,height:52,borderRadius:8,overflow:"hidden",flexShrink:0,border:"1px solid rgba(173,20,87,0.12)",background:"rgba(255,255,255,0.8)" }}>
+                      {item.product.imageUrl
+                        ?<img src={item.product.imageUrl} alt={item.product.name} style={{ width:"100%",height:"100%",objectFit:"cover" }} onError={e=>{e.target.style.display="none";}}/>
+                        :<div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"100%",fontSize:24 }}>{item.product.emoji}</div>}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontSize:12,fontWeight:700,color:DARK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{item.product.name}</div>
+                      {(item.size||item.color||item.piece)&&<div style={{ fontSize:10,color:LIGHT,marginTop:1 }}>{[item.size,item.color,item.piece].filter(Boolean).join(" · ")}</div>}
+                      <div style={{ fontSize:13,fontWeight:800,color:PRIMARY,marginTop:2 }}>৳{item.product.price.toLocaleString()}</div>
+                    </div>
+                    {/* Qty controls */}
+                    <div style={{ display:"flex",alignItems:"center",gap:6,flexShrink:0 }}>
+                      <button onClick={()=>adjustCart(item.cKey,-1)}
+                        style={{ width:26,height:26,background:"rgba(173,20,87,0.08)",border:`1px solid rgba(173,20,87,0.2)`,borderRadius:6,cursor:"pointer",fontSize:14,color:PRIMARY,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700 }}>−</button>
+                      <span style={{ fontSize:13,fontWeight:800,minWidth:16,textAlign:"center",color:DARK }}>{item.qty}</span>
+                      <button onClick={()=>adjustCart(item.cKey,1)}
+                        style={{ width:26,height:26,background:"rgba(173,20,87,0.08)",border:`1px solid rgba(173,20,87,0.2)`,borderRadius:6,cursor:"pointer",fontSize:14,color:PRIMARY,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700 }}>+</button>
+                    </div>
+                    {/* Item total */}
+                    <div style={{ fontSize:13,fontWeight:800,color:DARK,flexShrink:0,minWidth:52,textAlign:"right" }}>৳{(item.product.price*item.qty).toLocaleString()}</div>
+                  </div>
+                ))}
               </div>
 
               {/* Order summary */}
