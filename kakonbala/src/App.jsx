@@ -2500,38 +2500,22 @@ export default function App() {
       return;
     }
 
-    // Online payment via SSLCommerz
+    // Manual bKash/Nagad payment
+    if (!transactionId.trim()) { notify("⚠ Enter your bKash/Nagad Transaction ID"); return; }
     setPayLoading(true);
     try {
-      const orderRef = await addDoc(collection(db, "orders"), {
+      await addDoc(collection(db, "orders"), {
         ...orderData,
         status: "pending_payment",
+        transactionId: transactionId.trim(),
+        paymentNote: paymentNumber + " — TxID: " + transactionId.trim()
       });
-      const res = await fetch("/api/initiate-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: orderRef.id,
-          amount: total,
-          customerName: customer.name,
-          customerEmail: customer.email || "noemail@kakonbala.com",
-          customerPhone: customer.phone,
-          customerAddress: `${customer.houseRoad}, ${customer.thana}, ${customer.area}, ${customer.district} - ${customer.postOffice}`,
-        }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        notify("⚠ " + (data.error || "Payment error"));
-        setPayLoading(false);
-      }
-    } catch (e) {
-      notify("⚠ " + e.message);
-      setPayLoading(false);
-    }
+      setCart([]); setCheckoutModal(false); setPromoApplied(null);
+      setPromoCode(""); setTransactionId(""); setPaymentNumber("bKash");
+      notify("✓ Order placed! We will confirm after verifying your payment.");
+    } catch(e) { notify("⚠ " + e.message); }
+    setPayLoading(false);
   }
-
   /* ── Sub-category helpers ── */
   function getSubOptions(cat, cg) {
     if (cat === "jewelry") return CATS.jewelry.subs;
