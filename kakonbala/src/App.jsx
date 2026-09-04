@@ -1968,8 +1968,6 @@ export default function App() {
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(null);
   const [payMethod, setPayMethod] = useState("cod");
-  const [transactionId, setTransactionId] = useState("");
-  const [selectedGateway, setSelectedGateway] = useState("bKash");
   const [promoCodes, setPromoCodes] = useState([]);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
@@ -9572,73 +9570,90 @@ export default function App() {
                 )}
               </div>
 
-                {/* Payment method */}
-                <div style={{ marginBottom:16 }}>
-                  <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:8 }}>💳 Payment Method</label>
-                  <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10 }}>
-                    <button onClick={()=>setPayMethod("cod")}
-                      style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,
-                        border:`2px solid ${payMethod==="cod"?PRIMARY:"rgba(173,20,87,0.2)"}`,
-                        background:payMethod==="cod"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",
-                        color:payMethod==="cod"?PRIMARY:MED }}>
-                      🚚 Cash on Delivery<br/>
-                      <span style={{ fontSize:10,fontWeight:400 }}>Dhaka only</span>
-                    </button>
-                    <button onClick={()=>setPayMethod("online")}
-                      style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,
-                        border:`2px solid ${payMethod==="online"?PRIMARY:"rgba(173,20,87,0.2)"}`,
-                        background:payMethod==="online"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",
-                        color:payMethod==="online"?PRIMARY:MED }}>
-                      📱 Mobile Payment<br/>
-                      <span style={{ fontSize:10,fontWeight:400 }}>bKash · Nagad · Rocket</span>
-                    </button>
-                  </div>
-                  {payMethod==="cod"&&deliveryCharge()===150&&(
-                    <div style={{ fontSize:11,color:DANGER,fontWeight:600,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8,marginBottom:8 }}>
-                      ⚠ Outside Dhaka — Please use Mobile Payment (advance required)
-                    </div>
-                  )}
-                  {payMethod==="online"&&(
-                    <div style={{ background:"rgba(255,248,255,0.95)",border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:14,padding:16 }}>
-                      <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:10 }}>Step 1 — Choose payment method:</div>
-                      <div style={{ display:"flex",gap:8,marginBottom:14 }}>
-                        {[["bKash","#E2136E","📱"],["Nagad","#F6891F","💛"],["Rocket","#8B1A8B","🚀"]].map(([name,color,icon])=>(
-                          <button key={name} onClick={()=>setSelectedGateway(name)}
-                            style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"inherit",
-                              border:`2px solid ${selectedGateway===name?color:"rgba(0,0,0,0.08)"}`,
-                              background:selectedGateway===name?color+"18":"#FFF",
-                              color:selectedGateway===name?color:"#666",
-                              display:"flex",flexDirection:"column",alignItems:"center",gap:4 }}>
-                            <span style={{ fontSize:20 }}>{icon}</span>{name}
-                          </button>
-                        ))}
-                      </div>
-                      <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 2 — Send ৳{finalTotal().toLocaleString()} to:</div>
-                      <div style={{ background:"#FFF",borderRadius:10,padding:"12px 16px",marginBottom:14,border:"1px solid rgba(173,20,87,0.1)" }}>
-                        <div style={{ fontSize:11,color:MED,fontWeight:600,marginBottom:2 }}>{selectedGateway} — Send Money</div>
-                        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                          <div style={{ fontSize:22,fontWeight:900,color:DARK,letterSpacing:2 }}>01920-895985</div>
-                          <div style={{ fontSize:11,color:"#FFF",background:selectedGateway==="bKash"?"#E2136E":selectedGateway==="Nagad"?"#F6891F":"#8B1A8B",padding:"3px 10px",borderRadius:8,fontWeight:700 }}>{selectedGateway}</div>
-                        </div>
-                        <div style={{ fontSize:11,color:MED,marginTop:4 }}>Account type: <b>Personal</b></div>
-                      </div>
-                      <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 3 — Enter Transaction ID:</div>
-                      <input
-                        style={{ width:"100%",padding:"10px 14px",
-                          border:`2px solid ${transactionId.length>5?"#2E7D32":"rgba(173,20,87,0.25)"}`,
-                          borderRadius:10,fontSize:14,fontFamily:"monospace",background:"#FFF",
-                          boxSizing:"border-box",letterSpacing:1,color:DARK,fontWeight:700 }}
-                        type="text" placeholder="e.g. 8FB3A2D1K9"
-                        value={transactionId}
-                        onChange={e=>setTransactionId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))}
-                      />
-                      {transactionId.length>5&&<div style={{ fontSize:11,color:SUCCESS,fontWeight:600,marginTop:4 }}>✓ Transaction ID entered</div>}
-                      <div style={{ fontSize:10,color:LIGHT,marginTop:8,padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:6 }}>
-                        📌 Find Transaction ID in your {selectedGateway} app → Transaction History. We verify within 1 hour.
-                      </div>
-                    </div>
-                  )}
+              {/* Payment method */}
+              <div style={{ marginBottom: 16 }}>
+                <label
+                  style={{
+                    fontSize: 12,
+                    color: MED,
+                    fontWeight: 700,
+                    display: "block",
+                    marginBottom: 8,
+                  }}
+                >
+                  💳 Payment Method
+                </label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 10,
+                  }}
+                >
+                  <button
+                    onClick={() => setPayMethod("cod")}
+                    style={{
+                      padding: "12px",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      border: `2px solid ${payMethod === "cod" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
+                      background:
+                        payMethod === "cod"
+                          ? "rgba(173,20,87,0.08)"
+                          : "rgba(255,255,255,0.6)",
+                      color: payMethod === "cod" ? PRIMARY : MED,
+                    }}
+                  >
+                    🚚 Cash on Delivery
+                    <br />
+                    <span style={{ fontSize: 10, fontWeight: 400 }}>
+                      Dhaka only
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setPayMethod("online")}
+                    style={{
+                      padding: "12px",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      border: `2px solid ${payMethod === "online" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
+                      background:
+                        payMethod === "online"
+                          ? "rgba(173,20,87,0.08)"
+                          : "rgba(255,255,255,0.6)",
+                      color: payMethod === "online" ? PRIMARY : MED,
+                    }}
+                  >
+                    💳 Online Payment
+                    <br />
+                    <span style={{ fontSize: 10, fontWeight: 400 }}>
+                      bKash · Nagad · Card
+                    </span>
+                  </button>
                 </div>
+                {payMethod === "cod" && deliveryCharge() === 150 && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: DANGER,
+                      fontWeight: 600,
+                      marginTop: 6,
+                      padding: "6px 10px",
+                      background: "rgba(255,235,238,0.85)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    ⚠ Outside Dhaka: Please select Online Payment (advance
+                    payment required)
+                  </div>
+                )}
+              </div>
 
               {/* Order summary */}
               <div
@@ -9752,6 +9767,112 @@ export default function App() {
           </div>
         </>
       )}
+
+      {/* ══ CUSTOMER PROFILE MODAL ══ */}
+      {showProfile && (
+        <>
+          <div onClick={()=>setShowProfile(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",
+            width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",
+            background:"rgba(255,255,255,0.97)",backdropFilter:"blur(20px)",
+            borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
+            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+              <div>
+                <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>👤 My Account</div>
+                <div style={{ color:"rgba(255,255,255,0.8)",fontSize:11,marginTop:2 }}>{user?.email}</div>
+              </div>
+              <button onClick={()=>setShowProfile(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
+            </div>
+            <div style={{ padding:24 }}>
+              <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:16 }}>📋 Personal Details</div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
+                {[["Full Name","name","text","Your name"],["Phone","phone","tel","01XXXXXXXXX"],["Email","email","email","your@email.com"]].map(([l,k,tp,ph])=>(
+                  <div key={k} style={{ gridColumn:k==="email"?"span 2":"span 1" }}>
+                    <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>{l}</label>
+                    <input style={{ ...inp }} type={tp} placeholder={ph}
+                      value={profileData[k]||""}
+                      onChange={e=>setProfileData(p=>({...p,[k]:e.target.value}))}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:12 }}>📍 Saved Address</div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16 }}>
+                <div>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>District</label>
+                  <select style={{ ...inp,fontSize:12 }} value={profileData.district||""}
+                    onChange={e=>setProfileData(p=>({...p,district:e.target.value,area:"",thana:"",postOffice:""}))}>
+                    <option value="">-- Select --</option>
+                    {BD_DISTRICTS.map(d=><option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Area</label>
+                  <select style={{ ...inp,fontSize:12 }} value={profileData.area||""}
+                    onChange={e=>setProfileData(p=>({...p,area:e.target.value,thana:"",postOffice:""}))}>
+                    <option value="">-- Select --</option>
+                    {getAreas(profileData.district).map(a=><option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Thana</label>
+                  <select style={{ ...inp,fontSize:12 }} value={profileData.thana||""}
+                    onChange={e=>setProfileData(p=>({...p,thana:e.target.value,postOffice:""}))}>
+                    <option value="">-- Select --</option>
+                    {getThanas(profileData.district,profileData.area).map(t2=><option key={t2} value={t2}>{t2}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Post Office</label>
+                  <select style={{ ...inp,fontSize:12 }} value={profileData.postOffice||""}
+                    onChange={e=>setProfileData(p=>({...p,postOffice:e.target.value}))}>
+                    <option value="">-- Select --</option>
+                    {getPostOffices(profileData.district,profileData.area,profileData.thana).map(po=><option key={po} value={po}>{po}</option>)}
+                  </select>
+                </div>
+                <div style={{ gridColumn:"span 2" }}>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>House No, Road No</label>
+                  <input style={{ ...inp }} type="text" placeholder="House 12, Road 5, Block C"
+                    value={profileData.houseRoad||""}
+                    onChange={e=>setProfileData(p=>({...p,houseRoad:e.target.value}))}/>
+                </div>
+              </div>
+              <button onClick={async()=>{
+                if (!user?.uid) return;
+                try {
+                  await setDoc(doc(db,"customers",user.uid),{...profileData,updatedAt:serverTimestamp()},{merge:true});
+                  // Also update checkout form
+                  setCustomer(c=>({...c,...profileData,city:profileData.district||c.city}));
+                  notify("✓ Profile saved!");
+                  setShowProfile(false);
+                } catch(e){ notify("⚠ "+e.message); }
+              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>
+                💾 Save Profile
+              </button>
+
+              {/* Order History */}
+              <div style={{ marginTop:24,borderTop:`1px solid rgba(173,20,87,0.12)`,paddingTop:18 }}>
+                <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:12 }}>📦 My Orders</div>
+                {orders.filter(o=>o.customer?.phone===profileData.phone||o.customer?.email===profileData.email).length===0
+                  ? <div style={{ fontSize:13,color:LIGHT,textAlign:"center",padding:"16px 0" }}>No orders yet</div>
+                  : orders.filter(o=>o.customer?.phone===profileData.phone||o.customer?.email===profileData.email).slice(0,5).map(o=>(
+                    <div key={o.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(255,255,255,0.7)",borderRadius:10,marginBottom:8,border:"1px solid rgba(173,20,87,0.08)" }}>
+                      <div>
+                        <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")}</div>
+                        <div style={{ fontSize:10,color:MED }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString():""}</div>
+                      </div>
+                      <div style={{ textAlign:"right" }}>
+                        <div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{(o.total||0).toLocaleString()}</div>
+                        <span style={{ fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,background:"rgba(232,245,233,0.9)",color:SUCCESS }}>{(o.status||"").replace("_"," ")}</span>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
 
       {/* FOOTER */}
       <footer
