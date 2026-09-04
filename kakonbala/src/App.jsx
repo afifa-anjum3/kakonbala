@@ -1968,6 +1968,8 @@ export default function App() {
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(null);
   const [payMethod, setPayMethod] = useState("cod");
+  const [transactionId, setTransactionId] = useState("");
+  const [selectedGateway, setSelectedGateway] = useState("bKash");
   const [promoCodes, setPromoCodes] = useState([]);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
@@ -2498,7 +2500,7 @@ export default function App() {
       return;
     }
 
-    // Online payment via SSLCommerz (bKash, Nagad, Rocket, Card)
+    // Online payment via SSLCommerz
     setPayLoading(true);
     try {
       const orderRef = await addDoc(collection(db, "orders"), {
@@ -2514,14 +2516,14 @@ export default function App() {
           customerName: customer.name,
           customerEmail: customer.email || "noemail@kakonbala.com",
           customerPhone: customer.phone,
-          customerAddress: `${customer.houseRoad}, ${customer.thana}, ${customer.area}, ${customer.district}`,
+          customerAddress: `${customer.houseRoad}, ${customer.thana}, ${customer.area}, ${customer.district} - ${customer.postOffice}`,
         }),
       });
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
       } else {
-        notify("⚠ Payment gateway error. Please try COD or contact us on WhatsApp.");
+        notify("⚠ " + (data.error || "Payment error"));
         setPayLoading(false);
       }
     } catch (e) {
@@ -9570,90 +9572,73 @@ export default function App() {
                 )}
               </div>
 
-              {/* Payment method */}
-              <div style={{ marginBottom: 16 }}>
-                <label
-                  style={{
-                    fontSize: 12,
-                    color: MED,
-                    fontWeight: 700,
-                    display: "block",
-                    marginBottom: 8,
-                  }}
-                >
-                  💳 Payment Method
-                </label>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 10,
-                  }}
-                >
-                  <button
-                    onClick={() => setPayMethod("cod")}
-                    style={{
-                      padding: "12px",
-                      borderRadius: 12,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      border: `2px solid ${payMethod === "cod" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
-                      background:
-                        payMethod === "cod"
-                          ? "rgba(173,20,87,0.08)"
-                          : "rgba(255,255,255,0.6)",
-                      color: payMethod === "cod" ? PRIMARY : MED,
-                    }}
-                  >
-                    🚚 Cash on Delivery
-                    <br />
-                    <span style={{ fontSize: 10, fontWeight: 400 }}>
-                      Dhaka only
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setPayMethod("online")}
-                    style={{
-                      padding: "12px",
-                      borderRadius: 12,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      border: `2px solid ${payMethod === "online" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
-                      background:
-                        payMethod === "online"
-                          ? "rgba(173,20,87,0.08)"
-                          : "rgba(255,255,255,0.6)",
-                      color: payMethod === "online" ? PRIMARY : MED,
-                    }}
-                  >
-                    💳 Online Payment
-                    <br />
-                    <span style={{ fontSize: 10, fontWeight: 400 }}>
-                      bKash · Nagad · Card
-                    </span>
-                  </button>
-                </div>
-                {payMethod === "cod" && deliveryCharge() === 150 && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: DANGER,
-                      fontWeight: 600,
-                      marginTop: 6,
-                      padding: "6px 10px",
-                      background: "rgba(255,235,238,0.85)",
-                      borderRadius: 8,
-                    }}
-                  >
-                    ⚠ Outside Dhaka: Please select Online Payment (advance
-                    payment required)
+                {/* Payment method */}
+                <div style={{ marginBottom:16 }}>
+                  <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:8 }}>💳 Payment Method</label>
+                  <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10 }}>
+                    <button onClick={()=>setPayMethod("cod")}
+                      style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,
+                        border:`2px solid ${payMethod==="cod"?PRIMARY:"rgba(173,20,87,0.2)"}`,
+                        background:payMethod==="cod"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",
+                        color:payMethod==="cod"?PRIMARY:MED }}>
+                      🚚 Cash on Delivery<br/>
+                      <span style={{ fontSize:10,fontWeight:400 }}>Dhaka only</span>
+                    </button>
+                    <button onClick={()=>setPayMethod("online")}
+                      style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,
+                        border:`2px solid ${payMethod==="online"?PRIMARY:"rgba(173,20,87,0.2)"}`,
+                        background:payMethod==="online"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",
+                        color:payMethod==="online"?PRIMARY:MED }}>
+                      📱 Mobile Payment<br/>
+                      <span style={{ fontSize:10,fontWeight:400 }}>bKash · Nagad · Rocket</span>
+                    </button>
                   </div>
-                )}
-              </div>
+                  {payMethod==="cod"&&deliveryCharge()===150&&(
+                    <div style={{ fontSize:11,color:DANGER,fontWeight:600,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8,marginBottom:8 }}>
+                      ⚠ Outside Dhaka — Please use Mobile Payment (advance required)
+                    </div>
+                  )}
+                  {payMethod==="online"&&(
+                    <div style={{ background:"rgba(255,248,255,0.95)",border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:14,padding:16 }}>
+                      <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:10 }}>Step 1 — Choose payment method:</div>
+                      <div style={{ display:"flex",gap:8,marginBottom:14 }}>
+                        {[["bKash","#E2136E","📱"],["Nagad","#F6891F","💛"],["Rocket","#8B1A8B","🚀"]].map(([name,color,icon])=>(
+                          <button key={name} onClick={()=>setSelectedGateway(name)}
+                            style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"inherit",
+                              border:`2px solid ${selectedGateway===name?color:"rgba(0,0,0,0.08)"}`,
+                              background:selectedGateway===name?color+"18":"#FFF",
+                              color:selectedGateway===name?color:"#666",
+                              display:"flex",flexDirection:"column",alignItems:"center",gap:4 }}>
+                            <span style={{ fontSize:20 }}>{icon}</span>{name}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 2 — Send ৳{finalTotal().toLocaleString()} to:</div>
+                      <div style={{ background:"#FFF",borderRadius:10,padding:"12px 16px",marginBottom:14,border:"1px solid rgba(173,20,87,0.1)" }}>
+                        <div style={{ fontSize:11,color:MED,fontWeight:600,marginBottom:2 }}>{selectedGateway} — Send Money</div>
+                        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                          <div style={{ fontSize:22,fontWeight:900,color:DARK,letterSpacing:2 }}>01920-895985</div>
+                          <div style={{ fontSize:11,color:"#FFF",background:selectedGateway==="bKash"?"#E2136E":selectedGateway==="Nagad"?"#F6891F":"#8B1A8B",padding:"3px 10px",borderRadius:8,fontWeight:700 }}>{selectedGateway}</div>
+                        </div>
+                        <div style={{ fontSize:11,color:MED,marginTop:4 }}>Account type: <b>Personal</b></div>
+                      </div>
+                      <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 3 — Enter Transaction ID:</div>
+                      <input
+                        style={{ width:"100%",padding:"10px 14px",
+                          border:`2px solid ${transactionId.length>5?"#2E7D32":"rgba(173,20,87,0.25)"}`,
+                          borderRadius:10,fontSize:14,fontFamily:"monospace",background:"#FFF",
+                          boxSizing:"border-box",letterSpacing:1,color:DARK,fontWeight:700 }}
+                        type="text" placeholder="e.g. 8FB3A2D1K9"
+                        value={transactionId}
+                        onChange={e=>setTransactionId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))}
+                      />
+                      {transactionId.length>5&&<div style={{ fontSize:11,color:SUCCESS,fontWeight:600,marginTop:4 }}>✓ Transaction ID entered</div>}
+                      <div style={{ fontSize:10,color:LIGHT,marginTop:8,padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:6 }}>
+                        📌 Find Transaction ID in your {selectedGateway} app → Transaction History. We verify within 1 hour.
+                      </div>
+                    </div>
+                  )}
+                </div>
 
               {/* Order summary */}
               <div
