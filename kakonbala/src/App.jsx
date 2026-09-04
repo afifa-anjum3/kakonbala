@@ -1968,6 +1968,10 @@ export default function App() {
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(null);
   const [payMethod, setPayMethod] = useState("cod");
+  const [transactionId, setTransactionId] = useState("");
+  const [selectedGateway, setSelectedGateway] = useState("bKash");
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileData, setProfileData] = useState({ name:"",phone:"",email:"",district:"",area:"",thana:"",postOffice:"",houseRoad:"" });
   const [promoCodes, setPromoCodes] = useState([]);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
@@ -1984,7 +1988,30 @@ export default function App() {
   /* ── Firebase listeners ── */
   useEffect(() => {
     try {
-      const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+      const unsub = onAuthStateChanged(auth, async (u) => {
+        setUser(u);
+        if (u) {
+          try {
+            const snap = await getDoc(doc(db, "customers", u.uid));
+            if (snap.exists()) {
+              const data = snap.data();
+              setProfileData(data);
+              setCustomer(c => ({
+                ...c,
+                name: data.name || c.name,
+                phone: data.phone || c.phone,
+                email: data.email || c.email,
+                district: data.district || c.district,
+                area: data.area || c.area,
+                thana: data.thana || c.thana,
+                postOffice: data.postOffice || c.postOffice,
+                houseRoad: data.houseRoad || c.houseRoad,
+                city: data.district || c.city,
+              }));
+            }
+          } catch(e) { console.warn("Profile load:", e.message); }
+        }
+      });
       return () => {
         try {
           unsub();
