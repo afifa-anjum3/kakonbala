@@ -1,17 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import {
-  collection,
-  onSnapshot,
-  doc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
-  increment,
-  serverTimestamp,
-  query,
-  orderBy,
-  writeBatch,
-} from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, increment, serverTimestamp, query, orderBy, writeBatch, setDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "./firebase.js";
 import {
   createUserWithEmailAndPassword,
@@ -1994,22 +1982,11 @@ export default function App() {
           try {
             const snap = await getDoc(doc(db, "customers", u.uid));
             if (snap.exists()) {
-              const data = snap.data();
-              setProfileData(data);
-              setCustomer(c => ({
-                ...c,
-                name: data.name || c.name,
-                phone: data.phone || c.phone,
-                email: data.email || c.email,
-                district: data.district || c.district,
-                area: data.area || c.area,
-                thana: data.thana || c.thana,
-                postOffice: data.postOffice || c.postOffice,
-                houseRoad: data.houseRoad || c.houseRoad,
-                city: data.district || c.city,
-              }));
+              const d = snap.data();
+              setProfileData(d);
+              setCustomer(c => ({ ...c, name:d.name||c.name, phone:d.phone||c.phone, email:d.email||c.email, district:d.district||c.district, area:d.area||c.area, thana:d.thana||c.thana, postOffice:d.postOffice||c.postOffice, houseRoad:d.houseRoad||c.houseRoad, city:d.district||c.city }));
             }
-          } catch(e) { console.warn("Profile load:", e.message); }
+          } catch(e) { console.warn("Profile:", e.message); }
         }
       });
       return () => {
@@ -2525,36 +2502,20 @@ export default function App() {
       return;
     }
 
-    // Online payment via SSLCommerz
+    // Mobile payment (bKash/Nagad/Rocket)
+    if (!transactionId.trim()) { notify("⚠ Please send payment first, then enter Transaction ID"); return; }
+    if (transactionId.trim().length < 6) { notify("⚠ Transaction ID too short. Please check again."); return; }
     setPayLoading(true);
     try {
-      const orderRef = await addDoc(collection(db, "orders"), {
-        ...orderData,
-        status: "pending_payment",
-      });
-      const res = await fetch("/api/initiate-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: orderRef.id,
-          amount: total,
-          customerName: customer.name,
-          customerEmail: customer.email || "noemail@kakonbala.com",
-          customerPhone: customer.phone,
-          customerAddress: `${customer.houseRoad}, ${customer.thana}, ${customer.area}, ${customer.district} - ${customer.postOffice}`,
-        }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        notify("⚠ " + (data.error || "Payment error"));
-        setPayLoading(false);
+      await addDoc(collection(db, "orders"), { ...orderData, status:"pending_payment", transactionId:transactionId.trim(), paymentGateway:selectedGateway });
+      // Save customer profile
+      if (user && user.uid) {
+        await setDoc(doc(db,"customers",user.uid), { name:customer.name, phone:customer.phone, email:customer.email||"", district:customer.district, area:customer.area, thana:customer.thana, postOffice:customer.postOffice, houseRoad:customer.houseRoad, updatedAt:serverTimestamp() }, { merge:true });
       }
-    } catch (e) {
-      notify("⚠ " + e.message);
-      setPayLoading(false);
-    }
+      setCart([]); setCheckoutModal(false); setPromoApplied(null); setPromoCode(""); setTransactionId("");
+      notify("✓ Order placed! We'll confirm after verifying your " + selectedGateway + " payment.");
+    } catch(e) { notify("⚠ " + e.message); }
+    setPayLoading(false);
   }
 
   /* ── Sub-category helpers ── */
@@ -3080,7 +3041,7 @@ export default function App() {
           {user ? (
             <div>
               <div style={{ fontSize: 12, color: MED, marginBottom: 8 }}>
-                {isAdmin ? "👑 Admin" : "👤 " + user.email.split("@")[0]}
+                isAdmin ? "👑 Admin" : "👤 " + user.email.split("@")[0]
               </div>
               <button
                 onClick={() => {
@@ -9598,86 +9559,52 @@ export default function App() {
               </div>
 
               {/* Payment method */}
-              <div style={{ marginBottom: 16 }}>
-                <label
-                  style={{
-                    fontSize: 12,
-                    color: MED,
-                    fontWeight: 700,
-                    display: "block",
-                    marginBottom: 8,
-                  }}
-                >
-                  💳 Payment Method
-                </label>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 10,
-                  }}
-                >
-                  <button
-                    onClick={() => setPayMethod("cod")}
-                    style={{
-                      padding: "12px",
-                      borderRadius: 12,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      border: `2px solid ${payMethod === "cod" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
-                      background:
-                        payMethod === "cod"
-                          ? "rgba(173,20,87,0.08)"
-                          : "rgba(255,255,255,0.6)",
-                      color: payMethod === "cod" ? PRIMARY : MED,
-                    }}
-                  >
-                    🚚 Cash on Delivery
-                    <br />
-                    <span style={{ fontSize: 10, fontWeight: 400 }}>
-                      Dhaka only
-                    </span>
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:8 }}>💳 Payment Method</label>
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10 }}>
+                  <button onClick={()=>setPayMethod("cod")} style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${payMethod==="cod"?PRIMARY:"rgba(173,20,87,0.2)"}`,background:payMethod==="cod"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",color:payMethod==="cod"?PRIMARY:MED }}>
+                    🚚 Cash on Delivery<br/><span style={{ fontSize:10,fontWeight:400 }}>Dhaka only</span>
                   </button>
-                  <button
-                    onClick={() => setPayMethod("online")}
-                    style={{
-                      padding: "12px",
-                      borderRadius: 12,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      border: `2px solid ${payMethod === "online" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
-                      background:
-                        payMethod === "online"
-                          ? "rgba(173,20,87,0.08)"
-                          : "rgba(255,255,255,0.6)",
-                      color: payMethod === "online" ? PRIMARY : MED,
-                    }}
-                  >
-                    💳 Online Payment
-                    <br />
-                    <span style={{ fontSize: 10, fontWeight: 400 }}>
-                      bKash · Nagad · Card
-                    </span>
+                  <button onClick={()=>setPayMethod("online")} style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${payMethod==="online"?PRIMARY:"rgba(173,20,87,0.2)"}`,background:payMethod==="online"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",color:payMethod==="online"?PRIMARY:MED }}>
+                    📱 Mobile Payment<br/><span style={{ fontSize:10,fontWeight:400 }}>bKash · Nagad · Rocket</span>
                   </button>
                 </div>
-                {payMethod === "cod" && deliveryCharge() === 150 && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: DANGER,
-                      fontWeight: 600,
-                      marginTop: 6,
-                      padding: "6px 10px",
-                      background: "rgba(255,235,238,0.85)",
-                      borderRadius: 8,
-                    }}
-                  >
-                    ⚠ Outside Dhaka: Please select Online Payment (advance
-                    payment required)
+                {payMethod==="cod"&&deliveryCharge()===150&&(
+                  <div style={{ fontSize:11,color:DANGER,fontWeight:600,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8,marginBottom:8 }}>
+                    ⚠ Outside Dhaka — Please use Mobile Payment (advance required)
+                  </div>
+                )}
+                {payMethod==="online"&&(
+                  <div style={{ background:"rgba(255,248,255,0.95)",border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:14,padding:16 }}>
+                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:10 }}>Step 1 — Choose payment:</div>
+                    <div style={{ display:"flex",gap:8,marginBottom:14 }}>
+                      {[["bKash","#E2136E"],["Nagad","#F6891F"],["Rocket","#8B1A8B"]].map(([name,color])=>(
+                        <button key={name} onClick={()=>setSelectedGateway(name)} style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"inherit",border:`2px solid ${selectedGateway===name?color:"rgba(0,0,0,0.08)"}`,background:selectedGateway===name?color+"18":"#FFF",color:selectedGateway===name?color:"#666",display:"flex",flexDirection:"column",alignItems:"center",gap:4 }}>
+                          <svg width="34" height="34" viewBox="0 0 100 100">
+                            <rect width="100" height="100" rx="18" fill={color}/>
+                            <text x="50" y="66" textAnchor="middle" fontSize="46" fontWeight="900" fontFamily="Arial" fill="white">{name[0]}</text>
+                          </svg>
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 2 — Send ৳{finalTotal().toLocaleString()} to:</div>
+                    <div style={{ background:"#FFF",borderRadius:10,padding:"12px 16px",marginBottom:14,border:"1px solid rgba(173,20,87,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                      <div>
+                        <div style={{ fontSize:10,color:MED,fontWeight:600 }}>{selectedGateway} — Send Money (Personal)</div>
+                        <div style={{ fontSize:22,fontWeight:900,color:DARK,letterSpacing:2 }}>01920-895985</div>
+                      </div>
+                      <div style={{ fontSize:11,color:"#FFF",background:selectedGateway==="bKash"?"#E2136E":selectedGateway==="Nagad"?"#F6891F":"#8B1A8B",padding:"4px 12px",borderRadius:8,fontWeight:700 }}>{selectedGateway}</div>
+                    </div>
+                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 3 — Enter Transaction ID:</div>
+                    <input style={{ width:"100%",padding:"10px 14px",border:`2px solid ${transactionId.length>5?"#2E7D32":"rgba(173,20,87,0.25)"}`,borderRadius:10,fontSize:14,fontFamily:"monospace",background:"#FFF",boxSizing:"border-box",letterSpacing:1,color:DARK,fontWeight:700 }}
+                      type="text" placeholder="e.g. 8FB3A2D1K9"
+                      value={transactionId}
+                      onChange={e=>setTransactionId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))} />
+                    {transactionId.length>5&&<div style={{ fontSize:11,color:SUCCESS,fontWeight:600,marginTop:4 }}>✓ Transaction ID entered</div>}
+                    <div style={{ fontSize:10,color:LIGHT,marginTop:8,padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:6 }}>
+                      📌 Find TX ID in {selectedGateway} app → Transaction History. We verify within 1 hour and confirm your order.
+                    </div>
                   </div>
                 )}
               </div>
@@ -9795,15 +9722,13 @@ export default function App() {
         </>
       )}
 
+      
       {/* ══ CUSTOMER PROFILE MODAL ══ */}
-      {showProfile && (
+      {showProfile&&(
         <>
           <div onClick={()=>setShowProfile(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",
-            width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",
-            background:"rgba(255,255,255,0.97)",backdropFilter:"blur(20px)",
-            borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
-            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.97)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
+            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:2 }}>
               <div>
                 <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>👤 My Account</div>
                 <div style={{ color:"rgba(255,255,255,0.8)",fontSize:11,marginTop:2 }}>{user?.email}</div>
@@ -9811,77 +9736,71 @@ export default function App() {
               <button onClick={()=>setShowProfile(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
             </div>
             <div style={{ padding:24 }}>
-              <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:16 }}>📋 Personal Details</div>
+              <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:14 }}>📋 Personal Details</div>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
-                {[["Full Name","name","text","Your name"],["Phone","phone","tel","01XXXXXXXXX"],["Email","email","email","your@email.com"]].map(([l,k,tp,ph])=>(
-                  <div key={k} style={{ gridColumn:k==="email"?"span 2":"span 1" }}>
-                    <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>{l}</label>
-                    <input style={{ ...inp }} type={tp} placeholder={ph}
-                      value={profileData[k]||""}
-                      onChange={e=>setProfileData(p=>({...p,[k]:e.target.value}))}/>
-                  </div>
-                ))}
+                <div>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Full Name</label>
+                  <input style={inp} type="text" placeholder="Your name" value={profileData.name||""} onChange={e=>setProfileData(p=>({...p,name:e.target.value}))}/>
+                </div>
+                <div>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Phone</label>
+                  <input style={inp} type="tel" placeholder="01XXXXXXXXX" value={profileData.phone||""} onChange={e=>setProfileData(p=>({...p,phone:e.target.value}))}/>
+                </div>
+                <div style={{ gridColumn:"span 2" }}>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Email</label>
+                  <input style={inp} type="email" placeholder="your@email.com" value={profileData.email||""} onChange={e=>setProfileData(p=>({...p,email:e.target.value}))}/>
+                </div>
               </div>
               <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:12 }}>📍 Saved Address</div>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16 }}>
                 <div>
                   <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>District</label>
-                  <select style={{ ...inp,fontSize:12 }} value={profileData.district||""}
-                    onChange={e=>setProfileData(p=>({...p,district:e.target.value,area:"",thana:"",postOffice:""}))}>
+                  <select style={inp} value={profileData.district||""} onChange={e=>setProfileData(p=>({...p,district:e.target.value,area:"",thana:"",postOffice:""}))}>
                     <option value="">-- Select --</option>
                     {BD_DISTRICTS.map(d=><option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Area</label>
-                  <select style={{ ...inp,fontSize:12 }} value={profileData.area||""}
-                    onChange={e=>setProfileData(p=>({...p,area:e.target.value,thana:"",postOffice:""}))}>
+                  <select style={inp} value={profileData.area||""} onChange={e=>setProfileData(p=>({...p,area:e.target.value,thana:"",postOffice:""}))}>
                     <option value="">-- Select --</option>
                     {getAreas(profileData.district).map(a=><option key={a} value={a}>{a}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Thana</label>
-                  <select style={{ ...inp,fontSize:12 }} value={profileData.thana||""}
-                    onChange={e=>setProfileData(p=>({...p,thana:e.target.value,postOffice:""}))}>
+                  <select style={inp} value={profileData.thana||""} onChange={e=>setProfileData(p=>({...p,thana:e.target.value,postOffice:""}))}>
                     <option value="">-- Select --</option>
                     {getThanas(profileData.district,profileData.area).map(t2=><option key={t2} value={t2}>{t2}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Post Office</label>
-                  <select style={{ ...inp,fontSize:12 }} value={profileData.postOffice||""}
-                    onChange={e=>setProfileData(p=>({...p,postOffice:e.target.value}))}>
+                  <select style={inp} value={profileData.postOffice||""} onChange={e=>setProfileData(p=>({...p,postOffice:e.target.value}))}>
                     <option value="">-- Select --</option>
                     {getPostOffices(profileData.district,profileData.area,profileData.thana).map(po=><option key={po} value={po}>{po}</option>)}
                   </select>
                 </div>
                 <div style={{ gridColumn:"span 2" }}>
                   <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>House No, Road No</label>
-                  <input style={{ ...inp }} type="text" placeholder="House 12, Road 5, Block C"
-                    value={profileData.houseRoad||""}
-                    onChange={e=>setProfileData(p=>({...p,houseRoad:e.target.value}))}/>
+                  <input style={inp} type="text" placeholder="House 12, Road 5, Block C" value={profileData.houseRoad||""} onChange={e=>setProfileData(p=>({...p,houseRoad:e.target.value}))}/>
                 </div>
               </div>
               <button onClick={async()=>{
-                if (!user?.uid) return;
-                try {
+                if(!user?.uid){notify("⚠ Please login first");return;}
+                try{
                   await setDoc(doc(db,"customers",user.uid),{...profileData,updatedAt:serverTimestamp()},{merge:true});
-                  // Also update checkout form
                   setCustomer(c=>({...c,...profileData,city:profileData.district||c.city}));
                   notify("✓ Profile saved!");
                   setShowProfile(false);
-                } catch(e){ notify("⚠ "+e.message); }
-              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>
-                💾 Save Profile
-              </button>
+                }catch(e){notify("⚠ "+e.message);}
+              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>💾 Save Profile</button>
 
-              {/* Order History */}
-              <div style={{ marginTop:24,borderTop:`1px solid rgba(173,20,87,0.12)`,paddingTop:18 }}>
+              <div style={{ marginTop:24,borderTop:"1px solid rgba(173,20,87,0.12)",paddingTop:18 }}>
                 <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:12 }}>📦 My Orders</div>
                 {orders.filter(o=>o.customer?.phone===profileData.phone||o.customer?.email===profileData.email).length===0
-                  ? <div style={{ fontSize:13,color:LIGHT,textAlign:"center",padding:"16px 0" }}>No orders yet</div>
-                  : orders.filter(o=>o.customer?.phone===profileData.phone||o.customer?.email===profileData.email).slice(0,5).map(o=>(
+                  ?<div style={{ fontSize:13,color:LIGHT,textAlign:"center",padding:"16px 0" }}>No orders yet</div>
+                  :orders.filter(o=>o.customer?.phone===profileData.phone||o.customer?.email===profileData.email).slice(0,5).map(o=>(
                     <div key={o.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(255,255,255,0.7)",borderRadius:10,marginBottom:8,border:"1px solid rgba(173,20,87,0.08)" }}>
                       <div>
                         <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")}</div>
@@ -9889,7 +9808,7 @@ export default function App() {
                       </div>
                       <div style={{ textAlign:"right" }}>
                         <div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{(o.total||0).toLocaleString()}</div>
-                        <span style={{ fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,background:"rgba(232,245,233,0.9)",color:SUCCESS }}>{(o.status||"").replace("_"," ")}</span>
+                        <span style={{ fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,background:"rgba(232,245,233,0.9)",color:SUCCESS }}>{(o.status||"").replace(/_/g," ")}</span>
                       </div>
                     </div>
                   ))
@@ -9900,8 +9819,7 @@ export default function App() {
         </>
       )}
 
-
-      {/* FOOTER */}
+{/* FOOTER */}
       <footer
         style={{
           marginTop: 48,
