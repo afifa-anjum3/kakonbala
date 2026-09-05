@@ -2508,7 +2508,6 @@ export default function App() {
     setPayLoading(true);
     try {
       await addDoc(collection(db, "orders"), { ...orderData, status:"pending_payment", transactionId:transactionId.trim(), paymentGateway:selectedGateway });
-      // Save customer profile
       if (user && user.uid) {
         await setDoc(doc(db,"customers",user.uid), { name:customer.name, phone:customer.phone, email:customer.email||"", district:customer.district, area:customer.area, thana:customer.thana, postOffice:customer.postOffice, houseRoad:customer.houseRoad, updatedAt:serverTimestamp() }, { merge:true });
       }
@@ -3040,9 +3039,13 @@ export default function App() {
         >
           {user ? (
             <div>
-              <div style={{ fontSize: 12, color: MED, marginBottom: 8 }}>
-                isAdmin ? "👑 Admin" : "👤 " + user.email.split("@")[0]
-              </div>
+              <button onClick={()=>{setShowProfile(true);setMobileMenu(false);}} style={{ width:"100%",textAlign:"left",padding:"10px 14px",background:"rgba(173,20,87,0.06)",border:`1px solid rgba(173,20,87,0.15)`,borderRadius:10,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:8 }}>
+                <span style={{ fontSize:18 }}>👤</span>
+                <div style={{ textAlign:"left" }}>
+                  <div style={{ fontSize:12,fontWeight:700,color:PRIMARY }}>{isAdmin?"👑 Admin Account":user.email.split("@")[0]}</div>
+                  <div style={{ fontSize:10,color:LIGHT }}>Tap to view My Account</div>
+                </div>
+              </button>
               <button
                 onClick={() => {
                   handleLogout();
@@ -9571,20 +9574,30 @@ export default function App() {
                 </div>
                 {payMethod==="cod"&&deliveryCharge()===150&&(
                   <div style={{ fontSize:11,color:DANGER,fontWeight:600,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8,marginBottom:8 }}>
-                    ⚠ Outside Dhaka — Please use Mobile Payment (advance required)
+                    ⚠ Outside Dhaka — Please use Mobile Payment
                   </div>
                 )}
                 {payMethod==="online"&&(
                   <div style={{ background:"rgba(255,248,255,0.95)",border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:14,padding:16 }}>
-                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:10 }}>Step 1 — Choose payment:</div>
+                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:10 }}>Step 1 — Choose payment method:</div>
                     <div style={{ display:"flex",gap:8,marginBottom:14 }}>
-                      {[["bKash","#E2136E"],["Nagad","#F6891F"],["Rocket","#8B1A8B"]].map(([name,color])=>(
-                        <button key={name} onClick={()=>setSelectedGateway(name)} style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"inherit",border:`2px solid ${selectedGateway===name?color:"rgba(0,0,0,0.08)"}`,background:selectedGateway===name?color+"18":"#FFF",color:selectedGateway===name?color:"#666",display:"flex",flexDirection:"column",alignItems:"center",gap:4 }}>
-                          <svg width="34" height="34" viewBox="0 0 100 100">
-                            <rect width="100" height="100" rx="18" fill={color}/>
-                            <text x="50" y="66" textAnchor="middle" fontSize="46" fontWeight="900" fontFamily="Arial" fill="white">{name[0]}</text>
-                          </svg>
-                          {name}
+                      {[
+                        {name:"bKash",  color:"#E2136E", bg:"#E2136E", letter:"b"},
+                        {name:"Nagad",  color:"#F6891F", bg:"#F6891F", letter:"N"},
+                        {name:"Rocket", color:"#8B1A8B", bg:"#8B1A8B", letter:"R"},
+                      ].map(({name,color,bg,letter})=>(
+                        <button key={name} onClick={()=>setSelectedGateway(name)}
+                          style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"inherit",
+                            border:`2px solid ${selectedGateway===name?color:"rgba(0,0,0,0.08)"}`,
+                            background:selectedGateway===name?color+"18":"#FFF",
+                            color:selectedGateway===name?color:"#666",
+                            display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+                            boxShadow:selectedGateway===name?`0 3px 12px ${color}44`:"none",
+                            transition:"all 0.2s" }}>
+                          <div style={{ width:44,height:44,borderRadius:12,background:bg,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 3px 10px ${color}55` }}>
+                            <span style={{ color:"#FFF",fontSize:22,fontWeight:900,fontFamily:"Arial" }}>{letter}</span>
+                          </div>
+                          <span>{name}</span>
                         </button>
                       ))}
                     </div>
@@ -9594,7 +9607,9 @@ export default function App() {
                         <div style={{ fontSize:10,color:MED,fontWeight:600 }}>{selectedGateway} — Send Money (Personal)</div>
                         <div style={{ fontSize:22,fontWeight:900,color:DARK,letterSpacing:2 }}>01920-895985</div>
                       </div>
-                      <div style={{ fontSize:11,color:"#FFF",background:selectedGateway==="bKash"?"#E2136E":selectedGateway==="Nagad"?"#F6891F":"#8B1A8B",padding:"4px 12px",borderRadius:8,fontWeight:700 }}>{selectedGateway}</div>
+                      <div style={{ width:40,height:40,borderRadius:10,background:selectedGateway==="bKash"?"#E2136E":selectedGateway==="Nagad"?"#F6891F":"#8B1A8B",display:"flex",alignItems:"center",justifyContent:"center" }}>
+                        <span style={{ color:"#FFF",fontSize:18,fontWeight:900 }}>{selectedGateway[0]}</span>
+                      </div>
                     </div>
                     <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 3 — Enter Transaction ID:</div>
                     <input style={{ width:"100%",padding:"10px 14px",border:`2px solid ${transactionId.length>5?"#2E7D32":"rgba(173,20,87,0.25)"}`,borderRadius:10,fontSize:14,fontFamily:"monospace",background:"#FFF",boxSizing:"border-box",letterSpacing:1,color:DARK,fontWeight:700 }}
@@ -9603,12 +9618,11 @@ export default function App() {
                       onChange={e=>setTransactionId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))} />
                     {transactionId.length>5&&<div style={{ fontSize:11,color:SUCCESS,fontWeight:600,marginTop:4 }}>✓ Transaction ID entered</div>}
                     <div style={{ fontSize:10,color:LIGHT,marginTop:8,padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:6 }}>
-                      📌 Find TX ID in {selectedGateway} app → Transaction History. We verify within 1 hour and confirm your order.
+                      📌 Find TX ID in {selectedGateway} app → Transaction History. We verify within 1 hour.
                     </div>
                   </div>
                 )}
               </div>
-
               {/* Order summary */}
               <div
                 style={{
@@ -9728,7 +9742,7 @@ export default function App() {
         <>
           <div onClick={()=>setShowProfile(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
           <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.97)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
-            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:2 }}>
+            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:2,borderRadius:"24px 24px 0 0" }}>
               <div>
                 <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>👤 My Account</div>
                 <div style={{ color:"rgba(255,255,255,0.8)",fontSize:11,marginTop:2 }}>{user?.email}</div>
@@ -9761,7 +9775,7 @@ export default function App() {
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Area</label>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Area/Upazila</label>
                   <select style={inp} value={profileData.area||""} onChange={e=>setProfileData(p=>({...p,area:e.target.value,thana:"",postOffice:""}))}>
                     <option value="">-- Select --</option>
                     {getAreas(profileData.district).map(a=><option key={a} value={a}>{a}</option>)}
@@ -9791,12 +9805,11 @@ export default function App() {
                 try{
                   await setDoc(doc(db,"customers",user.uid),{...profileData,updatedAt:serverTimestamp()},{merge:true});
                   setCustomer(c=>({...c,...profileData,city:profileData.district||c.city}));
-                  notify("✓ Profile saved!");
+                  notify("✓ Profile saved successfully!");
                   setShowProfile(false);
                 }catch(e){notify("⚠ "+e.message);}
-              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>💾 Save Profile</button>
-
-              <div style={{ marginTop:24,borderTop:"1px solid rgba(173,20,87,0.12)",paddingTop:18 }}>
+              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15,marginBottom:20 }}>💾 Save Profile</button>
+              <div style={{ borderTop:"1px solid rgba(173,20,87,0.12)",paddingTop:18 }}>
                 <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:12 }}>📦 My Orders</div>
                 {orders.filter(o=>o.customer?.phone===profileData.phone||o.customer?.email===profileData.email).length===0
                   ?<div style={{ fontSize:13,color:LIGHT,textAlign:"center",padding:"16px 0" }}>No orders yet</div>
