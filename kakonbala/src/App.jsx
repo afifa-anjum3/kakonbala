@@ -2512,11 +2512,12 @@ export default function App() {
         await setDoc(doc(db,"customers",user.uid), { name:customer.name, phone:customer.phone, email:customer.email||"", district:customer.district, area:customer.area, thana:customer.thana, postOffice:customer.postOffice, houseRoad:customer.houseRoad, updatedAt:serverTimestamp() }, { merge:true });
       }
       setCart([]); setCheckoutModal(false); setPromoApplied(null); setPromoCode(""); setTransactionId("");
-      notify("✓ Order placed! We'll confirm after verifying your " + selectedGateway + " payment.");
+      notify("✓ Order placed! We will confirm after verifying your " + selectedGateway + " payment.");
     } catch(e) { notify("⚠ " + e.message); }
     setPayLoading(false);
   }
 
+  
   /* ── Sub-category helpers ── */
   function getSubOptions(cat, cg) {
     if (cat === "jewelry") return CATS.jewelry.subs;
@@ -3039,13 +3040,9 @@ export default function App() {
         >
           {user ? (
             <div>
-              <button onClick={()=>{setShowProfile(true);setMobileMenu(false);}} style={{ width:"100%",textAlign:"left",padding:"10px 14px",background:"rgba(173,20,87,0.06)",border:`1px solid rgba(173,20,87,0.15)`,borderRadius:10,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:8 }}>
-                <span style={{ fontSize:18 }}>👤</span>
-                <div style={{ textAlign:"left" }}>
-                  <div style={{ fontSize:12,fontWeight:700,color:PRIMARY }}>{isAdmin?"👑 Admin Account":user.email.split("@")[0]}</div>
-                  <div style={{ fontSize:10,color:LIGHT }}>Tap to view My Account</div>
-                </div>
-              </button>
+              <div style={{ fontSize: 12, color: MED, marginBottom: 8 }}>
+                <button onClick={()=>{setShowProfile(true);setMobileMenu(false);}} style={{ width:"100%",textAlign:"left",padding:"10px 14px",background:"rgba(173,20,87,0.06)",border:"1px solid rgba(173,20,87,0.15)",borderRadius:10,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:8 }}><span style={{ fontSize:18 }}>👤</span><div><div style={{ fontSize:12,fontWeight:700,color:PRIMARY }}>{isAdmin?"👑 Admin":user.email.split("@")[0]}</div><div style={{ fontSize:10,color:LIGHT }}>My Account</div></div></button>
+              </div>
               <button
                 onClick={() => {
                   handleLogout();
@@ -3410,19 +3407,10 @@ export default function App() {
           {/* Auth */}
           {user ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span
-                style={{
-                  fontSize: 11,
-                  color: MED,
-                  maxWidth: 80,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {isAdmin ? "👑" : ""}
-                {user.email.split("@")[0]}
-              </span>
+              <button onClick={()=>setShowProfile(true)}
+                style={{ fontSize:11,color:MED,background:"rgba(255,255,255,0.6)",border:"1px solid rgba(173,20,87,0.2)",padding:"5px 12px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",maxWidth:110,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                {isAdmin?"👑 Admin":"👤 "+user.email.split("@")[0]}
+              </button>
               <button
                 onClick={handleLogout}
                 style={{
@@ -9573,31 +9561,26 @@ export default function App() {
                   </button>
                 </div>
                 {payMethod==="cod"&&deliveryCharge()===150&&(
-                  <div style={{ fontSize:11,color:DANGER,fontWeight:600,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8,marginBottom:8 }}>
-                    ⚠ Outside Dhaka — Please use Mobile Payment
-                  </div>
+                  <div style={{ fontSize:11,color:DANGER,fontWeight:600,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8,marginBottom:8 }}>⚠ Outside Dhaka — Please use Mobile Payment</div>
                 )}
                 {payMethod==="online"&&(
                   <div style={{ background:"rgba(255,248,255,0.95)",border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:14,padding:16 }}>
                     <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:10 }}>Step 1 — Choose payment method:</div>
                     <div style={{ display:"flex",gap:8,marginBottom:14 }}>
                       {[
-                        {name:"bKash",  color:"#E2136E", bg:"#E2136E", letter:"b"},
-                        {name:"Nagad",  color:"#F6891F", bg:"#F6891F", letter:"N"},
-                        {name:"Rocket", color:"#8B1A8B", bg:"#8B1A8B", letter:"R"},
-                      ].map(({name,color,bg,letter})=>(
+                        {name:"bKash",color:"#E2136E",logo:<svg width="60" height="28" viewBox="0 0 140 48"><rect width="140" height="48" rx="10" fill="#E2136E"/><text x="16" y="36" fontSize="34" fontWeight="900" fontFamily="Arial" fill="white">b</text><text x="46" y="35" fontSize="22" fontWeight="700" fontFamily="Arial" fill="white">Kash</text></svg>},
+                        {name:"Nagad",color:"#F6891F",logo:<svg width="60" height="28" viewBox="0 0 140 48"><defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#E8510A"/><stop offset="100%" stopColor="#F6891F"/></linearGradient></defs><rect width="140" height="48" rx="10" fill="url(#ng)"/><text x="70" y="34" fontSize="24" fontWeight="800" fontFamily="Arial" fill="white" textAnchor="middle">নগদ</text></svg>},
+                        {name:"Rocket",color:"#8B1A8B",logo:<svg width="60" height="28" viewBox="0 0 140 48"><rect width="140" height="48" rx="10" fill="#8B1A8B"/><text x="20" y="34" fontSize="16" fontFamily="Arial" fill="white">🚀</text><text x="46" y="34" fontSize="20" fontWeight="700" fontFamily="Arial" fill="white">Rocket</text></svg>},
+                      ].map(({name,color,logo})=>(
                         <button key={name} onClick={()=>setSelectedGateway(name)}
-                          style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"inherit",
+                          style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",
                             border:`2px solid ${selectedGateway===name?color:"rgba(0,0,0,0.08)"}`,
-                            background:selectedGateway===name?color+"18":"#FFF",
-                            color:selectedGateway===name?color:"#666",
-                            display:"flex",flexDirection:"column",alignItems:"center",gap:6,
-                            boxShadow:selectedGateway===name?`0 3px 12px ${color}44`:"none",
-                            transition:"all 0.2s" }}>
-                          <div style={{ width:44,height:44,borderRadius:12,background:bg,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 3px 10px ${color}55` }}>
-                            <span style={{ color:"#FFF",fontSize:22,fontWeight:900,fontFamily:"Arial" }}>{letter}</span>
-                          </div>
-                          <span>{name}</span>
+                            background:selectedGateway===name?color+"12":"#FFF",
+                            display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+                            boxShadow:selectedGateway===name?`0 4px 14px ${color}44`:"0 1px 4px rgba(0,0,0,0.06)",
+                            transform:selectedGateway===name?"scale(1.04)":"scale(1)",transition:"all 0.2s" }}>
+                          {logo}
+                          <span style={{ fontSize:11,fontWeight:700,color:selectedGateway===name?color:"#666" }}>{name}</span>
                         </button>
                       ))}
                     </div>
@@ -9608,7 +9591,7 @@ export default function App() {
                         <div style={{ fontSize:22,fontWeight:900,color:DARK,letterSpacing:2 }}>01920-895985</div>
                       </div>
                       <div style={{ width:40,height:40,borderRadius:10,background:selectedGateway==="bKash"?"#E2136E":selectedGateway==="Nagad"?"#F6891F":"#8B1A8B",display:"flex",alignItems:"center",justifyContent:"center" }}>
-                        <span style={{ color:"#FFF",fontSize:18,fontWeight:900 }}>{selectedGateway[0]}</span>
+                        <span style={{ color:"#FFF",fontSize:16,fontWeight:900 }}>{selectedGateway[0]}</span>
                       </div>
                     </div>
                     <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 3 — Enter Transaction ID:</div>
@@ -9617,9 +9600,7 @@ export default function App() {
                       value={transactionId}
                       onChange={e=>setTransactionId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))} />
                     {transactionId.length>5&&<div style={{ fontSize:11,color:SUCCESS,fontWeight:600,marginTop:4 }}>✓ Transaction ID entered</div>}
-                    <div style={{ fontSize:10,color:LIGHT,marginTop:8,padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:6 }}>
-                      📌 Find TX ID in {selectedGateway} app → Transaction History. We verify within 1 hour.
-                    </div>
+                    <div style={{ fontSize:10,color:LIGHT,marginTop:8,padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:6 }}>📌 Find TX ID in {selectedGateway} app → Transaction History. We verify within 1 hour.</div>
                   </div>
                 )}
               </div>
@@ -9742,11 +9723,8 @@ export default function App() {
         <>
           <div onClick={()=>setShowProfile(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
           <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.97)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
-            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:2,borderRadius:"24px 24px 0 0" }}>
-              <div>
-                <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>👤 My Account</div>
-                <div style={{ color:"rgba(255,255,255,0.8)",fontSize:11,marginTop:2 }}>{user?.email}</div>
-              </div>
+            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"24px 24px 0 0",position:"sticky",top:0,zIndex:2 }}>
+              <div><div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>👤 My Account</div><div style={{ color:"rgba(255,255,255,0.8)",fontSize:11,marginTop:2 }}>{user?.email}</div></div>
               <button onClick={()=>setShowProfile(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
             </div>
             <div style={{ padding:24 }}>
@@ -9758,7 +9736,11 @@ export default function App() {
                 </div>
                 <div>
                   <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Phone</label>
-                  <input style={inp} type="tel" placeholder="01XXXXXXXXX" value={profileData.phone||""} onChange={e=>setProfileData(p=>({...p,phone:e.target.value}))}/>
+                  <input style={{ ...inp,borderColor:profileData.phone&&!validatePhone(profileData.phone)?DANGER:profileData.phone&&validatePhone(profileData.phone)?SUCCESS:"rgba(173,20,87,0.25)" }}
+                    type="tel" placeholder="01XXXXXXXXX" value={profileData.phone||""}
+                    onChange={e=>setProfileData(p=>({...p,phone:formatPhone(e.target.value)}))} maxLength={14}/>
+                  {profileData.phone&&!validatePhone(profileData.phone)&&<div style={{ fontSize:10,color:DANGER,marginTop:2,fontWeight:600 }}>⚠ Invalid BD number</div>}
+                  {profileData.phone&&validatePhone(profileData.phone)&&<div style={{ fontSize:10,color:SUCCESS,marginTop:2,fontWeight:600 }}>✓ Valid</div>}
                 </div>
                 <div style={{ gridColumn:"span 2" }}>
                   <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Email</label>
@@ -9767,46 +9749,32 @@ export default function App() {
               </div>
               <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:12 }}>📍 Saved Address</div>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16 }}>
-                <div>
-                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>District</label>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>District</label>
                   <select style={inp} value={profileData.district||""} onChange={e=>setProfileData(p=>({...p,district:e.target.value,area:"",thana:"",postOffice:""}))}>
-                    <option value="">-- Select --</option>
-                    {BD_DISTRICTS.map(d=><option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Area/Upazila</label>
+                    <option value="">-- Select --</option>{BD_DISTRICTS.map(d=><option key={d} value={d}>{d}</option>)}
+                  </select></div>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Area</label>
                   <select style={inp} value={profileData.area||""} onChange={e=>setProfileData(p=>({...p,area:e.target.value,thana:"",postOffice:""}))}>
-                    <option value="">-- Select --</option>
-                    {getAreas(profileData.district).map(a=><option key={a} value={a}>{a}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Thana</label>
+                    <option value="">-- Select --</option>{getAreas(profileData.district).map(a=><option key={a} value={a}>{a}</option>)}
+                  </select></div>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Thana</label>
                   <select style={inp} value={profileData.thana||""} onChange={e=>setProfileData(p=>({...p,thana:e.target.value,postOffice:""}))}>
-                    <option value="">-- Select --</option>
-                    {getThanas(profileData.district,profileData.area).map(t2=><option key={t2} value={t2}>{t2}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Post Office</label>
+                    <option value="">-- Select --</option>{getThanas(profileData.district,profileData.area).map(t2=><option key={t2} value={t2}>{t2}</option>)}
+                  </select></div>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Post Office</label>
                   <select style={inp} value={profileData.postOffice||""} onChange={e=>setProfileData(p=>({...p,postOffice:e.target.value}))}>
-                    <option value="">-- Select --</option>
-                    {getPostOffices(profileData.district,profileData.area,profileData.thana).map(po=><option key={po} value={po}>{po}</option>)}
-                  </select>
-                </div>
-                <div style={{ gridColumn:"span 2" }}>
-                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>House No, Road No</label>
-                  <input style={inp} type="text" placeholder="House 12, Road 5, Block C" value={profileData.houseRoad||""} onChange={e=>setProfileData(p=>({...p,houseRoad:e.target.value}))}/>
-                </div>
+                    <option value="">-- Select --</option>{getPostOffices(profileData.district,profileData.area,profileData.thana).map(po=><option key={po} value={po}>{po}</option>)}
+                  </select></div>
+                <div style={{ gridColumn:"span 2" }}><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>House No, Road No</label>
+                  <input style={inp} type="text" placeholder="House 12, Road 5, Block C" value={profileData.houseRoad||""} onChange={e=>setProfileData(p=>({...p,houseRoad:e.target.value}))}/></div>
               </div>
               <button onClick={async()=>{
                 if(!user?.uid){notify("⚠ Please login first");return;}
+                if(profileData.phone&&!validatePhone(profileData.phone)){notify("⚠ Please enter a valid phone number");return;}
                 try{
                   await setDoc(doc(db,"customers",user.uid),{...profileData,updatedAt:serverTimestamp()},{merge:true});
                   setCustomer(c=>({...c,...profileData,city:profileData.district||c.city}));
-                  notify("✓ Profile saved successfully!");
-                  setShowProfile(false);
+                  notify("✓ Profile saved!");setShowProfile(false);
                 }catch(e){notify("⚠ "+e.message);}
               }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15,marginBottom:20 }}>💾 Save Profile</button>
               <div style={{ borderTop:"1px solid rgba(173,20,87,0.12)",paddingTop:18 }}>
@@ -9815,17 +9783,10 @@ export default function App() {
                   ?<div style={{ fontSize:13,color:LIGHT,textAlign:"center",padding:"16px 0" }}>No orders yet</div>
                   :orders.filter(o=>o.customer?.phone===profileData.phone||o.customer?.email===profileData.email).slice(0,5).map(o=>(
                     <div key={o.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(255,255,255,0.7)",borderRadius:10,marginBottom:8,border:"1px solid rgba(173,20,87,0.08)" }}>
-                      <div>
-                        <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")}</div>
-                        <div style={{ fontSize:10,color:MED }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString():""}</div>
-                      </div>
-                      <div style={{ textAlign:"right" }}>
-                        <div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{(o.total||0).toLocaleString()}</div>
-                        <span style={{ fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,background:"rgba(232,245,233,0.9)",color:SUCCESS }}>{(o.status||"").replace(/_/g," ")}</span>
-                      </div>
+                      <div><div style={{ fontSize:12,fontWeight:700,color:DARK }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")}</div><div style={{ fontSize:10,color:MED }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString():""}</div></div>
+                      <div style={{ textAlign:"right" }}><div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{(o.total||0).toLocaleString()}</div><span style={{ fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,background:"rgba(232,245,233,0.9)",color:SUCCESS }}>{(o.status||"").replace(/_/g," ")}</span></div>
                     </div>
-                  ))
-                }
+                  ))}
               </div>
             </div>
           </div>
