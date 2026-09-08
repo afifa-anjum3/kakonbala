@@ -4042,7 +4042,36 @@ export default function App() {
               </div>
             )}
 
-            {/* ── ABOUT US SECTION ── */}
+            {/* Testimonials */}
+            <div style={{ marginBottom:48 }}>
+              <div style={{ textAlign:"center",marginBottom:28 }}>
+                <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 14px",fontSize:12,color:PRIMARY,fontWeight:700,marginBottom:10 }}>⭐ Happy Customers</div>
+                <h2 style={{ fontSize:26,fontWeight:800,color:DARK,margin:0 }}>What They Say</h2>
+              </div>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
+                {[
+                  {name:"Nusrat J.",loc:"Dhaka",stars:5,text:"The bangles are absolutely gorgeous! Packaging was beautiful and delivery was super fast. Will definitely order again! 🌸"},
+                  {name:"Rabeya K.",loc:"Chittagong",stars:5,text:"I ordered the mandala artwork and it exceeded my expectations. Truly handmade with so much detail and care. Highly recommended!"},
+                  {name:"Sadia M.",loc:"Sylhet",stars:5,text:"Got the saree for my cousin's wedding — everyone loved it! The quality is amazing for the price. কাঁকনবালা rocks! ❤️"},
+                ].map((r,i)=>(
+                  <div key={i} style={{ ...glass,padding:22 }}>
+                    <div style={{ display:"flex",gap:2,marginBottom:10 }}>
+                      {Array(r.stars).fill("⭐").map((s,j)=><span key={j} style={{ fontSize:14 }}>{s}</span>)}
+                    </div>
+                    <p style={{ fontSize:13,color:MED,lineHeight:1.7,marginBottom:14,fontStyle:"italic" }}>"{r.text}"</p>
+                    <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                      <div style={{ width:36,height:36,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",fontWeight:800,fontSize:14 }}>{r.name[0]}</div>
+                      <div>
+                        <div style={{ fontSize:13,fontWeight:700,color:DARK }}>{r.name}</div>
+                        <div style={{ fontSize:11,color:LIGHT }}>{r.loc}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+                        {/* ── ABOUT US SECTION ── */}
             <div id="about" style={{ marginBottom: 48 }}>
               {/* Section heading */}
               <div style={{ textAlign: "center", marginBottom: 40 }}>
