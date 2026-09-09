@@ -1889,6 +1889,7 @@ function ColorImageMapper({ colors, colorImages, onChange }) {
 export default function App() {
   const [lang, setLang] = useState("bn");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [heroSlide, setHeroSlide] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [selectedSizes, setSelectedSizes] = useState([]);
@@ -2019,6 +2020,19 @@ export default function App() {
       setPromoCodes(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
     return unsub;
+  }, []);
+
+  // Auto-advance hero slides
+  const heroSlides = [
+    { bg:"url('/banner.png')", headline:"Where Every Piece", sub:"Tells a Story", tagline:"Handmade with Love 🌸", btn1:"Shop Now", btn2:"New Arrivals" },
+    { bg:"linear-gradient(135deg,#FCE4EC,#F3E5F5,#EDE7F6)", headline:"Handcrafted Jewelry", sub:"for Every Occasion", tagline:"💍 Bangles · Rings · Earrings", btn1:"Shop Jewelry", btn2:"View All" },
+    { bg:"linear-gradient(135deg,#FFF8E1,#FCE4EC,#F3E5F5)", headline:"Artisan Crafts", sub:"Made with Passion", tagline:"🏺 Mandala · Canvas · Clay", btn1:"Shop Crafts", btn2:"Collections" },
+    { bg:"linear-gradient(135deg,#E8EAF6,#FCE4EC,#FFF9C4)", headline:"Elegant Clothing", sub:"Tradition Meets Style", tagline:"👗 Saree · Tops · Panjabi", btn1:"Shop Clothing", btn2:"View All" },
+  ];
+
+  useEffect(() => {
+    const t = setInterval(() => setHeroSlide(s => (s+1) % heroSlides.length), 4000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
