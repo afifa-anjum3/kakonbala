@@ -3517,166 +3517,73 @@ export default function App() {
         {/* HOME TAB */}
         {tab === "home" && (
           <div>
-            {/* Hero Section — full-width banner with text overlay */}
-            <div
-              style={{
-                position: "relative",
-                borderRadius: 24,
-                overflow: "hidden",
-                marginBottom: 48,
-                minHeight: 320,
-                backgroundImage: "url('/banner.png')",
-                backgroundSize: "cover",
-                backgroundPosition: "center center",
-                boxShadow: "0 12px 40px rgba(173,20,87,0.25)",
-              }}
-            >
-              {/* Light overlay on left for text readability */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  zIndex: 1,
-                  background:
-                    "linear-gradient(to top,rgba(20,0,30,0.82) 0%,rgba(20,0,30,0.1) 55%,transparent 100%)",
-                }}
-              />
-              {/* Content */}
-              <div
-                style={{
-                  position: "relative",
-                  zIndex: 2,
-                  padding: "48px 48px",
-                  maxWidth: "55%",
-                  minHeight: 320,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                }}
-              >
-                <div
-                  style={{
-                    display: "inline-block",
-                    background: "rgba(173,20,87,0.12)",
-                    border: "1px solid rgba(173,20,87,0.25)",
-                    borderRadius: 20,
-                    padding: "4px 14px",
-                    fontSize: 11,
-                    color: PRIMARY,
-                    fontWeight: 700,
-                    marginBottom: 14,
-                    alignSelf: "flex-start",
-                  }}
-                >
-                  🌸 Handmade with Love
+            {/* ── HERO SLIDER ── */}
+            <div style={{ marginBottom:0,position:"relative" }}>
+              {/* Big Search Bar */}
+              <div style={{ background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",padding:"18px 24px",borderRadius:"20px 20px 0 0",border:"1px solid rgba(173,20,87,0.1)",borderBottom:"none",boxShadow:"0 -2px 20px rgba(173,20,87,0.06)" }}>
+                <div style={{ display:"flex",gap:0,borderRadius:14,overflow:"hidden",border:`2px solid ${PRIMARY}`,boxShadow:`0 4px 20px rgba(173,20,87,0.2)` }}>
+                  <select onChange={e=>{setCatFilter(e.target.value);setSubFilter("all");if(e.target.value!=="all")setTab("shop");}}
+                    style={{ padding:"14px 16px",border:"none",borderRight:`1px solid rgba(173,20,87,0.2)`,background:"rgba(173,20,87,0.06)",color:DARK,fontSize:13,fontFamily:"inherit",fontWeight:600,cursor:"pointer",outline:"none",minWidth:130 }}>
+                    <option value="all">All Items</option>
+                    <option value="jewelry">💍 Jewelry</option>
+                    <option value="crafts">🏺 Crafts</option>
+                    <option value="clothing">👗 Clothing</option>
+                  </select>
+                  <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
+                    onKeyDown={e=>{if(e.key==="Enter"&&searchQuery.trim()){setTab("shop");}}}
+                    placeholder="Search products, categories, or styles..."
+                    style={{ flex:1,padding:"14px 20px",border:"none",outline:"none",fontSize:15,fontFamily:"inherit",background:"#FFF",color:DARK }} />
+                  <button onClick={()=>{if(searchQuery.trim())setTab("shop");}}
+                    style={{ ...btn,borderRadius:0,padding:"14px 28px",fontSize:15,boxShadow:"none" }}>🔍 Search</button>
                 </div>
-                <div
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 700,
-                    color: MED,
-                    marginBottom: 8,
-                    textShadow: "0 1px 3px rgba(255,255,255,0.8)",
-                    letterSpacing: 0.3,
-                  }}
-                >
-                  Welcome to কাঁকনবালা! 🌸
-                </div>
-                <h1
-                  style={{
-                    fontSize: 40,
-                    fontWeight: 900,
-                    color: DARK,
-                    lineHeight: 1.18,
-                    margin: "0 0 14px",
-                    textShadow: "0 1px 4px rgba(255,255,255,0.6)",
-                  }}
-                >
-                  Where Every
-                  <br />
-                  <span
-                    style={{
-                      background: GRAD,
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}
-                  >
-                    Piece Tells
-                  </span>
-                  <br />a Story
-                </h1>
-                <p
-                  style={{
-                    fontSize: 14,
-                    color: MED,
-                    lineHeight: 1.75,
-                    marginBottom: 26,
-                    fontWeight: 500,
-                    textShadow: "0 1px 3px rgba(255,255,255,0.7)",
-                  }}
-                >
-                  Discover handcrafted jewelry, elegant clothing, handmade arts
-                  & crafts, and beautiful accessories designed to celebrate
-                  every moment.
-                </p>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() => setTab("shop")}
-                    style={{ ...btn, padding: "11px 26px", fontSize: 14 }}
-                  >
-                    Shop Collection
-                  </button>
-                  <button
-                    onClick={() => setTab("collections")}
-                    style={{
-                      background: "rgba(255,255,255,0.75)",
-                      backdropFilter: "blur(8px)",
-                      border: `2px solid ${PRIMARY}`,
-                      color: PRIMARY,
-                      padding: "11px 26px",
-                      fontSize: 14,
-                      borderRadius: 20,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
-                    }}
-                  >
-                    New Arrivals
-                  </button>
-                </div>
-                {/* Stats row */}
-                <div style={{ display: "flex", gap: 20, marginTop: 24 }}>
-                  {[
-                    ["🌸", products.length + "+ Products"],
-                    ["⭐", "5★ Rated"],
-                    ["🚚", "Fast Delivery"],
-                  ].map(([icon, label]) => (
-                    <div
-                      key={label}
-                      style={{ display: "flex", alignItems: "center", gap: 5 }}
-                    >
-                      <span style={{ fontSize: 14 }}>{icon}</span>
-                      <span
-                        style={{ fontSize: 11, fontWeight: 700, color: MED }}
-                      >
-                        {label}
-                      </span>
-                    </div>
+                <div style={{ display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center" }}>
+                  <span style={{ fontSize:11,color:LIGHT,fontWeight:600 }}>Popular:</span>
+                  {["Bangles","Mandala","Saree","Rings","Canvas Paint","Earrings"].map(tag=>(
+                    <button key={tag} onClick={()=>{setSearchQuery(tag);setTab("shop");}}
+                      style={{ fontSize:11,color:PRIMARY,background:"rgba(173,20,87,0.06)",border:"1px solid rgba(173,20,87,0.15)",borderRadius:20,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>{tag}</button>
                   ))}
                 </div>
               </div>
+              {/* Slider */}
+              <div style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
+                {heroSlides.map((slide,i)=>(
+                  <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.8s",opacity:heroSlide===i?1:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center" }}>
+                    <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.72) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
+                    <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
+                      <div style={{ fontSize:11,color:"rgba(255,255,255,0.75)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
+                      <h1 style={{ fontSize:44,fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1>
+                      <h2 style={{ fontSize:44,fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:"0 0 18px",lineHeight:1.15 }}>{slide.sub}</h2>
+                      <div style={{ display:"flex",gap:12 }}>
+                        <button onClick={()=>{setCatFilter(i===1?"jewelry":i===2?"crafts":i===3?"clothing":"all");setTab("shop");}}
+                          style={{ ...btn,padding:"12px 28px",fontSize:14,background:"#FFF",color:PRIMARY,boxShadow:"0 4px 15px rgba(255,255,255,0.4)" }}>{slide.btn1}</button>
+                        <button onClick={()=>setTab("collections")}
+                          style={{ border:"2px solid rgba(255,255,255,0.7)",color:"#FFF",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(8px)",padding:"12px 28px",fontSize:14,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700 }}>{slide.btn2}</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ position:"absolute",bottom:18,left:"50%",transform:"translateX(-50%)",display:"flex",gap:8,zIndex:5 }}>
+                  {heroSlides.map((_,i)=>(
+                    <button key={i} onClick={()=>setHeroSlide(i)}
+                      style={{ width:i===heroSlide?28:8,height:8,borderRadius:4,border:"none",cursor:"pointer",background:i===heroSlide?"#FFF":"rgba(255,255,255,0.4)",transition:"all 0.3s" }}/>
+                  ))}
+                </div>
+                <button onClick={()=>setHeroSlide(s=>(s-1+heroSlides.length)%heroSlides.length)}
+                  style={{ position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:44,height:44,borderRadius:"50%",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>‹</button>
+                <button onClick={()=>setHeroSlide(s=>(s+1)%heroSlides.length)}
+                  style={{ position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:44,height:44,borderRadius:"50%",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>›</button>
+              </div>
+              {/* Stats bar */}
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",padding:"14px 0",marginBottom:40,boxShadow:"0 4px 20px rgba(173,20,87,0.08)" }}>
+                {[[products.length+"+","Products"],[orders.filter(o=>o.status==="delivered").length>0?orders.filter(o=>o.status==="delivered").length+"+":"500+","Happy Customers"],["5★","Rating"],["Free","Dhaka Delivery"]].map(([val,label],i)=>(
+                  <div key={i} style={{ textAlign:"center",borderRight:i<3?"1px solid rgba(173,20,87,0.1)":"none",padding:"4px 0" }}>
+                    <div style={{ fontSize:20,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>{val}</div>
+                    <div style={{ fontSize:11,color:MED,fontWeight:600 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Category Cards */}
-            <div style={{ marginBottom: 48 }}>
-              <h2
-                style={{
-                  fontSize: 26,
-                  fontWeight: 800,
-                  color: DARK,
-                  marginBottom: 6,
-                }}
-              >
                 Shop by Category
               </h2>
               <p style={{ color: MED, fontSize: 14, marginBottom: 24 }}>
