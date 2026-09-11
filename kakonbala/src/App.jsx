@@ -2023,11 +2023,15 @@ export default function App() {
   }, []);
 
   // Auto-advance hero slides
+  // Build hero slides using real product images from database
+  const jewelryImg = products.find(p=>p.category==="jewelry"&&p.imageUrl)?.imageUrl;
+  const craftsImg  = products.find(p=>p.category==="crafts"&&p.imageUrl)?.imageUrl;
+  const clothingImg= products.find(p=>p.category==="clothing"&&p.imageUrl)?.imageUrl;
   const heroSlides = [
-    { bg:"url('/banner.png')", headline:"Where Every Piece", sub:"Tells a Story", tagline:"Handmade with Love 🌸", btn1:"Shop Now", btn2:"New Arrivals" },
-    { bg:"linear-gradient(135deg,#FCE4EC,#F3E5F5,#EDE7F6)", headline:"Handcrafted Jewelry", sub:"for Every Occasion", tagline:"💍 Bangles · Rings · Earrings", btn1:"Shop Jewelry", btn2:"View All" },
-    { bg:"linear-gradient(135deg,#FFF8E1,#FCE4EC,#F3E5F5)", headline:"Artisan Crafts", sub:"Made with Passion", tagline:"🏺 Mandala · Canvas · Clay", btn1:"Shop Crafts", btn2:"Collections" },
-    { bg:"linear-gradient(135deg,#E8EAF6,#FCE4EC,#FFF9C4)", headline:"Elegant Clothing", sub:"Tradition Meets Style", tagline:"👗 Saree · Tops · Panjabi", btn1:"Shop Clothing", btn2:"View All" },
+    { bg:"url('/banner.png')", headline:"Where Every Piece", sub:"Tells a Story", tagline:"🌸 Handmade with Love — কাঁকনবালা", btn1:"Shop Now", btn2:"Collections", cat:"all" },
+    { bg:jewelryImg?"url('"+jewelryImg+"')":"linear-gradient(135deg,#880E4F,#AD1457,#E91E63)", headline:"Handcrafted Jewelry", sub:"for Every Occasion", tagline:"💍 Bangles · Rings · Earrings · Necklace", btn1:"Shop Jewelry", btn2:"View All", cat:"jewelry" },
+    { bg:craftsImg?"url('"+craftsImg+"')":"linear-gradient(135deg,#4A148C,#6A1B9A,#9C27B0)", headline:"Artisan Crafts", sub:"Made with Passion", tagline:"🏺 Mandala · Canvas Paint · Clay Art", btn1:"Shop Crafts", btn2:"View All", cat:"crafts" },
+    { bg:clothingImg?"url('"+clothingImg+"')":"linear-gradient(135deg,#B71C1C,#E53935,#EF9A9A)", headline:"Elegant Clothing", sub:"Tradition Meets Style", tagline:"👗 Saree · Tops · Panjabi · Fotua", btn1:"Shop Clothing", btn2:"View All", cat:"clothing" },
   ];
 
   useEffect(() => {
@@ -3554,7 +3558,7 @@ export default function App() {
                       <h1 style={{ fontSize:44,fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1>
                       <h2 style={{ fontSize:44,fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:"0 0 18px",lineHeight:1.15 }}>{slide.sub}</h2>
                       <div style={{ display:"flex",gap:12 }}>
-                        <button onClick={()=>{setCatFilter(i===1?"jewelry":i===2?"crafts":i===3?"clothing":"all");setTab("shop");}}
+                        <button onClick={()=>{setCatFilter(slide.cat||"all");setSubFilter("all");setTab("shop");}}
                           style={{ ...btn,padding:"12px 28px",fontSize:14,background:"#FFF",color:PRIMARY,boxShadow:"0 4px 15px rgba(255,255,255,0.4)" }}>{slide.btn1}</button>
                         <button onClick={()=>setTab("collections")}
                           style={{ border:"2px solid rgba(255,255,255,0.7)",color:"#FFF",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(8px)",padding:"12px 28px",fontSize:14,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700 }}>{slide.btn2}</button>
