@@ -3588,8 +3588,8 @@ export default function App() {
               </div>
             </div>
 
-                Shop by Category
-              </h2>
+            <div style={{ marginBottom:48 }}>
+              <h2 style={{ fontSize:24,fontWeight:800,color:DARK,marginBottom:6 }}>Shop by Category</h2>
               <p style={{ color: MED, fontSize: 14, marginBottom: 24 }}>
                 Explore our handcrafted collections
               </p>
