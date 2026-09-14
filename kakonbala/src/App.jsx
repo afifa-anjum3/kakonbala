@@ -3524,10 +3524,10 @@ export default function App() {
             {/* ── HERO SLIDER ── */}
             <div style={{ marginBottom:0,position:"relative" }}>
               {/* Big Search Bar */}
-              <div style={{ background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",padding:isMobile?"12px":"18px 24px",borderRadius:"20px 20px 0 0",border:"1px solid rgba(173,20,87,0.1)",borderBottom:"none",boxShadow:"0 -2px 20px rgba(173,20,87,0.06)" }}>
+              <div style={{ background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",padding:"18px 24px",borderRadius:"20px 20px 0 0",border:"1px solid rgba(173,20,87,0.1)",borderBottom:"none",boxShadow:"0 -2px 20px rgba(173,20,87,0.06)" }}>
                 <div style={{ display:"flex",gap:0,borderRadius:14,overflow:"hidden",border:`2px solid ${PRIMARY}`,boxShadow:`0 4px 20px rgba(173,20,87,0.2)` }}>
                   <select onChange={e=>{setCatFilter(e.target.value);setSubFilter("all");if(e.target.value!=="all")setTab("shop");}}
-                    style={{ padding:"14px 16px",border:"none",borderRight:`1px solid rgba(173,20,87,0.2)`,background:"rgba(173,20,87,0.06)",color:DARK,fontSize:13,fontFamily:"inherit",fontWeight:600,cursor:"pointer",outline:"none",minWidth:isMobile?80:130,display:isMobile?"none":"block" }}>
+                    style={{ padding:"14px 16px",border:"none",borderRight:`1px solid rgba(173,20,87,0.2)`,background:"rgba(173,20,87,0.06)",color:DARK,fontSize:13,fontFamily:"inherit",fontWeight:600,cursor:"pointer",outline:"none",minWidth:130 }}>
                     <option value="all">All Items</option>
                     <option value="jewelry">💍 Jewelry</option>
                     <option value="crafts">🏺 Crafts</option>
@@ -3549,14 +3549,14 @@ export default function App() {
                 </div>
               </div>
               {/* Slider */}
-              <div style={{ position:"relative",overflow:"hidden",height:isMobile?220:isTablet?300:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
+              <div style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
                 {heroSlides.map((slide,i)=>(
                   <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.8s",opacity:heroSlide===i?1:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center" }}>
                     <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.72) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
-                    <div style={{ position:"relative",zIndex:2,padding:isMobile?"20px":"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:isMobile?"90%":"55%" }}>
+                    <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
                       <div style={{ fontSize:11,color:"rgba(255,255,255,0.75)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
-                      <h1 style={{ fontSize:isMobile?22:44,fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1>
-                      <h2 style={{ fontSize:isMobile?22:44,fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:isMobile?"0 0 10px":"0 0 18px",lineHeight:1.15 }}>{slide.sub}</h2>
+                      <h1 style={{ fontSize:44,fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1>
+                      <h2 style={{ fontSize:44,fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:"0 0 18px",lineHeight:1.15 }}>{slide.sub}</h2>
                       <div style={{ display:"flex",gap:12 }}>
                         <button onClick={()=>{setCatFilter(slide.cat||"all");setSubFilter("all");setTab("shop");}}
                           style={{ ...btn,padding:"12px 28px",fontSize:14,background:"#FFF",color:PRIMARY,boxShadow:"0 4px 15px rgba(255,255,255,0.4)" }}>{slide.btn1}</button>
@@ -3578,7 +3578,7 @@ export default function App() {
                   style={{ position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:44,height:44,borderRadius:"50%",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>›</button>
               </div>
               {/* Stats bar */}
-              <div style={{ display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",padding:"14px 0",marginBottom:40,boxShadow:"0 4px 20px rgba(173,20,87,0.08)" }}>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",padding:"14px 0",marginBottom:40,boxShadow:"0 4px 20px rgba(173,20,87,0.08)" }}>
                 {[[products.length+"+","Products"],[orders.filter(o=>o.status==="delivered").length>0?orders.filter(o=>o.status==="delivered").length+"+":"500+","Happy Customers"],["5★","Rating"],["Free","Dhaka Delivery"]].map(([val,label],i)=>(
                   <div key={i} style={{ textAlign:"center",borderRight:i<3?"1px solid rgba(173,20,87,0.1)":"none",padding:"4px 0" }}>
                     <div style={{ fontSize:20,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>{val}</div>
@@ -3973,7 +3973,7 @@ export default function App() {
                 <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 14px",fontSize:12,color:PRIMARY,fontWeight:700,marginBottom:10 }}>⭐ Happy Customers</div>
                 <h2 style={{ fontSize:26,fontWeight:800,color:DARK,margin:0 }}>What They Say</h2>
               </div>
-              <div style={{ display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":isTablet?"repeat(2,1fr)":"repeat(3,1fr)",gap:isMobile?10:18 }}>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
                 {[
                   {name:"Nusrat J.",loc:"Dhaka",stars:5,text:"The bangles are absolutely gorgeous! Packaging was beautiful and delivery was super fast. Will definitely order again! 🌸"},
                   {name:"Rabeya K.",loc:"Chittagong",stars:5,text:"I ordered the mandala artwork and it exceeded my expectations. Truly handmade with so much detail and care. Highly recommended!"},
