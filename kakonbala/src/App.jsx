@@ -2406,7 +2406,8 @@ export default function App() {
 
   function finalTotal() {
     const disc = promoApplied ? promoApplied.discount : 0;
-    return cartTotal + deliveryCharge() - disc;
+    const total = cartTotal + deliveryCharge() - disc;
+    return Math.max(total, deliveryCharge()); // never below delivery
   }
 
   async function applyPromo() {
@@ -2423,10 +2424,19 @@ export default function App() {
       notify(`⚠ Min order ৳${promo.minOrder} required for this code`);
       return;
     }
-    const disc =
+    // Compute raw discount, then cap so total never goes below delivery charge
+    const rawDisc =
       promo.type === "percentage"
         ? Math.round((cartTotal * Number(promo.value)) / 100)
         : Number(promo.value);
+
+    // NEW: cap discount to cart total (delivery still owed, never negative)
+    const disc = Math.min(rawDisc, cartTotal);
+
+    if (disc < rawDisc) {
+      notify(`⚠ Promo capped at ৳${disc} (cart subtotal)`);
+    }
+
     setPromoApplied({
       code,
       discount: disc,
@@ -2522,10 +2532,49 @@ export default function App() {
   ];
 
   async function updateOrderStatus(orderId, newStatus) {
-    await updateDoc(doc(db, "orders", orderId), {
-      status: newStatus,
-      updatedAt: serverTimestamp(),
-    });
+    if (!isAdmin) return notify("⚠ Admin only");
+
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return notify("⚠ Order not found");
+
+    const wasPaidOrActive = [
+      "processing",
+      "in_packaging",
+      "shipped",
+      "delivered",
+      "paid",
+    ].includes(order.status);
+    const willBeCancelled = newStatus === "cancelled";
+    const willBePaid = ["delivered", "paid"].includes(newStatus);
+
+    // If admin cancels an unpaid pending order, restore stock.
+    const shouldRestoreStock =
+      willBeCancelled &&
+      ["pending_payment", "payment_due"].includes(order.status) &&
+      !order.stockRestored;
+
+    const batch = writeBatch(db);
+    const orderRef = doc(db, "orders", orderId);
+
+    if (shouldRestoreStock) {
+      for (const item of order.items || []) {
+        batch.update(doc(db, "products", item.id), {
+          stock: increment(item.qty),
+        });
+      }
+      batch.update(orderRef, {
+        status: newStatus,
+        stockRestored: true,
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      batch.update(orderRef, {
+        status: newStatus,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
     notify("✓ Order status updated to: " + newStatus.replace("_", " "));
   }
 
@@ -2539,7 +2588,24 @@ export default function App() {
     notify("✓ Dashboard cleared");
   }
 
+  function validateStock() {
+    for (const item of cart) {
+      // Look up current product in live products state
+      const prod = products.find((p) => p.id === item.product.id);
+      if (!prod) return `⚠ Product "${item.product.name}" no longer exists`;
+      if (prod.stock < item.qty) {
+        return `⚠ Only ${prod.stock} of "${prod.name}" in stock (you have ${item.qty})`;
+      }
+    }
+    return null;
+  }
+
   async function handleCheckout() {
+    if (!user) {
+      notify("⚠ Please login to place an order");
+      setShowAuth(true);
+      return;
+    }
     if (!customer.name) {
       notify("⚠ Please enter your name");
       return;
@@ -2562,16 +2628,31 @@ export default function App() {
       notify("⚠ Please complete all address fields");
       return;
     }
+
+    // ── NEW: pre-flight stock validation ──
+    const stockErr = validateStock();
+    if (stockErr) {
+      notify(stockErr);
+      return;
+    }
+
     const dc = deliveryCharge();
-    const disc = promoApplied ? promoApplied.discount : 0;
-    const total = cartTotal + dc - disc;
+    const disc = Math.min(promoApplied?.discount || 0, cartTotal);
+    const total = Math.max(cartTotal + dc - disc, dc);
+
     const orderData = {
-      customer,
+      customer: {
+        ...customer,
+        uid: user?.uid || null, // so Firestore rules can verify ownership
+      },
       items: cart.map((i) => ({
         id: i.product.id,
         name: i.product.name,
         qty: i.qty,
         price: i.product.price,
+        size: i.size || "",
+        color: i.color || "",
+        piece: i.piece || "",
       })),
       subtotal: cartTotal,
       deliveryCharge: dc,
@@ -2582,6 +2663,7 @@ export default function App() {
       createdAt: serverTimestamp(),
     };
 
+    // ── COD path ──
     if (payMethod === "cod") {
       if (dc === 150) {
         notify(
@@ -2589,25 +2671,29 @@ export default function App() {
         );
         return;
       }
-      // Batch: create order + deduct stock atomically
-      const batch = writeBatch(db);
-      const orderRef = doc(collection(db, "orders"));
-      batch.set(orderRef, { ...orderData, status: "processing" });
-      for (const item of cart) {
-        batch.update(doc(db, "products", item.product.id), {
-          stock: increment(-item.qty),
-        });
+      try {
+        const batch = writeBatch(db);
+        const orderRef = doc(collection(db, "orders"));
+        batch.set(orderRef, { ...orderData, status: "processing" });
+        // Deduct per-unit stock for every line item
+        for (const item of cart) {
+          batch.update(doc(db, "products", item.product.id), {
+            stock: increment(-item.qty),
+          });
+        }
+        await batch.commit();
+        setCart([]);
+        setCheckoutModal(false);
+        setPromoApplied(null);
+        setPromoCode("");
+        notify("✓ Order placed! Cash on delivery confirmed 🎉");
+      } catch (e) {
+        notify("⚠ " + e.message);
       }
-      await batch.commit();
-      setCart([]);
-      setCheckoutModal(false);
-      setPromoApplied(null);
-      setPromoCode("");
-      notify("✓ Order placed! Cash on delivery confirmed 🎉");
       return;
     }
 
-    // Mobile payment (bKash/Nagad/Rocket)
+    // ── Mobile payment path ──
     if (!transactionId.trim()) {
       notify("⚠ Please send payment first, then enter Transaction ID");
       return;
@@ -2616,14 +2702,27 @@ export default function App() {
       notify("⚠ Transaction ID too short. Please check again.");
       return;
     }
+
     setPayLoading(true);
     try {
-      await addDoc(collection(db, "orders"), {
+      // Use batch so order-create + stock-deduct are atomic here too
+      const batch = writeBatch(db);
+      const orderRef = doc(collection(db, "orders"));
+      batch.set(orderRef, {
         ...orderData,
         status: "pending_payment",
         transactionId: transactionId.trim(),
         paymentGateway: selectedGateway,
       });
+      // NEW: deduct stock immediately so nobody else can grab it
+      for (const item of cart) {
+        batch.update(doc(db, "products", item.product.id), {
+          stock: increment(-item.qty),
+        });
+      }
+      await batch.commit();
+
+      // Save customer profile outside the batch (separate collection, merge)
       if (user && user.uid) {
         await setDoc(
           doc(db, "customers", user.uid),
@@ -2641,6 +2740,7 @@ export default function App() {
           { merge: true },
         );
       }
+
       setCart([]);
       setCheckoutModal(false);
       setPromoApplied(null);
