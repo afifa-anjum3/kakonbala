@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
+  collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, increment,
+  serverTimestamp, query, orderBy, where, writeBatch, setDoc, getDoc
+} from "firebase/firestore";
+import {
   collection,
   onSnapshot,
   doc,
@@ -2044,12 +2048,39 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snap) =>
-      setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-    );
-    return unsub;
-  }, []);
+  // If not signed in, don't even try — rules will deny the query and
+  // it will throw "permission-denied" errors on every page load.
+  if (!user) {
+    setOrders([]);
+    return;
+  }
+
+  // Admin sees all orders. Everyone else sees only their own.
+  const isAdminUser =
+    user.email === "afifa.anjum3@gmail.com" && user.emailVerified;
+
+  const ordersQuery = isAdminUser
+    ? query(collection(db, "orders"), orderBy("createdAt", "desc"))
+    : query(
+        collection(db, "orders"),
+        where("customer.uid", "==", user.uid),
+      );
+
+  const unsub = onSnapshot(
+    ordersQuery,
+    (snap) => {
+      setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    },
+    (err) => {
+      // Swallow permission errors gracefully — they mean
+      // "not allowed", which is a normal case, not a crash.
+      console.warn("Orders listener skipped:", err.code);
+      setOrders([]);
+    },
+  );
+
+  return unsub;
+}, [user]);   // 👈 re-runs when login state changesS
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "promoCodes"), (snap) =>
@@ -2601,6 +2632,16 @@ export default function App() {
   }
 
   async function handleCheckout() {
+  console.log("🔵 CHECKOUT", {
+    userEmail: user?.email || "❌ NOT LOGGED IN",
+    uid: user?.uid || "❌ NO UID",
+    emailVerified: user?.emailVerified,
+    customerUid: user?.uid || null,
+    customerObject: customer,
+    cartLength: cart.length,
+  });
+  // ... rest
+}
     if (!user) {
       notify("⚠ Please login to place an order");
       setShowAuth(true);
