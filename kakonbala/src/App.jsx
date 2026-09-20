@@ -3,21 +3,6 @@ import {
   collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, increment,
   serverTimestamp, query, orderBy, where, writeBatch, setDoc, getDoc
 } from "firebase/firestore";
-import {
-  collection,
-  onSnapshot,
-  doc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
-  increment,
-  serverTimestamp,
-  query,
-  orderBy,
-  writeBatch,
-  setDoc,
-  getDoc,
-} from "firebase/firestore";
 import { db, auth } from "./firebase.js";
 import {
   createUserWithEmailAndPassword,
@@ -2040,22 +2025,22 @@ export default function App() {
     }
   }, []);
 
+ useEffect(() => {
+  const unsub = onSnapshot(
+    collection(db, "products"),
+    (snap) => setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => console.error("🔴 PRODUCTS listener error:", err.code, err.message),
+  );
+  return unsub;
+}, []);
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "products"), (snap) =>
-      setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-    );
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-  // If not signed in, don't even try — rules will deny the query and
-  // it will throw "permission-denied" errors on every page load.
+  // If not signed in, don't query orders at all — rules will deny it
   if (!user) {
     setOrders([]);
     return;
   }
 
-  // Admin sees all orders. Everyone else sees only their own.
+  // Admins see all orders; customers only see their own
   const isAdminUser =
     user.email === "afifa.anjum3@gmail.com" && user.emailVerified;
 
@@ -2072,15 +2057,15 @@ export default function App() {
       setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     },
     (err) => {
-      // Swallow permission errors gracefully — they mean
-      // "not allowed", which is a normal case, not a crash.
+      // Silently handle permission errors — they just mean "not allowed"
       console.warn("Orders listener skipped:", err.code);
       setOrders([]);
     },
   );
 
   return unsub;
-}, [user]);   // 👈 re-runs when login state changesS
+}, [user]); // 🔑 re-runs whenever login state changes
+
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "promoCodes"), (snap) =>
@@ -2631,199 +2616,169 @@ export default function App() {
     return null;
   }
 
-  async function handleCheckout() {
-    async function handleCheckout() {
-  console.log("═══ CHECKOUT DEBUG ═══");
-  console.log("user.uid:", user?.uid);
-  console.log("user.email:", user?.email);
-  console.log("user.emailVerified:", user?.emailVerified);
-  console.log("customer object before spread:", customer);
-  console.log("customer.uid will be:", user?.uid || null);
-  console.log("delivery charge:", deliveryCharge());
-  console.log("=======================");
-  // ... rest
-}
-  console.log("🔵 CHECKOUT", {
-    userEmail: user?.email || "❌ NOT LOGGED IN",
-    uid: user?.uid || "❌ NO UID",
-    emailVerified: user?.emailVerified,
-    customerUid: user?.uid || null,
-    customerObject: customer,
-    cartLength: cart.length,
+ aasync function handleCheckout() {
+  // ── Auth check ──
+  if (!user) {
+    notify("⚠ Please login to place an order");
+    setShowAuth(true);
+    return;
+  }
+
+  // ── Form validation ──
+  if (!customer.name) {
+    notify("⚠ Please enter your name");
+    return;
+  }
+  if (!customer.phone || !validatePhone(customer.phone)) {
+    notify("⚠ Enter valid BD phone: 01XXXXXXXXX");
+    return;
+  }
+  if (customer.email && !validateEmail(customer.email)) {
+    notify("⚠ Enter a valid email address");
+    return;
+  }
+  if (
+    !customer.district ||
+    !customer.area ||
+    !customer.thana ||
+    !customer.postOffice ||
+    !customer.houseRoad
+  ) {
+    notify("⚠ Please complete all address fields");
+    return;
+  }
+
+  // ── Stock check ──
+  const stockErr = validateStock();
+  if (stockErr) {
+    notify(stockErr);
+    return;
+  }
+
+  // ── Compute totals ──
+  const dc = deliveryCharge();
+  const disc = Math.min(promoApplied?.discount || 0, cartTotal);
+  const total = Math.max(cartTotal + dc - disc, dc);
+
+  // ── Build order payload ──
+  const orderData = {
+    customer: {
+      ...customer,
+      uid: user.uid,
+    },
+    items: cart.map((i) => ({
+      id: i.product.id,
+      name: i.product.name,
+      qty: i.qty,
+      price: i.product.price,
+      size: i.size || "",
+      color: i.color || "",
+      piece: i.piece || "",
+    })),
+    subtotal: cartTotal,
+    deliveryCharge: dc,
+    discount: disc,
+    promoCode: promoApplied?.code || "",
+    total,
+    paymentMethod: payMethod,
+    createdAt: serverTimestamp(),
+  };
+
+  console.log("🔵 CHECKOUT: about to write order", {
+    userUid: user.uid,
+    customerUid: orderData.customer.uid,
+    match: orderData.customer.uid === user.uid,
+    itemCount: cart.length,
   });
-  // ... rest
-}
-    if (!user) {
-      notify("⚠ Please login to place an order");
-      setShowAuth(true);
-      return;
-    }
-    if (!customer.name) {
-      notify("⚠ Please enter your name");
-      return;
-    }
-    if (!customer.phone || !validatePhone(customer.phone)) {
-      notify("⚠ Enter valid BD phone: 01XXXXXXXXX");
-      return;
-    }
-    if (customer.email && !validateEmail(customer.email)) {
-      notify("⚠ Enter a valid email address");
-      return;
-    }
-    if (
-      !customer.district ||
-      !customer.area ||
-      !customer.thana ||
-      !customer.postOffice ||
-      !customer.houseRoad
-    ) {
-      notify("⚠ Please complete all address fields");
-      return;
-    }
 
-    // ── NEW: pre-flight stock validation ──
-    const stockErr = validateStock();
-    if (stockErr) {
-      notify(stockErr);
+  // ── COD path ──
+  if (payMethod === "cod") {
+    if (dc === 150) {
+      notify("⚠ Outside Dhaka orders must pay online. Please select Online Payment.");
       return;
     }
-
-    const dc = deliveryCharge();
-    const disc = Math.min(promoApplied?.discount || 0, cartTotal);
-    const total = Math.max(cartTotal + dc - disc, dc);
-
-    const orderData = {
-      customer: {
-        ...customer,
-        uid: user?.uid || null, // so Firestore rules can verify ownership
-      },
-      items: cart.map((i) => ({
-        id: i.product.id,
-        name: i.product.name,
-        qty: i.qty,
-        price: i.product.price,
-        size: i.size || "",
-        color: i.color || "",
-        piece: i.piece || "",
-      })),
-      subtotal: cartTotal,
-      deliveryCharge: dc,
-      discount: disc,
-      promoCode: promoApplied?.code || "",
-      total,
-      paymentMethod: payMethod,
-      createdAt: serverTimestamp(),
-    };
-
-    // ── DEBUG BLOCK — REMOVE AFTER FIXING ──
-console.log("═══════════════ CHECKOUT DEBUG ═══════════════");
-console.log("1. user object is:", user);
-console.log("2. user type:", typeof user);
-console.log("3. user.uid:", user?.uid);
-console.log("4. user.email:", user?.email);
-console.log("5. user.emailVerified:", user?.emailVerified);
-console.log("6. customer.uid in orderData:", orderData.customer.uid);
-console.log("7. DO THEY MATCH?:", orderData.customer.uid === user?.uid);
-console.log("8. Full orderData:", JSON.stringify(orderData, null, 2));
-console.log("═══════════════════════════════════════════════");
-
-    // ── COD path ──
-    if (payMethod === "cod") {
-      if (dc === 150) {
-        notify(
-          "⚠ Outside Dhaka orders must pay online. Please select Online Payment.",
-        );
-        return;
-      }
-      try {
-        const batch = writeBatch(db);
-        const orderRef = doc(collection(db, "orders"));
-        batch.set(orderRef, { ...orderData, status: "processing" });
-        // Deduct per-unit stock for every line item
-        for (const item of cart) {
-          batch.update(doc(db, "products", item.product.id), {
-            stock: increment(-item.qty),
-          });
-        }
-        await batch.commit();
-        setCart([]);
-        setCheckoutModal(false);
-        setPromoApplied(null);
-        setPromoCode("");
-        notify("✓ Order placed! Cash on delivery confirmed 🎉");
-      } catch (e) {
-  console.error("🔴 COD ORDER FAILED:", e);
-  console.error("   Error code:", e.code);
-  console.error("   Error message:", e.message);
-  console.error("   Full error:", JSON.stringify(e, null, 2));
-  notify("⚠ " + (e.code || e.message));
-}
-      return;
-    }
-
-    // ── Mobile payment path ──
-    if (!transactionId.trim()) {
-      notify("⚠ Please send payment first, then enter Transaction ID");
-      return;
-    }
-    if (transactionId.trim().length < 6) {
-      notify("⚠ Transaction ID too short. Please check again.");
-      return;
-    }
-
-    setPayLoading(true);
     try {
-      // Use batch so order-create + stock-deduct are atomic here too
       const batch = writeBatch(db);
       const orderRef = doc(collection(db, "orders"));
-      batch.set(orderRef, {
-        ...orderData,
-        status: "pending_payment",
-        transactionId: transactionId.trim(),
-        paymentGateway: selectedGateway,
-      });
-      // NEW: deduct stock immediately so nobody else can grab it
+      batch.set(orderRef, { ...orderData, status: "processing" });
       for (const item of cart) {
         batch.update(doc(db, "products", item.product.id), {
           stock: increment(-item.qty),
         });
       }
       await batch.commit();
-
-      // Save customer profile outside the batch (separate collection, merge)
-      if (user && user.uid) {
-        await setDoc(
-          doc(db, "customers", user.uid),
-          {
-            name: customer.name,
-            phone: customer.phone,
-            email: customer.email || "",
-            district: customer.district,
-            area: customer.area,
-            thana: customer.thana,
-            postOffice: customer.postOffice,
-            houseRoad: customer.houseRoad,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
-
       setCart([]);
       setCheckoutModal(false);
       setPromoApplied(null);
       setPromoCode("");
-      setTransactionId("");
-      notify(
-        "✓ Order placed! We will confirm after verifying your " +
-          selectedGateway +
-          " payment.",
-      );
+      notify("✓ Order placed! Cash on delivery confirmed 🎉");
     } catch (e) {
-      notify("⚠ " + e.message);
+      console.error("🔴 COD order failed:", e);
+      notify("⚠ " + (e.code || e.message));
     }
-    setPayLoading(false);
+    return;
   }
+
+  // ── Online / Mobile payment path ──
+  if (!transactionId.trim()) {
+    notify("⚠ Please send payment first, then enter Transaction ID");
+    return;
+  }
+  if (transactionId.trim().length < 6) {
+    notify("⚠ Transaction ID too short. Please check again.");
+    return;
+  }
+
+  setPayLoading(true);
+  try {
+    const batch = writeBatch(db);
+    const orderRef = doc(collection(db, "orders"));
+    batch.set(orderRef, {
+      ...orderData,
+      status: "pending_payment",
+      transactionId: transactionId.trim(),
+      paymentGateway: selectedGateway,
+    });
+    for (const item of cart) {
+      batch.update(doc(db, "products", item.product.id), {
+        stock: increment(-item.qty),
+      });
+    }
+    await batch.commit();
+
+    // Save/update customer profile
+    await setDoc(
+      doc(db, "customers", user.uid),
+      {
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email || "",
+        district: customer.district,
+        area: customer.area,
+        thana: customer.thana,
+        postOffice: customer.postOffice,
+        houseRoad: customer.houseRoad,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    setCart([]);
+    setCheckoutModal(false);
+    setPromoApplied(null);
+    setPromoCode("");
+    setTransactionId("");
+    notify(
+      "✓ Order placed! We will confirm after verifying your " +
+        selectedGateway +
+        " payment.",
+    );
+  } catch (e) {
+    console.error("🔴 Online order failed:", e);
+    notify("⚠ " + (e.code || e.message));
+  }
+  setPayLoading(false);
+}
 
   /* ── Sub-category helpers ── */
   function getSubOptions(cat, cg) {
