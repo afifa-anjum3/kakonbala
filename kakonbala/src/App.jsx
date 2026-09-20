@@ -2632,6 +2632,17 @@ export default function App() {
   }
 
   async function handleCheckout() {
+    async function handleCheckout() {
+  console.log("═══ CHECKOUT DEBUG ═══");
+  console.log("user.uid:", user?.uid);
+  console.log("user.email:", user?.email);
+  console.log("user.emailVerified:", user?.emailVerified);
+  console.log("customer object before spread:", customer);
+  console.log("customer.uid will be:", user?.uid || null);
+  console.log("delivery charge:", deliveryCharge());
+  console.log("=======================");
+  // ... rest
+}
   console.log("🔵 CHECKOUT", {
     userEmail: user?.email || "❌ NOT LOGGED IN",
     uid: user?.uid || "❌ NO UID",
@@ -2704,6 +2715,18 @@ export default function App() {
       createdAt: serverTimestamp(),
     };
 
+    // ── DEBUG BLOCK — REMOVE AFTER FIXING ──
+console.log("═══════════════ CHECKOUT DEBUG ═══════════════");
+console.log("1. user object is:", user);
+console.log("2. user type:", typeof user);
+console.log("3. user.uid:", user?.uid);
+console.log("4. user.email:", user?.email);
+console.log("5. user.emailVerified:", user?.emailVerified);
+console.log("6. customer.uid in orderData:", orderData.customer.uid);
+console.log("7. DO THEY MATCH?:", orderData.customer.uid === user?.uid);
+console.log("8. Full orderData:", JSON.stringify(orderData, null, 2));
+console.log("═══════════════════════════════════════════════");
+
     // ── COD path ──
     if (payMethod === "cod") {
       if (dc === 150) {
@@ -2729,8 +2752,12 @@ export default function App() {
         setPromoCode("");
         notify("✓ Order placed! Cash on delivery confirmed 🎉");
       } catch (e) {
-        notify("⚠ " + e.message);
-      }
+  console.error("🔴 COD ORDER FAILED:", e);
+  console.error("   Error code:", e.code);
+  console.error("   Error message:", e.message);
+  console.error("   Full error:", JSON.stringify(e, null, 2));
+  notify("⚠ " + (e.code || e.message));
+}
       return;
     }
 
