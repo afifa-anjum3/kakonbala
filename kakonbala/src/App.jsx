@@ -3102,6 +3102,81 @@ export default function App() {
         </div>
       </div>
 
+
+      {/* ── RESPONSIVE CSS ── */}
+      <style>{`
+        * { box-sizing: border-box; }
+
+        /* Mobile first */
+        @media (max-width: 640px) {
+          .kk-main { padding: 10px 12px !important; }
+          .kk-header { padding: 0 12px !important; height: 56px !important; }
+          .kk-nav { display: none !important; }
+          .kk-lang-btn { display: none !important; }
+          .kk-profile-btn span { display: none !important; }
+          .kk-hero { height: 200px !important; }
+          .kk-hero-text { padding: 16px 18px !important; max-width: 90% !important; }
+          .kk-hero-h1 { font-size: 22px !important; }
+          .kk-hero-h2 { font-size: 20px !important; margin-bottom: 10px !important; }
+          .kk-hero-btn-row { gap: 8px !important; }
+          .kk-hero-btn { padding: 8px 16px !important; font-size: 12px !important; }
+          .kk-search-cat { display: none !important; }
+          .kk-search-input { font-size: 13px !important; padding: 10px 12px !important; }
+          .kk-search-btn { padding: 10px 14px !important; font-size: 13px !important; }
+          .kk-stats-bar { grid-template-columns: repeat(2,1fr) !important; }
+          .kk-grid-3 { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
+          .kk-grid-4 { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
+          .kk-grid-2col { grid-template-columns: 1fr !important; }
+          .kk-modal-full { width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; top: 0 !important; left: 0 !important; transform: none !important; }
+          .kk-modal-grid { grid-template-columns: 1fr !important; }
+          .kk-cart-drawer { width: 100vw !important; }
+          .kk-product-img { height: 160px !important; }
+          .kk-section-title { font-size: 20px !important; }
+          .kk-sidebar { width: 85vw !important; }
+          .kk-about-grid { grid-template-columns: 1fr !important; gap: 20px !important; }
+          .kk-why-grid { grid-template-columns: repeat(2,1fr) !important; }
+          .kk-testimonial-grid { grid-template-columns: 1fr !important; }
+          .kk-hero-stats { display: none !important; }
+          .kk-logo-text { font-size: 16px !important; }
+          .kk-tagline { display: none !important; }
+          .kk-hero-slide-btn { width: 32px !important; height: 32px !important; font-size: 16px !important; }
+          .kk-checkout-modal { width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; top: 0 !important; left: 0 !important; transform: none !important; }
+          .kk-detail-modal { width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; top: 0 !important; left: 0 !important; transform: none !important; }
+          .kk-pay-grid { grid-template-columns: 1fr !important; }
+          .kk-order-stats { grid-template-columns: repeat(2,1fr) !important; }
+          .kk-dashboard-grid { grid-template-columns: repeat(2,1fr) !important; }
+          .kk-feature-strip { grid-template-columns: repeat(2,1fr) !important; }
+          .kk-collection-grid { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
+        }
+
+        /* Tablet */
+        @media (min-width: 641px) and (max-width: 1023px) {
+          .kk-main { padding: 16px 20px !important; }
+          .kk-grid-3 { grid-template-columns: repeat(2,1fr) !important; }
+          .kk-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
+          .kk-modal-grid { grid-template-columns: 1fr !important; }
+          .kk-hero { height: 280px !important; }
+          .kk-hero-h1 { font-size: 30px !important; }
+          .kk-hero-h2 { font-size: 28px !important; }
+          .kk-about-grid { grid-template-columns: 1fr !important; }
+          .kk-dashboard-grid { grid-template-columns: repeat(2,1fr) !important; }
+          .kk-order-stats { grid-template-columns: repeat(2,1fr) !important; }
+        }
+
+        /* Smooth transitions */
+        .kk-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .kk-btn { transition: all 0.2s ease; }
+
+        /* Touch-friendly tap areas */
+        @media (max-width: 640px) {
+          button, a, select { min-height: 40px; }
+          .kk-qty-btn { width: 36px !important; height: 36px !important; }
+        }
+
+        /* Prevent horizontal scroll */
+        body { overflow-x: hidden; }
+        img { max-width: 100%; }
+      `}</style>
       {/* ANNOUNCEMENT BAR */}
       <div
         style={{
@@ -3524,7 +3599,7 @@ export default function App() {
             {/* ── HERO SLIDER ── */}
             <div style={{ marginBottom:0,position:"relative" }}>
               {/* Big Search Bar */}
-              <div style={{ background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",padding:"18px 24px",borderRadius:"20px 20px 0 0",border:"1px solid rgba(173,20,87,0.1)",borderBottom:"none",boxShadow:"0 -2px 20px rgba(173,20,87,0.06)" }}>
+              <div style={{ background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",padding:isMobile?"12px":"18px 24px",borderRadius:"20px 20px 0 0",border:"1px solid rgba(173,20,87,0.1)",borderBottom:"none",boxShadow:"0 -2px 20px rgba(173,20,87,0.06)" }}>
                 <div style={{ display:"flex",gap:0,borderRadius:14,overflow:"hidden",border:`2px solid ${PRIMARY}`,boxShadow:`0 4px 20px rgba(173,20,87,0.2)` }}>
                   <select onChange={e=>{setCatFilter(e.target.value);setSubFilter("all");if(e.target.value!=="all")setTab("shop");}}
                     style={{ padding:"14px 16px",border:"none",borderRight:`1px solid rgba(173,20,87,0.2)`,background:"rgba(173,20,87,0.06)",color:DARK,fontSize:13,fontFamily:"inherit",fontWeight:600,cursor:"pointer",outline:"none",minWidth:130 }}>
@@ -3549,14 +3624,14 @@ export default function App() {
                 </div>
               </div>
               {/* Slider */}
-              <div style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
+              <div style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)}} className="kk-hero">
                 {heroSlides.map((slide,i)=>(
                   <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.8s",opacity:heroSlide===i?1:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center" }}>
                     <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.72) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
                     <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
                       <div style={{ fontSize:11,color:"rgba(255,255,255,0.75)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
                       <h1 style={{ fontSize:44,fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1>
-                      <h2 style={{ fontSize:44,fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:"0 0 18px",lineHeight:1.15 }}>{slide.sub}</h2>
+                      <h2 style={{ fontSize:44,fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:isMobile?"0 0 10px":"0 0 18px",lineHeight:1.15 }}>{slide.sub}</h2>
                       <div style={{ display:"flex",gap:12 }}>
                         <button onClick={()=>{setCatFilter(slide.cat||"all");setSubFilter("all");setTab("shop");}}
                           style={{ ...btn,padding:"12px 28px",fontSize:14,background:"#FFF",color:PRIMARY,boxShadow:"0 4px 15px rgba(255,255,255,0.4)" }}>{slide.btn1}</button>
@@ -3578,7 +3653,7 @@ export default function App() {
                   style={{ position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:44,height:44,borderRadius:"50%",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>›</button>
               </div>
               {/* Stats bar */}
-              <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",padding:"14px 0",marginBottom:40,boxShadow:"0 4px 20px rgba(173,20,87,0.08)" }}>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",background:"rgba(255,255,255,0.92)" className="kk-stats-bar",backdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",padding:"14px 0",marginBottom:40,boxShadow:"0 4px 20px rgba(173,20,87,0.08)" }}>
                 {[[products.length+"+","Products"],[orders.filter(o=>o.status==="delivered").length>0?orders.filter(o=>o.status==="delivered").length+"+":"500+","Happy Customers"],["5★","Rating"],["Free","Dhaka Delivery"]].map(([val,label],i)=>(
                   <div key={i} style={{ textAlign:"center",borderRight:i<3?"1px solid rgba(173,20,87,0.1)":"none",padding:"4px 0" }}>
                     <div style={{ fontSize:20,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>{val}</div>
@@ -3973,7 +4048,7 @@ export default function App() {
                 <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 14px",fontSize:12,color:PRIMARY,fontWeight:700,marginBottom:10 }}>⭐ Happy Customers</div>
                 <h2 style={{ fontSize:26,fontWeight:800,color:DARK,margin:0 }}>What They Say</h2>
               </div>
-              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }} className="kk-grid-3">
                 {[
                   {name:"Nusrat J.",loc:"Dhaka",stars:5,text:"The bangles are absolutely gorgeous! Packaging was beautiful and delivery was super fast. Will definitely order again! 🌸"},
                   {name:"Rabeya K.",loc:"Chittagong",stars:5,text:"I ordered the mandala artwork and it exceeded my expectations. Truly handmade with so much detail and care. Highly recommended!"},
@@ -9676,7 +9751,7 @@ export default function App() {
       {showProfile&&(
         <>
           <div onClick={()=>setShowProfile(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.97)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.97)",borderRadius:24,zIndex:201" className="kk-checkout-modal,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
             <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"24px 24px 0 0",position:"sticky",top:0,zIndex:2 }}>
               <div><div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>👤 My Account</div><div style={{ color:"rgba(255,255,255,0.8)",fontSize:11,marginTop:2 }}>{user?.email}</div></div>
               <button onClick={()=>setShowProfile(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
