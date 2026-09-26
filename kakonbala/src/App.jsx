@@ -2005,19 +2005,15 @@ export default function App() {
       const unsub = onAuthStateChanged(auth, async (u) => {
         setUser(u);
         if (u) {
-          // Load customer's own orders
+          // Load customer's own orders by email or phone
           try {
-            const {
-              query: q2,
-              where,
-              getDocs,
-            } = await import("firebase/firestore");
-            const ordQ = q2(
+            const ordQ = query(
               collection(db, "orders"),
-              where("customer.email", "==", u.email),
+              where("customer.email", "==", u.email)
             );
             const ordSnap = await getDocs(ordQ);
-            setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+            const loaded = ordSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setMyOrders(loaded);
           } catch (e) {
             console.warn("My orders:", e.message);
           }
@@ -3224,6 +3220,30 @@ export default function App() {
         body { overflow-x: hidden; margin: 0; }
         img { max-width: 100%; }
 
+
+        /* ── FONT SCALING ── */
+        @media (max-width: 640px) {
+          h1 { font-size: 22px !important; }
+          h2 { font-size: 18px !important; }
+          h3 { font-size: 15px !important; }
+          p, span, div { font-size: 12px; }
+          .kk-price { font-size: 14px !important; }
+          .kk-product-name { font-size: 12px !important; }
+          .kk-section-head { font-size: 20px !important; }
+          .kk-btn-text { font-size: 12px !important; }
+          .kk-hero h1 { font-size: 22px !important; }
+          .kk-hero h2 { font-size: 18px !important; }
+          .kk-logo { font-size: 15px !important; }
+        }
+        @media (min-width: 641px) and (max-width: 1023px) {
+          h1 { font-size: 28px !important; }
+          h2 { font-size: 22px !important; }
+          .kk-hero h1 { font-size: 30px !important; }
+        }
+        /* Fluid font size for hero */
+        .kk-fluid { font-size: clamp(18px, 4vw, 44px); }
+        /* Base font */
+        body { font-size: clamp(12px, 1.5vw, 16px); }
         /* ── MOBILE (≤ 640px) ── */
         @media (max-width: 640px) {
           /* Header */
