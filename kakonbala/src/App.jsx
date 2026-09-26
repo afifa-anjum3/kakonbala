@@ -2005,17 +2005,27 @@ export default function App() {
       const unsub = onAuthStateChanged(auth, async (u) => {
         setUser(u);
         if (u) {
-          // Load customer's own orders by email or phone
+          // Load customer's own orders by userId
           try {
             const ordQ = query(
               collection(db, "orders"),
-              where("customerEmail", "==", u.email)
+              where("userId", "==", u.uid)
             );
             const ordSnap = await getDocs(ordQ);
             const loaded = ordSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            setMyOrders(loaded);
+            // Also try by email for older orders
+            if (loaded.length === 0 && u.email) {
+              const ordQ2 = query(
+                collection(db, "orders"),
+                where("customerEmail", "==", u.email)
+              );
+              const ordSnap2 = await getDocs(ordQ2);
+              setMyOrders(ordSnap2.docs.map(d => ({ id: d.id, ...d.data() })));
+            } else {
+              setMyOrders(loaded);
+            }
           } catch (e) {
-            console.warn("My orders:", e.message);
+            console.warn("My orders error:", e.message);
           }
           try {
             const snap = await getDoc(doc(db, "customers", u.uid));
@@ -2515,6 +2525,7 @@ export default function App() {
       customer,
       customerEmail: customer.email || "",
       customerPhone: customer.phone || "",
+      userId: user ? user.uid : "",
       items: cart.map((i) => ({
         id: i.product.id,
         name: i.product.name,
