@@ -2009,7 +2009,7 @@ export default function App() {
           try {
             const ordQ = query(
               collection(db, "orders"),
-              where("customer.email", "==", u.email)
+              where("customerEmail", "==", u.email)
             );
             const ordSnap = await getDocs(ordQ);
             const loaded = ordSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -2513,6 +2513,8 @@ export default function App() {
     const total = cartTotal + dc - disc;
     const orderData = {
       customer,
+      customerEmail: customer.email || "",
+      customerPhone: customer.phone || "",
       items: cart.map((i) => ({
         id: i.product.id,
         name: i.product.name,
@@ -2553,7 +2555,7 @@ export default function App() {
       try {
         const ordQ = query(
           collection(db, "orders"),
-          where("customer.email", "==", customer.email),
+          where("customerEmail", "==", customer.email),
         );
         const ordSnap = await getDocs(ordQ);
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -2605,7 +2607,7 @@ export default function App() {
       try {
         const ordQ = query(
           collection(db, "orders"),
-          where("customer.email", "==", customer.email),
+          where("customerEmail", "==", customer.email),
         );
         const ordSnap = await getDocs(ordQ);
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
