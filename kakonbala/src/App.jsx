@@ -1976,6 +1976,13 @@ export default function App() {
   const [transactionId, setTransactionId] = useState("");
   const [selectedGateway, setSelectedGateway] = useState("bKash");
   const [showProfile, setShowProfile] = useState(false);
+  const [profileData, setProfileData] = useState({ name:"",phone:"",email:"",district:"",area:"",thana:"",postOffice:"",houseRoad:"" });
+  const [myOrders, setMyOrders] = useState([]);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [heroSlide, setHeroSlide] = useState(0);
+  const [transactionId, setTransactionId] = useState("");
+  const [selectedGateway, setSelectedGateway] = useState("bKash");
+  const [showProfile, setShowProfile] = useState(false);
   const [profileData, setProfileData] = useState({
     name: "",
     phone: "",
@@ -2005,27 +2012,21 @@ export default function App() {
       const unsub = onAuthStateChanged(auth, async (u) => {
         setUser(u);
         if (u) {
-          // Load customer's own orders by userId
+          // Load customer's own orders
           try {
-            const ordQ = query(
+            const {
+              query: q2,
+              where,
+              getDocs,
+            } = await import("firebase/firestore");
+            const ordQ = q2(
               collection(db, "orders"),
-              where("userId", "==", u.uid)
+              where("customer.email", "==", u.email),
             );
             const ordSnap = await getDocs(ordQ);
-            const loaded = ordSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            // Also try by email for older orders
-            if (loaded.length === 0 && u.email) {
-              const ordQ2 = query(
-                collection(db, "orders"),
-                where("customerEmail", "==", u.email)
-              );
-              const ordSnap2 = await getDocs(ordQ2);
-              setMyOrders(ordSnap2.docs.map(d => ({ id: d.id, ...d.data() })));
-            } else {
-              setMyOrders(loaded);
-            }
+            setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
           } catch (e) {
-            console.warn("My orders error:", e.message);
+            console.warn("My orders:", e.message);
           }
           try {
             const snap = await getDoc(doc(db, "customers", u.uid));
@@ -2080,6 +2081,20 @@ export default function App() {
       setPromoCodes(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
     return unsub;
+  }, []);
+
+  const jewelryImg = products.find(p=>p.category==="jewelry"&&p.imageUrl)?.imageUrl;
+  const craftsImg  = products.find(p=>p.category==="crafts"&&p.imageUrl)?.imageUrl;
+  const clothingImg= products.find(p=>p.category==="clothing"&&p.imageUrl)?.imageUrl;
+  const heroSlides = [
+    { bg:"url('/banner.png')", headline:"Where Every Piece", sub:"Tells a Story", tagline:"🌸 Handmade with Love", btn1:"Shop Now", btn2:"Collections", cat:"all" },
+    { bg:jewelryImg?`url('${jewelryImg}')`:"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Handcrafted Jewelry", sub:"for Every Occasion", tagline:"💍 Bangles · Rings · Earrings", btn1:"Shop Jewelry", btn2:"View All", cat:"jewelry" },
+    { bg:craftsImg?`url('${craftsImg}')`:"linear-gradient(135deg,#4A148C,#9C27B0)", headline:"Artisan Crafts", sub:"Made with Passion", tagline:"🏺 Mandala · Canvas · Clay", btn1:"Shop Crafts", btn2:"View All", cat:"crafts" },
+    { bg:clothingImg?`url('${clothingImg}')`:"linear-gradient(135deg,#B71C1C,#EF9A9A)", headline:"Elegant Clothing", sub:"Tradition Meets Style", tagline:"👗 Saree · Tops · Panjabi", btn1:"Shop Clothing", btn2:"View All", cat:"clothing" },
+  ];
+  useEffect(() => {
+    const t = setInterval(() => setHeroSlide(s => (s+1) % 4), 4000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -2523,8 +2538,8 @@ export default function App() {
     const total = cartTotal + dc - disc;
     const orderData = {
       customer,
-      customerEmail: customer.email || "",
-      customerPhone: customer.phone || "",
+      customerEmail: customer.email||"",
+      customerPhone: customer.phone||"",
       userId: user ? user.uid : "",
       items: cart.map((i) => ({
         id: i.product.id,
@@ -2566,7 +2581,7 @@ export default function App() {
       try {
         const ordQ = query(
           collection(db, "orders"),
-          where("customerEmail", "==", customer.email),
+          where("customer.email", "==", customer.email),
         );
         const ordSnap = await getDocs(ordQ);
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -2618,7 +2633,7 @@ export default function App() {
       try {
         const ordQ = query(
           collection(db, "orders"),
-          where("customerEmail", "==", customer.email),
+          where("customer.email", "==", customer.email),
         );
         const ordSnap = await getDocs(ordQ);
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -3233,30 +3248,6 @@ export default function App() {
         body { overflow-x: hidden; margin: 0; }
         img { max-width: 100%; }
 
-
-        /* ── FONT SCALING ── */
-        @media (max-width: 640px) {
-          h1 { font-size: 22px !important; }
-          h2 { font-size: 18px !important; }
-          h3 { font-size: 15px !important; }
-          p, span, div { font-size: 12px; }
-          .kk-price { font-size: 14px !important; }
-          .kk-product-name { font-size: 12px !important; }
-          .kk-section-head { font-size: 20px !important; }
-          .kk-btn-text { font-size: 12px !important; }
-          .kk-hero h1 { font-size: 22px !important; }
-          .kk-hero h2 { font-size: 18px !important; }
-          .kk-logo { font-size: 15px !important; }
-        }
-        @media (min-width: 641px) and (max-width: 1023px) {
-          h1 { font-size: 28px !important; }
-          h2 { font-size: 22px !important; }
-          .kk-hero h1 { font-size: 30px !important; }
-        }
-        /* Fluid font size for hero */
-        .kk-fluid { font-size: clamp(18px, 4vw, 44px); }
-        /* Base font */
-        body { font-size: clamp(12px, 1.5vw, 16px); }
         /* ── MOBILE (≤ 640px) ── */
         @media (max-width: 640px) {
           /* Header */
@@ -3316,6 +3307,41 @@ export default function App() {
           .kk-features { grid-template-columns: repeat(2,1fr) !important; }
           .kk-modal-grid { grid-template-columns: 1fr !important; }
           .kk-reviews { grid-template-columns: repeat(2,1fr) !important; }
+        }
+      `}</style>
+
+      <style>{`
+        *,*::before,*::after { box-sizing:border-box; }
+        body { overflow-x:hidden; font-size:clamp(13px,1.2vw,16px); }
+        img { max-width:100%; }
+        html { font-size:clamp(13px,1.5vw,16px); }
+        h1 { font-size:clamp(22px,5vw,44px); }
+        h2 { font-size:clamp(18px,3.5vw,28px); }
+        .kk-hero { height:clamp(200px,40vw,400px) !important; }
+        @media(max-width:640px){
+          main { padding:10px 12px !important; }
+          header { padding:0 12px !important; height:56px !important; }
+          header nav { display:none !important; }
+          .kk-grid-3 { grid-template-columns:repeat(2,1fr) !important; gap:10px !important; }
+          .kk-grid-4 { grid-template-columns:repeat(2,1fr) !important; gap:8px !important; }
+          .kk-stats { grid-template-columns:repeat(2,1fr) !important; }
+          .kk-reviews { grid-template-columns:1fr !important; }
+          .kk-modal-full { width:100vw !important; max-height:100vh !important; border-radius:0 !important; top:0 !important; left:0 !important; transform:none !important; }
+          .kk-cart { width:100vw !important; }
+          .kk-sidebar { width:85vw !important; }
+          .kk-dash-grid { grid-template-columns:repeat(2,1fr) !important; }
+          .kk-about { grid-template-columns:1fr !important; }
+          .kk-why { grid-template-columns:repeat(2,1fr) !important; }
+          .kk-features { grid-template-columns:repeat(2,1fr) !important; }
+          button,select,input { min-height:38px; }
+        }
+        @media(min-width:641px) and (max-width:1023px){
+          main { padding:16px 20px !important; }
+          .kk-grid-3 { grid-template-columns:repeat(2,1fr) !important; }
+          .kk-grid-4 { grid-template-columns:repeat(2,1fr) !important; }
+          .kk-about { grid-template-columns:1fr !important; }
+          .kk-dash-grid { grid-template-columns:repeat(2,1fr) !important; }
+          .kk-reviews { grid-template-columns:repeat(2,1fr) !important; }
         }
       `}</style>
       {/* ANNOUNCEMENT BAR */}
@@ -3746,172 +3772,64 @@ export default function App() {
         {/* HOME TAB */}
         {tab === "home" && (
           <div>
-            {/* Hero Section — full-width banner with text overlay */}
-            <div
-              style={{
-                position: "relative",
-                borderRadius: 24,
-                overflow: "hidden",
-                marginBottom: 48,
-                minHeight: 320,
-                backgroundImage: "url('/banner.png')",
-                backgroundSize: "cover",
-                backgroundPosition: "center center",
-                boxShadow: "0 12px 40px rgba(173,20,87,0.25)",
-              }}
-            >
-              {/* Light overlay on left for text readability */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  zIndex: 1,
-                  background:
-                    "linear-gradient(to top,rgba(20,0,30,0.82) 0%,rgba(20,0,30,0.1) 55%,transparent 100%)",
-                }}
-              />
-              {/* Content */}
-              <div
-                style={{
-                  position: "relative",
-                  zIndex: 2,
-                  padding: "48px 48px",
-                  maxWidth: "55%",
-                  minHeight: 320,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                }}
-              >
-                <div
-                  style={{
-                    display: "inline-block",
-                    background: "rgba(173,20,87,0.12)",
-                    border: "1px solid rgba(173,20,87,0.25)",
-                    borderRadius: 20,
-                    padding: "4px 14px",
-                    fontSize: 11,
-                    color: PRIMARY,
-                    fontWeight: 700,
-                    marginBottom: 14,
-                    alignSelf: "flex-start",
-                  }}
-                >
-                  🌸 Handmade with Love
+            {/* ── HERO SLIDER ── */}
+            <div style={{ marginBottom:0,position:"relative" }}>
+              <div style={{ background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",padding:"16px 20px",borderRadius:"20px 20px 0 0",border:"1px solid rgba(173,20,87,0.1)",borderBottom:"none" }}>
+                <div style={{ display:"flex",gap:0,borderRadius:14,overflow:"hidden",border:`2px solid ${PRIMARY}`,boxShadow:`0 4px 20px rgba(173,20,87,0.2)` }}>
+                  <select onChange={e=>{setCatFilter(e.target.value);setSubFilter("all");if(e.target.value!=="all")setTab("shop");}} style={{ padding:"13px 14px",border:"none",borderRight:`1px solid rgba(173,20,87,0.2)`,background:"rgba(173,20,87,0.06)",color:DARK,fontSize:13,fontFamily:"inherit",fontWeight:600,cursor:"pointer",outline:"none",minWidth:130 }}>
+                    <option value="all">All Items</option>
+                    <option value="jewelry">💍 Jewelry</option>
+                    <option value="crafts">🏺 Crafts</option>
+                    <option value="clothing">👗 Clothing</option>
+                  </select>
+                  <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&searchQuery.trim())setTab("shop");}} placeholder="Search products, categories, styles..." style={{ flex:1,padding:"13px 16px",border:"none",outline:"none",fontSize:14,fontFamily:"inherit",background:"#FFF",color:DARK }} />
+                  <button onClick={()=>{if(searchQuery.trim())setTab("shop");}} style={{ ...btn,borderRadius:0,padding:"13px 24px",fontSize:14,boxShadow:"none" }}>🔍 Search</button>
                 </div>
-                <div
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 700,
-                    color: MED,
-                    marginBottom: 8,
-                    textShadow: "0 1px 3px rgba(255,255,255,0.8)",
-                    letterSpacing: 0.3,
-                  }}
-                >
-                  Welcome to কাঁকনবালা! 🌸
-                </div>
-                <h1
-                  style={{
-                    fontSize: 40,
-                    fontWeight: 900,
-                    color: DARK,
-                    lineHeight: 1.18,
-                    margin: "0 0 14px",
-                    textShadow: "0 1px 4px rgba(255,255,255,0.6)",
-                  }}
-                >
-                  Where Every
-                  <br />
-                  <span
-                    style={{
-                      background: GRAD,
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}
-                  >
-                    Piece Tells
-                  </span>
-                  <br />a Story
-                </h1>
-                <p
-                  style={{
-                    fontSize: 14,
-                    color: MED,
-                    lineHeight: 1.75,
-                    marginBottom: 26,
-                    fontWeight: 500,
-                    textShadow: "0 1px 3px rgba(255,255,255,0.7)",
-                  }}
-                >
-                  Discover handcrafted jewelry, elegant clothing, handmade arts
-                  & crafts, and beautiful accessories designed to celebrate
-                  every moment.
-                </p>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() => setTab("shop")}
-                    style={{ ...btn, padding: "11px 26px", fontSize: 14 }}
-                  >
-                    Shop Collection
-                  </button>
-                  <button
-                    onClick={() => setTab("collections")}
-                    style={{
-                      background: "rgba(255,255,255,0.75)",
-                      backdropFilter: "blur(8px)",
-                      border: `2px solid ${PRIMARY}`,
-                      color: PRIMARY,
-                      padding: "11px 26px",
-                      fontSize: 14,
-                      borderRadius: 20,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
-                    }}
-                  >
-                    New Arrivals
-                  </button>
-                </div>
-                {/* Stats row */}
-                <div style={{ display: "flex", gap: 20, marginTop: 24 }}>
-                  {[
-                    ["🌸", products.length + "+ Products"],
-                    ["⭐", "5★ Rated"],
-                    ["🚚", "Fast Delivery"],
-                  ].map(([icon, label]) => (
-                    <div
-                      key={label}
-                      style={{ display: "flex", alignItems: "center", gap: 5 }}
-                    >
-                      <span style={{ fontSize: 14 }}>{icon}</span>
-                      <span
-                        style={{ fontSize: 11, fontWeight: 700, color: MED }}
-                      >
-                        {label}
-                      </span>
-                    </div>
+                <div style={{ display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center" }}>
+                  <span style={{ fontSize:11,color:LIGHT,fontWeight:600 }}>Popular:</span>
+                  {["Bangles","Mandala","Saree","Rings","Earrings","Canvas Paint"].map(tag=>(
+                    <button key={tag} onClick={()=>{setSearchQuery(tag);setTab("shop");}} style={{ fontSize:11,color:PRIMARY,background:"rgba(173,20,87,0.06)",border:"1px solid rgba(173,20,87,0.15)",borderRadius:20,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>{tag}</button>
                   ))}
                 </div>
               </div>
+              <div className="kk-hero" style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
+                {heroSlides.map((slide,i)=>(
+                  <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.8s",opacity:heroSlide===i?1:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center" }}>
+                    <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.75) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
+                    <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
+                      <div style={{ fontSize:11,color:"rgba(255,255,255,0.8)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
+                      <h1 style={{ fontSize:"clamp(22px,4vw,44px)",fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1>
+                      <h2 style={{ fontSize:"clamp(20px,3.5vw,42px)",fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:"0 0 20px",lineHeight:1.15 }}>{slide.sub}</h2>
+                      <div style={{ display:"flex",gap:12,flexWrap:"wrap" }}>
+                        <button onClick={()=>{setCatFilter(slide.cat||"all");setSubFilter("all");setTab("shop");}} style={{ ...btn,padding:"11px 24px",fontSize:13,background:"#FFF",color:PRIMARY,boxShadow:"0 4px 15px rgba(255,255,255,0.4)" }}>{slide.btn1}</button>
+                        <button onClick={()=>setTab("collections")} style={{ border:"2px solid rgba(255,255,255,0.7)",color:"#FFF",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(8px)",padding:"11px 24px",fontSize:13,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700 }}>{slide.btn2}</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",display:"flex",gap:8,zIndex:5 }}>
+                  {heroSlides.map((_,i)=>(<button key={i} onClick={()=>setHeroSlide(i)} style={{ width:i===heroSlide?28:8,height:8,borderRadius:4,border:"none",cursor:"pointer",background:i===heroSlide?"#FFF":"rgba(255,255,255,0.4)",transition:"all 0.3s" }}/>))}
+                </div>
+                <button onClick={()=>setHeroSlide(s=>(s+3)%4)} style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>‹</button>
+                <button onClick={()=>setHeroSlide(s=>(s+1)%4)} style={{ position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>›</button>
+              </div>
+              <div className="kk-stats" style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",padding:"12px 0",marginBottom:40,boxShadow:"0 4px 20px rgba(173,20,87,0.08)" }}>
+                {[[products.length+"+","Products"],["500+","Customers"],["5★","Rating"],["Free","Dhaka Delivery"]].map(([val,label],i)=>(
+                  <div key={i} style={{ textAlign:"center",borderRight:i<3?"1px solid rgba(173,20,87,0.1)":"none",padding:"4px 0" }}>
+                    <div style={{ fontSize:20,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>{val}</div>
+                    <div style={{ fontSize:11,color:MED,fontWeight:600 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Category Cards */}
-            <div style={{ marginBottom: 48 }}>
-              <h2
-                style={{
-                  fontSize: 26,
-                  fontWeight: 800,
-                  color: DARK,
-                  marginBottom: 6,
-                }}
-              >
-                Shop by Category
-              </h2>
+            <div style={{ marginBottom:48 }}>
+              <h2 style={{ fontSize:"clamp(18px,3vw,24px)",fontWeight:800,color:DARK,marginBottom:6 }}>Shop by Category</h2>
               <p style={{ color: MED, fontSize: 14, marginBottom: 24 }}>
                 Explore our handcrafted collections
               </p>
               <div
+                className="kk-grid-3"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(3,1fr)",
@@ -4284,6 +4202,31 @@ export default function App() {
                 </div>
               </div>
             )}
+
+
+            {/* ── TESTIMONIALS ── */}
+            <div style={{ marginBottom:48 }}>
+              <div style={{ textAlign:"center",marginBottom:28 }}>
+                <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 14px",fontSize:12,color:PRIMARY,fontWeight:700,marginBottom:10 }}>⭐ Happy Customers</div>
+                <h2 style={{ fontSize:"clamp(20px,3vw,26px)",fontWeight:800,color:DARK,margin:0 }}>What They Say</h2>
+              </div>
+              <div className="kk-reviews" style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
+                {[
+                  {name:"Nusrat J.",loc:"Dhaka",text:"The bangles are gorgeous! Packaging was beautiful and delivery was super fast. Will order again! 🌸"},
+                  {name:"Rabeya K.",loc:"Chittagong",text:"I ordered the mandala artwork and it exceeded my expectations. Truly handmade with detail and care!"},
+                  {name:"Sadia M.",loc:"Sylhet",text:"Got the saree for my cousin's wedding — everyone loved it! Amazing quality for the price. কাঁকনবালা rocks! ❤️"},
+                ].map((r,i)=>(
+                  <div key={i} style={{ ...glass,padding:22 }}>
+                    <div style={{ display:"flex",gap:2,marginBottom:10 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:14 }}>⭐</span>)}</div>
+                    <p style={{ fontSize:13,color:MED,lineHeight:1.7,marginBottom:14,fontStyle:"italic" }}>"{r.text}"</p>
+                    <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                      <div style={{ width:36,height:36,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",fontWeight:800,fontSize:14 }}>{r.name[0]}</div>
+                      <div><div style={{ fontSize:13,fontWeight:700,color:DARK }}>{r.name}</div><div style={{ fontSize:11,color:LIGHT }}>{r.loc}</div></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* ── ABOUT US SECTION ── */}
             <div id="about" style={{ marginBottom: 48 }}>
@@ -9793,265 +9736,34 @@ export default function App() {
               </div>
 
               {/* Payment method */}
-              <div style={{ marginBottom: 16 }}>
-                <label
-                  style={{
-                    fontSize: 12,
-                    color: MED,
-                    fontWeight: 700,
-                    display: "block",
-                    marginBottom: 8,
-                  }}
-                >
-                  💳 Payment Method
-                </label>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 10,
-                    marginBottom: 10,
-                  }}
-                >
-                  <button
-                    onClick={() => setPayMethod("cod")}
-                    style={{
-                      padding: "12px",
-                      borderRadius: 12,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      border: `2px solid ${payMethod === "cod" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
-                      background:
-                        payMethod === "cod"
-                          ? "rgba(173,20,87,0.08)"
-                          : "rgba(255,255,255,0.6)",
-                      color: payMethod === "cod" ? PRIMARY : MED,
-                    }}
-                  >
-                    🚚 Cash on Delivery
-                    <br />
-                    <span style={{ fontSize: 10, fontWeight: 400 }}>
-                      Dhaka only
-                    </span>
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:8 }}>💳 Payment Method</label>
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10 }}>
+                  <button onClick={()=>setPayMethod("cod")} style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${payMethod==="cod"?PRIMARY:"rgba(173,20,87,0.2)"}`,background:payMethod==="cod"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",color:payMethod==="cod"?PRIMARY:MED }}>
+                    🚚 Cash on Delivery<br/><span style={{ fontSize:10,fontWeight:400 }}>Dhaka only</span>
                   </button>
-                  <button
-                    onClick={() => setPayMethod("online")}
-                    style={{
-                      padding: "12px",
-                      borderRadius: 12,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      border: `2px solid ${payMethod === "online" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
-                      background:
-                        payMethod === "online"
-                          ? "rgba(173,20,87,0.08)"
-                          : "rgba(255,255,255,0.6)",
-                      color: payMethod === "online" ? PRIMARY : MED,
-                    }}
-                  >
-                    📱 Mobile Payment
-                    <br />
-                    <span style={{ fontSize: 10, fontWeight: 400 }}>
-                      bKash · Nagad · Rocket
-                    </span>
+                  <button onClick={()=>setPayMethod("online")} style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${payMethod==="online"?PRIMARY:"rgba(173,20,87,0.2)"}`,background:payMethod==="online"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",color:payMethod==="online"?PRIMARY:MED }}>
+                    📱 Mobile Payment<br/><span style={{ fontSize:10,fontWeight:400 }}>bKash · Nagad · Rocket</span>
                   </button>
                 </div>
-                {payMethod === "cod" && deliveryCharge() === 150 && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: DANGER,
-                      fontWeight: 600,
-                      padding: "6px 10px",
-                      background: "rgba(255,235,238,0.85)",
-                      borderRadius: 8,
-                      marginBottom: 8,
-                    }}
-                  >
-                    ⚠ Outside Dhaka — Please use Mobile Payment
-                  </div>
-                )}
-                {payMethod === "online" && (
-                  <div
-                    style={{
-                      background: "rgba(255,248,255,0.95)",
-                      border: "1.5px solid rgba(173,20,87,0.2)",
-                      borderRadius: 14,
-                      padding: 16,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 800,
-                        color: DARK,
-                        marginBottom: 10,
-                      }}
-                    >
-                      Step 1 — Choose payment method:
-                    </div>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                      {[
-                        { name: "bKash", color: "#E2136E" },
-                        { name: "Nagad", color: "#E8222E" },
-                        { name: "Rocket", color: "#8B1A8B" },
-                      ].map(({ name, color }) => (
-                        <button
-                          key={name}
-                          onClick={() => setSelectedGateway(name)}
-                          style={{
-                            flex: 1,
-                            padding: "10px 6px",
-                            borderRadius: 10,
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                            fontWeight: 700,
-                            fontSize: 13,
-                            border: `2px solid ${selectedGateway === name ? color : "rgba(0,0,0,0.08)"}`,
-                            background:
-                              selectedGateway === name ? color + "18" : "#FFF",
-                            color: selectedGateway === name ? color : "#666",
-                            boxShadow:
-                              selectedGateway === name
-                                ? `0 4px 14px ${color}44`
-                                : "none",
-                            transition: "all 0.2s",
-                          }}
-                        >
-                          {name}
-                        </button>
+                {payMethod==="cod"&&deliveryCharge()===150&&<div style={{ fontSize:11,color:DANGER,fontWeight:600,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8,marginBottom:8 }}>⚠ Outside Dhaka — Please use Mobile Payment</div>}
+                {payMethod==="online"&&(
+                  <div style={{ background:"rgba(255,248,255,0.95)",border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:14,padding:16 }}>
+                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:10 }}>Step 1 — Choose payment:</div>
+                    <div style={{ display:"flex",gap:8,marginBottom:14 }}>
+                      {[{name:"bKash",color:"#E2136E"},{name:"Nagad",color:"#E8222E"},{name:"Rocket",color:"#8B1A8B"}].map(({name,color})=>(
+                        <button key={name} onClick={()=>setSelectedGateway(name)} style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${selectedGateway===name?color:"rgba(0,0,0,0.08)"}`,background:selectedGateway===name?color+"18":"#FFF",color:selectedGateway===name?color:"#666",transition:"all 0.2s" }}>{name}</button>
                       ))}
                     </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 800,
-                        color: DARK,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Step 2 — Send ৳{finalTotal().toLocaleString()} to:
+                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 2 — Send ৳{finalTotal().toLocaleString()} to:</div>
+                    <div style={{ background:"#FFF",borderRadius:10,padding:"12px 16px",marginBottom:14,border:"1px solid rgba(173,20,87,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                      <div><div style={{ fontSize:10,color:MED,fontWeight:600 }}>{selectedGateway} — Send Money (Personal)</div><div style={{ fontSize:22,fontWeight:900,color:DARK,letterSpacing:2 }}>01920-895985</div></div>
+                      <div style={{ width:40,height:40,borderRadius:10,background:selectedGateway==="bKash"?"#E2136E":selectedGateway==="Nagad"?"#E8222E":"#8B1A8B",display:"flex",alignItems:"center",justifyContent:"center" }}><span style={{ color:"#FFF",fontSize:18,fontWeight:900 }}>{selectedGateway[0]}</span></div>
                     </div>
-                    <div
-                      style={{
-                        background: "#FFF",
-                        borderRadius: 10,
-                        padding: "12px 16px",
-                        marginBottom: 14,
-                        border: "1px solid rgba(173,20,87,0.1)",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{ fontSize: 10, color: MED, fontWeight: 600 }}
-                        >
-                          {selectedGateway} — Send Money (Personal)
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 22,
-                            fontWeight: 900,
-                            color: DARK,
-                            letterSpacing: 2,
-                          }}
-                        >
-                          01920-895985
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 10,
-                          background:
-                            selectedGateway === "bKash"
-                              ? "#E2136E"
-                              : selectedGateway === "Nagad"
-                                ? "#E8222E"
-                                : "#8B1A8B",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: "#FFF",
-                            fontSize: 18,
-                            fontWeight: 900,
-                          }}
-                        >
-                          {selectedGateway[0]}
-                        </span>
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 800,
-                        color: DARK,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Step 3 — Enter Transaction ID:
-                    </div>
-                    <input
-                      style={{
-                        width: "100%",
-                        padding: "10px 14px",
-                        border: `2px solid ${transactionId.length > 5 ? "#2E7D32" : "rgba(173,20,87,0.25)"}`,
-                        borderRadius: 10,
-                        fontSize: 14,
-                        fontFamily: "monospace",
-                        background: "#FFF",
-                        boxSizing: "border-box",
-                        letterSpacing: 1,
-                        color: DARK,
-                        fontWeight: 700,
-                      }}
-                      type="text"
-                      placeholder="e.g. 8FB3A2D1K9"
-                      value={transactionId}
-                      onChange={(e) =>
-                        setTransactionId(
-                          e.target.value
-                            .toUpperCase()
-                            .replace(/[^A-Z0-9]/g, ""),
-                        )
-                      }
-                    />
-                    {transactionId.length > 5 && (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: SUCCESS,
-                          fontWeight: 600,
-                          marginTop: 4,
-                        }}
-                      >
-                        ✓ Transaction ID entered
-                      </div>
-                    )}
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: LIGHT,
-                        marginTop: 8,
-                        padding: "6px 10px",
-                        background: "rgba(173,20,87,0.04)",
-                        borderRadius: 6,
-                      }}
-                    >
-                      📌 Find TX ID in {selectedGateway} app → Transaction
-                      History. We verify within 1 hour.
-                    </div>
+                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 3 — Enter Transaction ID:</div>
+                    <input style={{ width:"100%",padding:"10px 14px",border:`2px solid ${transactionId.length>5?"#2E7D32":"rgba(173,20,87,0.25)"}`,borderRadius:10,fontSize:14,fontFamily:"monospace",background:"#FFF",boxSizing:"border-box",letterSpacing:1,color:DARK,fontWeight:700 }} type="text" placeholder="e.g. 8FB3A2D1K9" value={transactionId} onChange={e=>setTransactionId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))} />
+                    {transactionId.length>5&&<div style={{ fontSize:11,color:SUCCESS,fontWeight:600,marginTop:4 }}>✓ Transaction ID entered</div>}
+                    <div style={{ fontSize:10,color:LIGHT,marginTop:8,padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:6 }}>📌 Find TX ID in {selectedGateway} app → Transaction History. We verify within 1 hour.</div>
                   </div>
                 )}
               </div>
@@ -10681,7 +10393,85 @@ export default function App() {
         </>
       )}
 
-      {/* FOOTER */}
+      
+      {/* ══ CUSTOMER PROFILE MODAL ══ */}
+      {showProfile&&(
+        <>
+          <div onClick={()=>setShowProfile(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.97)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
+            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"24px 24px 0 0",position:"sticky",top:0,zIndex:2 }}>
+              <div><div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>👤 My Account</div><div style={{ color:"rgba(255,255,255,0.8)",fontSize:11,marginTop:2 }}>{user?.email}</div></div>
+              <button onClick={()=>setShowProfile(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
+            </div>
+            <div style={{ padding:24 }}>
+              <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:14 }}>📋 Personal Details</div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Full Name</label><input style={inp} type="text" placeholder="Your name" value={profileData.name||""} onChange={e=>setProfileData(p=>({...p,name:e.target.value}))}/></div>
+                <div>
+                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Phone</label>
+                  <input style={{ ...inp,borderColor:profileData.phone&&!validatePhone(profileData.phone)?DANGER:profileData.phone&&validatePhone(profileData.phone)?SUCCESS:"rgba(173,20,87,0.25)" }} type="tel" placeholder="01XXXXXXXXX" value={profileData.phone||""} onChange={e=>setProfileData(p=>({...p,phone:formatPhone(e.target.value)}))} maxLength={14}/>
+                  {profileData.phone&&!validatePhone(profileData.phone)&&<div style={{ fontSize:10,color:DANGER,marginTop:2,fontWeight:600 }}>⚠ Invalid BD number</div>}
+                  {profileData.phone&&validatePhone(profileData.phone)&&<div style={{ fontSize:10,color:SUCCESS,marginTop:2,fontWeight:600 }}>✓ Valid</div>}
+                </div>
+                <div style={{ gridColumn:"span 2" }}><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Email</label><input style={inp} type="email" placeholder="your@email.com" value={profileData.email||""} onChange={e=>setProfileData(p=>({...p,email:e.target.value}))}/></div>
+              </div>
+              <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:12 }}>📍 Saved Address</div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16 }}>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>District</label><select style={inp} value={profileData.district||""} onChange={e=>setProfileData(p=>({...p,district:e.target.value,area:"",thana:"",postOffice:""}))}><option value="">-- Select --</option>{BD_DISTRICTS.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Area</label><select style={inp} value={profileData.area||""} onChange={e=>setProfileData(p=>({...p,area:e.target.value,thana:"",postOffice:""}))}><option value="">-- Select --</option>{getAreas(profileData.district).map(a=><option key={a} value={a}>{a}</option>)}</select></div>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Thana</label><select style={inp} value={profileData.thana||""} onChange={e=>setProfileData(p=>({...p,thana:e.target.value,postOffice:""}))}><option value="">-- Select --</option>{getThanas(profileData.district,profileData.area).map(t2=><option key={t2} value={t2}>{t2}</option>)}</select></div>
+                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Post Office</label><select style={inp} value={profileData.postOffice||""} onChange={e=>setProfileData(p=>({...p,postOffice:e.target.value}))}><option value="">-- Select --</option>{getPostOffices(profileData.district,profileData.area,profileData.thana).map(po=><option key={po} value={po}>{po}</option>)}</select></div>
+                <div style={{ gridColumn:"span 2" }}><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>House No, Road No</label><input style={inp} type="text" placeholder="House 12, Road 5" value={profileData.houseRoad||""} onChange={e=>setProfileData(p=>({...p,houseRoad:e.target.value}))}/></div>
+              </div>
+              <button onClick={async()=>{
+                if(!user?.uid){notify("⚠ Please login first");return;}
+                if(profileData.phone&&!validatePhone(profileData.phone)){notify("⚠ Enter valid phone number");return;}
+                try{
+                  await setDoc(doc(db,"customers",user.uid),{...profileData,updatedAt:serverTimestamp()},{merge:true});
+                  setCustomer(c=>({...c,...profileData,city:profileData.district||c.city}));
+                  notify("✓ Profile saved!");setShowProfile(false);
+                }catch(e){notify("⚠ "+e.message);}
+              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15,marginBottom:20 }}>💾 Save Profile</button>
+              <div style={{ borderTop:"1px solid rgba(173,20,87,0.12)",paddingTop:18 }}>
+                <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:4 }}>📦 My Orders</div>
+                <button onClick={async()=>{
+                  setMyOrdersLoading(true);
+                  try{
+                    const q1=query(collection(db,"orders"),where("userId","==",user.uid));
+                    const s1=await getDocs(q1);
+                    let found=s1.docs.map(d=>({id:d.id,...d.data()}));
+                    if(found.length===0){
+                      const q2=query(collection(db,"orders"),where("customerEmail","==",user.email));
+                      const s2=await getDocs(q2);
+                      found=s2.docs.map(d=>({id:d.id,...d.data()}));
+                    }
+                    setMyOrders(found.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)));
+                  }catch(e){console.warn(e.message);}
+                  setMyOrdersLoading(false);
+                }} style={{ fontSize:11,color:PRIMARY,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",textDecoration:"underline",marginBottom:12 }}>
+                  🔄 Refresh Orders
+                </button>
+                {myOrdersLoading&&<div style={{ fontSize:12,color:MED,textAlign:"center",padding:12 }}>Loading...</div>}
+                {!myOrdersLoading&&myOrders.length===0&&<div style={{ fontSize:13,color:LIGHT,textAlign:"center",padding:"16px 0" }}>No orders yet. Place an order to see it here!</div>}
+                {!myOrdersLoading&&myOrders.map(o=>(
+                  <div key={o.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(255,255,255,0.7)",borderRadius:10,marginBottom:8,border:"1px solid rgba(173,20,87,0.08)" }}>
+                    <div>
+                      <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")||"Order"}</div>
+                      <div style={{ fontSize:10,color:MED }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString("en-BD"):""}</div>
+                    </div>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{(o.total||0).toLocaleString()}</div>
+                      <span style={{ fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,background:"rgba(232,245,233,0.9)",color:SUCCESS }}>{(o.status||"").replace(/_/g," ")}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+{/* FOOTER */}
       <footer
         style={{
           marginTop: 48,
