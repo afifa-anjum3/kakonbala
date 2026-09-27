@@ -1044,7 +1044,7 @@ function TagInput({ values, onChange, placeholder }) {
 function Carousel({ images, emoji, height, primaryImage }) {
   const imgs = images || [];
   const em = emoji || "💍";
-  const h = height || 180;
+  const h = height || 220;
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const baseImgs = primaryImage
@@ -4015,7 +4015,7 @@ export default function App() {
                   >
                     <div
                       style={{
-                        height: 150,
+                        height: 220,
                         position: "relative",
                         overflow: "hidden",
                       }}
