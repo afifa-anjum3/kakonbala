@@ -1981,6 +1981,14 @@ export default function App() {
   const [bannerImages, setBannerImages] = useState(["","","",""]);
   const [showBannerMgr, setShowBannerMgr] = useState(false);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewProduct, setReviewProduct] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewImage, setReviewImage] = useState("");
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [productReviews, setProductReviews] = useState([]);
+  const [allReviews, setAllReviews] = useState([]); // admin
   const [promoCodes, setPromoCodes] = useState([]);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
@@ -3490,6 +3498,7 @@ export default function App() {
                 ["dashboard", "Dashboard"],
                 ["inventory", "Inventory"],
                 ["orders", "Orders"],
+              ["reviews", "Reviews 🌟"],
               ]
             : [
                 ["home", "Home"],
@@ -8181,6 +8190,37 @@ export default function App() {
                   : "🤍 Add to Wishlist"}
               </button>
 
+              {/* Write Review Button */}
+              {user && !isAdmin && (
+                <button onClick={()=>{setReviewProduct(selectedProduct);setShowReviewModal(true);setReviewRating(5);setReviewText("");setReviewImage("");}}
+                  style={{ width:"100%",padding:"11px",fontSize:13,fontWeight:700,fontFamily:"inherit",background:"rgba(173,20,87,0.06)",border:`1.5px solid ${PRIMARY}`,color:PRIMARY,borderRadius:12,cursor:"pointer",marginBottom:12 }}>
+                  ✍️ Write a Review
+                </button>
+              )}
+
+              {/* Published Reviews */}
+              {productReviews.length>0&&(
+                <div style={{ marginBottom:16,borderTop:"1px solid rgba(173,20,87,0.1)",paddingTop:14 }}>
+                  <div style={{ fontSize:13,fontWeight:800,color:DARK,marginBottom:10 }}>
+                    ⭐ Reviews ({productReviews.length})
+                    <span style={{ fontSize:12,fontWeight:400,color:MED,marginLeft:8 }}>
+                      {(productReviews.reduce((s,r)=>s+r.rating,0)/productReviews.length).toFixed(1)} avg
+                    </span>
+                  </div>
+                  {productReviews.slice(0,3).map(r=>(
+                    <div key={r.id} style={{ padding:"10px 12px",background:"rgba(255,248,255,0.8)",borderRadius:10,marginBottom:8,border:"1px solid rgba(173,20,87,0.08)" }}>
+                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
+                        <div style={{ display:"flex",gap:2 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:12,color:j<=r.rating?"#F59E0B":"#DDD" }}>★</span>)}</div>
+                        <span style={{ fontSize:10,color:LIGHT }}>{r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString("en-BD"):""}</span>
+                      </div>
+                      <div style={{ fontSize:11,fontWeight:700,color:DARK,marginBottom:3 }}>{r.userName||"Customer"}</div>
+                      <p style={{ fontSize:12,color:MED,margin:0,lineHeight:1.6 }}>{r.text}</p>
+                      {r.imageUrl&&<img src={r.imageUrl} alt="review" style={{ marginTop:6,width:60,height:60,objectFit:"cover",borderRadius:8,border:"1px solid rgba(173,20,87,0.15)" }}/>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Description accordion */}
               <div
                 style={{
@@ -10510,6 +10550,148 @@ export default function App() {
           </div>
         </>
       )}
+
+
+      {/* ══ REVIEW MODAL ══ */}
+      {showReviewModal && reviewProduct && (
+        <>
+          <div onClick={()=>setShowReviewModal(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:300,backdropFilter:"blur(4px)" }}/>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(460px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"#FFF",borderRadius:20,zIndex:301,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
+            <div style={{ background:GRAD,padding:"18px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"20px 20px 0 0" }}>
+              <div style={{ color:"#FFF",fontSize:16,fontWeight:800 }}>✍️ Write a Review</div>
+              <button onClick={()=>setShowReviewModal(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:22 }}>
+              {/* Product name */}
+              <div style={{ fontSize:13,fontWeight:700,color:DARK,marginBottom:16,padding:"8px 12px",background:"rgba(173,20,87,0.05)",borderRadius:10 }}>
+                📦 {reviewProduct.name}
+              </div>
+
+              {/* Star rating */}
+              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:8 }}>Your Rating *</label>
+              <div style={{ display:"flex",gap:6,marginBottom:16 }}>
+                {[1,2,3,4,5].map(star=>(
+                  <button key={star} onClick={()=>setReviewRating(star)}
+                    style={{ fontSize:32,background:"none",border:"none",cursor:"pointer",color:star<=reviewRating?"#F59E0B":"#DDD",transition:"color 0.15s" }}>★</button>
+                ))}
+                <span style={{ fontSize:12,color:MED,alignSelf:"center",marginLeft:4 }}>
+                  {["","Terrible","Poor","Average","Good","Excellent"][reviewRating]}
+                </span>
+              </div>
+
+              {/* Review text */}
+              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>Your Review *</label>
+              <textarea value={reviewText} onChange={e=>setReviewText(e.target.value)}
+                placeholder="Share your experience with this product..."
+                style={{ width:"100%",padding:"10px 14px",border:`1.5px solid rgba(173,20,87,0.25)`,borderRadius:10,fontSize:13,fontFamily:"inherit",resize:"vertical",minHeight:90,boxSizing:"border-box",outline:"none",color:DARK }} />
+              <div style={{ fontSize:10,color:LIGHT,marginTop:3,marginBottom:14 }}>{reviewText.length}/500 characters</div>
+
+              {/* Image URL */}
+              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>Add Photo (optional)</label>
+              <div style={{ fontSize:11,color:MED,marginBottom:6 }}>Upload your photo to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{ color:PRIMARY }}>imgbb.com</a> and paste the link below:</div>
+              <input style={{ ...inp,fontSize:12,marginBottom:reviewImage?8:16 }} type="url" placeholder="https://i.ibb.co/..." value={reviewImage} onChange={e=>setReviewImage(e.target.value)}/>
+              {reviewImage&&(
+                <div style={{ marginBottom:14 }}>
+                  <img src={reviewImage} alt="preview" style={{ height:80,borderRadius:8,objectFit:"cover",border:"1px solid rgba(173,20,87,0.2)" }} onError={e=>{e.target.style.display="none";}}/>
+                  <div style={{ fontSize:10,color:SUCCESS,marginTop:3,fontWeight:600 }}>✓ Photo added</div>
+                </div>
+              )}
+
+              <button onClick={async()=>{
+                if(!reviewText.trim()){notify("⚠ Please write your review");return;}
+                if(reviewRating<1){notify("⚠ Please select a rating");return;}
+                setReviewLoading(true);
+                try{
+                  await addDoc(collection(db,"reviews"),{
+                    productId: reviewProduct.id,
+                    productName: reviewProduct.name,
+                    userId: user.uid,
+                    userName: user.displayName || profileData.name || user.email.split("@")[0],
+                    rating: reviewRating,
+                    text: reviewText.trim(),
+                    imageUrl: reviewImage.trim()||"",
+                    status: "pending",
+                    createdAt: serverTimestamp()
+                  });
+                  notify("✓ Review submitted! It will appear after admin approval.");
+                  setShowReviewModal(false);
+                  setReviewText(""); setReviewImage(""); setReviewRating(5);
+                }catch(e){notify("⚠ "+e.message);}
+                setReviewLoading(false);
+              }} disabled={reviewLoading}
+                style={{ ...btn,width:"100%",padding:"13px",fontSize:14,opacity:reviewLoading?0.7:1 }}>
+                {reviewLoading?"Submitting...":"Submit Review 🌸"}
+              </button>
+              <div style={{ fontSize:10,color:LIGHT,textAlign:"center",marginTop:8 }}>Your review will be visible after admin approval</div>
+            </div>
+          </div>
+        </>
+      )}
+
+
+        {tab === "reviews" && isAdmin && (
+          <div>
+            <h2 style={{ fontSize:22,fontWeight:800,color:DARK,marginBottom:6 }}>🌟 Customer Reviews</h2>
+            <p style={{ color:MED,marginBottom:20 }}>Approve or reject customer reviews before they appear on products.</p>
+
+            {/* Filter tabs */}
+            {[["pending","⏳ Pending"],["published","✅ Published"],["rejected","❌ Rejected"]].map(([s,l])=>(
+              <button key={s} onClick={()=>setSubFilter(s)}
+                style={{ marginRight:8,marginBottom:16,padding:"6px 18px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:12,
+                  border:`1.5px solid ${subFilter===s?PRIMARY:"rgba(173,20,87,0.2)"}`,
+                  background:subFilter===s?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",
+                  color:subFilter===s?PRIMARY:MED }}>
+                {l} ({allReviews.filter(r=>r.status===s).length})
+              </button>
+            ))}
+
+            {allReviews.filter(r=>r.status===(subFilter||"pending")).length===0
+              ?<div style={{ ...glass,padding:32,textAlign:"center",color:LIGHT }}>No {subFilter||"pending"} reviews</div>
+              :allReviews.filter(r=>r.status===(subFilter||"pending")).map(r=>(
+                <div key={r.id} style={{ ...glass,padding:18,marginBottom:14 }}>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:"flex",gap:6,alignItems:"center",marginBottom:6 }}>
+                        <div style={{ display:"flex",gap:1 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:14,color:j<=r.rating?"#F59E0B":"#DDD" }}>★</span>)}</div>
+                        <span style={{ fontSize:12,fontWeight:800,color:DARK }}>{r.userName}</span>
+                        <span style={{ fontSize:10,color:LIGHT }}>{r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString("en-BD"):""}</span>
+                      </div>
+                      <div style={{ fontSize:11,color:PRIMARY,fontWeight:600,marginBottom:4 }}>📦 {r.productName}</div>
+                      <p style={{ fontSize:13,color:MED,lineHeight:1.6,margin:"0 0 8px" }}>{r.text}</p>
+                      {r.imageUrl&&<img src={r.imageUrl} alt="review" style={{ height:70,borderRadius:8,objectFit:"cover",border:"1px solid rgba(173,20,87,0.15)" }}/>}
+                    </div>
+                    <div style={{ display:"flex",flexDirection:"column",gap:8,flexShrink:0 }}>
+                      {r.status!=="published"&&(
+                        <button onClick={async()=>{
+                          await updateDoc(doc(db,"reviews",r.id),{status:"published"});
+                          notify("✓ Review published!");
+                        }} style={{ padding:"7px 16px",background:"rgba(46,125,50,0.1)",border:"1.5px solid #2E7D32",color:"#2E7D32",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:12 }}>
+                          ✅ Approve
+                        </button>
+                      )}
+                      {r.status!=="rejected"&&(
+                        <button onClick={async()=>{
+                          await updateDoc(doc(db,"reviews",r.id),{status:"rejected"});
+                          notify("Review rejected.");
+                        }} style={{ padding:"7px 16px",background:"rgba(198,40,40,0.08)",border:"1.5px solid #C62828",color:"#C62828",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:12 }}>
+                          ❌ Reject
+                        </button>
+                      )}
+                      <button onClick={async()=>{
+                        if(window.confirm("Delete this review permanently?")){
+                          await deleteDoc(doc(db,"reviews",r.id));
+                          notify("Review deleted.");
+                        }
+                      }} style={{ padding:"7px 16px",background:"transparent",border:"1px solid rgba(173,20,87,0.2)",color:MED,borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontSize:12 }}>
+                        🗑 Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        )}
 
 {/* FOOTER */}
       <footer
