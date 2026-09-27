@@ -1105,8 +1105,8 @@ function Carousel({ images, emoji, height, primaryImage }) {
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "contain",
-          padding: 4,
+          objectFit: "cover",
+          padding: 0,
           transition: "opacity 0.3s",
         }}
         onError={(e) => {
@@ -1978,6 +1978,8 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [profileData, setProfileData] = useState({ name:"",phone:"",email:"",district:"",area:"",thana:"",postOffice:"",houseRoad:"" });
   const [heroSlide, setHeroSlide] = useState(0);
+  const [bannerImages, setBannerImages] = useState(["","","",""]);
+  const [showBannerMgr, setShowBannerMgr] = useState(false);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [promoCodes, setPromoCodes] = useState([]);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
@@ -2045,6 +2047,13 @@ export default function App() {
     } catch (e) {
       console.warn("Auth:", e.message);
     }
+  }, []);
+
+  useEffect(() => {
+    // Load banner images from Firestore
+    getDoc(doc(db,"settings","banners")).then(snap=>{
+      if(snap.exists()&&snap.data().images){setBannerImages(snap.data().images);}
+    }).catch(()=>{});
   }, []);
 
   useEffect(() => {
@@ -3780,7 +3789,7 @@ export default function App() {
               </div>
               <div className="kk-hero" style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
                 {heroSlides.map((slide,i)=>(
-                  <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.8s",opacity:heroSlide===i?1:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center" }}>
+                  <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.8s",opacity:heroSlide===i?1:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat" }}>
                     <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.75) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
                     <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
                       <div style={{ fontSize:11,color:"rgba(255,255,255,0.8)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
@@ -4927,7 +4936,7 @@ export default function App() {
                         }
                         onClick={() => setSelectedProduct(p)}
                       >
-                        <div style={{ height: 130 }}>
+                        <div style={{ height: 200, overflow:"hidden" }}>
                           <Carousel
                             images={
                               p.imageUrls && p.imageUrls.length
@@ -6363,6 +6372,11 @@ export default function App() {
               </div>
             )}
 
+                {/* Banner Manager Button */}
+                <button onClick={()=>setShowBannerMgr(true)}
+                  style={{ ...btn,marginBottom:20,background:"rgba(173,20,87,0.08)",color:PRIMARY,border:`1.5px solid ${PRIMARY}`,boxShadow:"none" }}>
+                  🖼 Manage Hero Banners
+                </button>
             {/* Promo Code Manager */}
             <div style={{ ...glass, padding: 20, marginTop: 18 }}>
               <div
@@ -10452,6 +10466,42 @@ export default function App() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+
+      {/* ══ BANNER MANAGER MODAL ══ */}
+      {showBannerMgr && (
+        <>
+          <div onClick={()=>setShowBannerMgr(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(520px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"#FFF",borderRadius:20,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
+            <div style={{ background:GRAD,padding:"20px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"20px 20px 0 0",position:"sticky",top:0,zIndex:2 }}>
+              <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>🖼 Hero Banner Images</div>
+              <button onClick={()=>setShowBannerMgr(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18 }}>✕</button>
+            </div>
+            <div style={{ padding:24 }}>
+              <p style={{ fontSize:13,color:MED,marginBottom:20 }}>Paste ImgBB image URLs for each slide. Leave blank to use default (product images).</p>
+              {["Slide 1 — Main Banner","Slide 2 — Jewelry","Slide 3 — Crafts","Slide 4 — Clothing"].map((label,i)=>(
+                <div key={i} style={{ marginBottom:16 }}>
+                  <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>{label}</label>
+                  <div style={{ display:"flex",gap:10,alignItems:"center" }}>
+                    <input style={{ ...inp,flex:1,fontSize:12 }} type="url" placeholder="https://i.ibb.co/..."
+                      value={bannerImages[i]||""} onChange={e=>{const n=[...bannerImages];n[i]=e.target.value;setBannerImages(n);}}/>
+                    {bannerImages[i]&&<img src={bannerImages[i]} alt="" style={{ width:64,height:48,objectFit:"cover",borderRadius:8,border:"1px solid rgba(173,20,87,0.2)",flexShrink:0 }} onError={e=>{e.target.style.display="none";}}/>}
+                  </div>
+                  {bannerImages[i]&&<div style={{ fontSize:10,color:SUCCESS,marginTop:3,fontWeight:600 }}>✓ Image URL set</div>}
+                </div>
+              ))}
+              <button onClick={async()=>{
+                try{
+                  await setDoc(doc(db,"settings","banners"),{images:bannerImages,updatedAt:serverTimestamp()});
+                  notify("✓ Banner images saved!");
+                  setShowBannerMgr(false);
+                }catch(e){notify("⚠ "+e.message);}
+              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>💾 Save Banner Images</button>
+              <button onClick={()=>{setBannerImages(["","","",""]);}} style={{ width:"100%",padding:"10px",marginTop:10,background:"transparent",border:`1px solid ${DANGER}`,color:DANGER,borderRadius:12,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:600 }}>🗑 Reset to Defaults</button>
             </div>
           </div>
         </>
