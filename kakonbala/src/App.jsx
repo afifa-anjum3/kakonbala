@@ -1105,7 +1105,7 @@ function Carousel({ images, emoji, height, primaryImage }) {
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "cover",
+          objectFit: "contain",
           padding: 0,
           transition: "opacity 0.3s",
         }}
@@ -2000,22 +2000,20 @@ export default function App() {
       const unsub = onAuthStateChanged(auth, async (u) => {
         setUser(u);
         if (u) {
-          // Load customer's own orders
+          // Load orders by userId + email merged
           try {
-            const {
-              query: q2,
-              where,
-              getDocs,
-            } = await import("firebase/firestore");
-            const ordQ = q2(
-              collection(db, "orders"),
-              where("customer.email", "==", u.email),
-            );
-            const ordSnap = await getDocs(ordQ);
-            setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-          } catch (e) {
-            console.warn("My orders:", e.message);
-          }
+            const q1=query(collection(db,"orders"),where("userId","==",u.uid));
+            const s1=await getDocs(q1);
+            const byUid=s1.docs.map(d=>({id:d.id,...d.data()}));
+            const q2=query(collection(db,"orders"),where("customerEmail","==",u.email));
+            const s2=await getDocs(q2);
+            const byEmail=s2.docs.map(d=>({id:d.id,...d.data()}));
+            const allIds=new Set();
+            const merged=[...byUid,...byEmail].filter(o=>{
+              if(allIds.has(o.id))return false; allIds.add(o.id); return true;
+            });
+            setMyOrders(merged.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)));
+          } catch(e) { console.warn("My orders:", e.message); }
           try {
             const snap = await getDoc(doc(db, "customers", u.uid));
             if (snap.exists()) {
@@ -10437,15 +10435,21 @@ export default function App() {
                 <button onClick={async()=>{
                   setMyOrdersLoading(true);
                   try{
+                    // Fetch by userId
                     const q1=query(collection(db,"orders"),where("userId","==",user.uid));
                     const s1=await getDocs(q1);
-                    let found=s1.docs.map(d=>({id:d.id,...d.data()}));
-                    if(found.length===0){
-                      const q2=query(collection(db,"orders"),where("customerEmail","==",user.email));
-                      const s2=await getDocs(q2);
-                      found=s2.docs.map(d=>({id:d.id,...d.data()}));
-                    }
-                    setMyOrders(found.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)));
+                    const byUid=s1.docs.map(d=>({id:d.id,...d.data()}));
+                    // Fetch by email (for older orders without userId)
+                    const q2=query(collection(db,"orders"),where("customerEmail","==",user.email));
+                    const s2=await getDocs(q2);
+                    const byEmail=s2.docs.map(d=>({id:d.id,...d.data()}));
+                    // Merge, remove duplicates by id
+                    const allIds=new Set();
+                    const merged=[...byUid,...byEmail].filter(o=>{
+                      if(allIds.has(o.id))return false;
+                      allIds.add(o.id);return true;
+                    });
+                    setMyOrders(merged.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)));
                   }catch(e){console.warn(e.message);}
                   setMyOrdersLoading(false);
                 }} style={{ fontSize:11,color:PRIMARY,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",textDecoration:"underline",marginBottom:12 }}>
