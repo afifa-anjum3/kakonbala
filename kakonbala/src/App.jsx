@@ -1977,9 +1977,8 @@ export default function App() {
   const [selectedGateway, setSelectedGateway] = useState("bKash");
   const [showProfile, setShowProfile] = useState(false);
   const [profileData, setProfileData] = useState({ name:"",phone:"",email:"",district:"",area:"",thana:"",postOffice:"",houseRoad:"" });
-  const [myOrders, setMyOrders] = useState([]);
-  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [heroSlide, setHeroSlide] = useState(0);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [promoCodes, setPromoCodes] = useState([]);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
