@@ -1980,19 +1980,6 @@ export default function App() {
   const [myOrders, setMyOrders] = useState([]);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [heroSlide, setHeroSlide] = useState(0);
-  const [transactionId, setTransactionId] = useState("");
-  const [selectedGateway, setSelectedGateway] = useState("bKash");
-  const [showProfile, setShowProfile] = useState(false);
-  const [profileData, setProfileData] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    district: "",
-    area: "",
-    thana: "",
-    postOffice: "",
-    houseRoad: "",
-  });
   const [promoCodes, setPromoCodes] = useState([]);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
@@ -2088,9 +2075,9 @@ export default function App() {
   const clothingImg= products.find(p=>p.category==="clothing"&&p.imageUrl)?.imageUrl;
   const heroSlides = [
     { bg:"url('/banner.png')", headline:"Where Every Piece", sub:"Tells a Story", tagline:"🌸 Handmade with Love", btn1:"Shop Now", btn2:"Collections", cat:"all" },
-    { bg:jewelryImg?`url('${jewelryImg}')`:"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Handcrafted Jewelry", sub:"for Every Occasion", tagline:"💍 Bangles · Rings · Earrings", btn1:"Shop Jewelry", btn2:"View All", cat:"jewelry" },
-    { bg:craftsImg?`url('${craftsImg}')`:"linear-gradient(135deg,#4A148C,#9C27B0)", headline:"Artisan Crafts", sub:"Made with Passion", tagline:"🏺 Mandala · Canvas · Clay", btn1:"Shop Crafts", btn2:"View All", cat:"crafts" },
-    { bg:clothingImg?`url('${clothingImg}')`:"linear-gradient(135deg,#B71C1C,#EF9A9A)", headline:"Elegant Clothing", sub:"Tradition Meets Style", tagline:"👗 Saree · Tops · Panjabi", btn1:"Shop Clothing", btn2:"View All", cat:"clothing" },
+    { bg:jewelryImg?"url('"+jewelryImg+"')":"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Handcrafted Jewelry", sub:"for Every Occasion", tagline:"💍 Bangles · Rings · Earrings", btn1:"Shop Jewelry", btn2:"View All", cat:"jewelry" },
+    { bg:craftsImg?"url('"+craftsImg+"')":"linear-gradient(135deg,#4A148C,#9C27B0)", headline:"Artisan Crafts", sub:"Made with Passion", tagline:"🏺 Mandala · Canvas · Clay", btn1:"Shop Crafts", btn2:"View All", cat:"crafts" },
+    { bg:clothingImg?"url('"+clothingImg+"')":"linear-gradient(135deg,#B71C1C,#EF9A9A)", headline:"Elegant Clothing", sub:"Tradition Meets Style", tagline:"👗 Saree · Tops · Panjabi", btn1:"Shop Clothing", btn2:"View All", cat:"clothing" },
   ];
   useEffect(() => {
     const t = setInterval(() => setHeroSlide(s => (s+1) % 4), 4000);
