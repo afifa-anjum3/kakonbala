@@ -1982,6 +1982,8 @@ export default function App() {
   const [showBannerMgr, setShowBannerMgr] = useState(false);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState("pending");
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [reviewProduct, setReviewProduct] = useState(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
@@ -3796,7 +3798,7 @@ export default function App() {
               </div>
               <div className="kk-hero" style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
                 {heroSlides.map((slide,i)=>(
-                  <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.8s",opacity:heroSlide===i?1:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat" }}>
+                  <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.8s",opacity:heroSlide===i?1:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat",zIndex:heroSlide===i?2:1 }}>
                     <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.75) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
                     <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
                       <div style={{ fontSize:11,color:"rgba(255,255,255,0.8)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
@@ -7427,81 +7429,82 @@ export default function App() {
                       (s) => s.value === o.status,
                     ) || { color: MED, bg: "rgba(245,245,245,0.9)" };
                     return (
-                      <tr
-                        key={o.id}
-                        style={{ background: "rgba(255,255,255,0.15)" }}
-                      >
-                        <td
-                          style={{
-                            ...TD,
-                            fontWeight: 600,
-                            color: PRIMARY,
-                            fontFamily: "monospace",
-                            fontSize: 11,
-                          }}
-                        >
-                          {(o.id || "").slice(0, 8)}…
+                      <React.Fragment key={o.id}>
+                      <tr style={{ background:"rgba(255,255,255,0.15)",cursor:"pointer" }}
+                        onClick={()=>setExpandedOrderId(expandedOrderId===o.id?null:o.id)}>
+                        <td style={{ ...TD,fontWeight:600,color:PRIMARY,fontFamily:"monospace",fontSize:11 }}>
+                          #{(o.id||"").slice(-6).toUpperCase()} {expandedOrderId===o.id?"▲":"▼"}
                         </td>
-                        <td style={{ ...TD, color: MED, fontSize: 11 }}>
-                          {o.createdAt?.seconds
-                            ? new Date(
-                                o.createdAt.seconds * 1000,
-                              ).toLocaleDateString()
-                            : "—"}
+                        <td style={{ ...TD,color:MED,fontSize:11 }}>
+                          {o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString():"—"}
                         </td>
-                        <td style={{ ...TD, fontWeight: 600, fontSize: 12 }}>
-                          {o.customer?.name || "—"}
-                          <br />
-                          <span style={{ fontSize: 10, color: MED }}>
-                            {o.customer?.phone || ""}
-                          </span>
+                        <td style={{ ...TD,fontWeight:600,fontSize:12 }}>
+                          {o.customer?.name||"—"}<br/>
+                          <span style={{ fontSize:10,color:MED }}>{o.customer?.phone||""}</span>
                         </td>
-                        <td style={{ ...TD, color: MED, fontSize: 11 }}>
-                          {(o.items || [])
-                            .slice(0, 2)
-                            .map((i) => i.name)
-                            .join(", ")}
-                          {(o.items || []).length > 2
-                            ? ` +${o.items.length - 2}`
-                            : ""}
+                        <td style={{ ...TD,color:MED,fontSize:11 }}>
+                          {(o.items||[]).length} item(s)
                         </td>
-                        <td
-                          style={{
-                            ...TD,
-                            fontWeight: 800,
-                            color: PRIMARY,
-                            fontSize: 13,
-                          }}
-                        >
-                          ৳{(o.total || 0).toLocaleString()}
+                        <td style={{ ...TD,fontWeight:800,color:PRIMARY,fontSize:13 }}>
+                          ৳{(o.total||0).toLocaleString()}
                         </td>
-                        <td style={{ ...TD, minWidth: 160 }}>
-                          <select
-                            value={o.status || "processing"}
-                            onChange={(e) =>
-                              updateOrderStatus(o.id, e.target.value)
-                            }
-                            style={{
-                              width: "100%",
-                              padding: "6px 8px",
-                              borderRadius: 8,
-                              border: `1.5px solid ${st.color}`,
-                              background: st.bg,
-                              color: st.color,
-                              fontWeight: 700,
-                              fontSize: 11,
-                              fontFamily: "inherit",
-                              cursor: "pointer",
-                            }}
-                          >
-                            {ORDER_STATUSES.map((s) => (
-                              <option key={s.value} value={s.value}>
-                                {s.label}
-                              </option>
-                            ))}
+                        <td style={{ ...TD,minWidth:160 }} onClick={e=>e.stopPropagation()}>
+                          <select value={o.status||"processing"} onChange={e=>updateOrderStatus(o.id,e.target.value)}
+                            style={{ width:"100%",padding:"6px 8px",borderRadius:8,border:`1.5px solid ${st.color}`,background:st.bg,color:st.color,fontWeight:700,fontSize:11,fontFamily:"inherit",cursor:"pointer" }}>
+                            {ORDER_STATUSES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}
                           </select>
                         </td>
                       </tr>
+                      {expandedOrderId===o.id&&(
+                        <tr><td colSpan={6} style={{ padding:0,background:"rgba(255,248,255,0.5)" }}>
+                          <div style={{ padding:"14px 16px",margin:"0 8px 8px",borderRadius:12,background:"#FFF",border:"1px solid rgba(173,20,87,0.12)" }}>
+                            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:14 }}>
+                              <div>
+                                <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:6 }}>👤 CUSTOMER</div>
+                                <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{o.customer?.name||"—"}</div>
+                                <div style={{ fontSize:11,color:MED }}>{o.customer?.phone||"—"}</div>
+                                <div style={{ fontSize:11,color:MED }}>{o.customer?.email||"—"}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:6 }}>📍 ADDRESS</div>
+                                <div style={{ fontSize:11,color:DARK,lineHeight:1.7 }}>
+                                  {o.customer?.houseRoad&&<div>{o.customer.houseRoad}</div>}
+                                  <div>{[o.customer?.thana,o.customer?.area].filter(Boolean).join(", ")}</div>
+                                  <div style={{ fontWeight:600 }}>{[o.customer?.district,o.customer?.postOffice].filter(Boolean).join(" — ")}</div>
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:6 }}>💳 PAYMENT</div>
+                                <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{o.paymentMethod==="cod"?"Cash on Delivery":o.paymentGateway||"Online"}</div>
+                                {o.transactionId&&<div style={{ fontSize:11,color:MED,fontFamily:"monospace" }}>TX: {o.transactionId}</div>}
+                                <div style={{ fontSize:11,color:MED }}>Delivery: ৳{o.deliveryCharge||0}</div>
+                                {o.promoCode&&<div style={{ fontSize:11,color:SUCCESS }}>Promo: {o.promoCode} (-৳{o.discount||0})</div>}
+                              </div>
+                            </div>
+                            <div style={{ borderTop:"1px solid rgba(173,20,87,0.1)",paddingTop:10 }}>
+                              <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:8 }}>📦 ITEMS</div>
+                              <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
+                                {(o.items||[]).map((item,idx)=>(
+                                  <div key={idx} style={{ display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:8 }}>
+                                    <div>
+                                      <span style={{ fontSize:12,fontWeight:700,color:DARK }}>{item.name}</span>
+                                      <span style={{ fontSize:11,color:MED,marginLeft:8 }}>× {item.qty}</span>
+                                    </div>
+                                    <span style={{ fontSize:12,fontWeight:800,color:PRIMARY }}>৳{(item.qty*item.price).toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ display:"flex",justifyContent:"flex-end",gap:14,marginTop:8,fontSize:12 }}>
+                                <span style={{ color:MED }}>Subtotal: ৳{(o.subtotal||0).toLocaleString()}</span>
+                                <span style={{ color:MED }}>+Delivery: ৳{o.deliveryCharge||0}</span>
+                                {o.discount>0&&<span style={{ color:SUCCESS }}>-Discount: ৳{o.discount}</span>}
+                                <span style={{ fontWeight:900,color:PRIMARY,fontSize:14 }}>Total: ৳{(o.total||0).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td></tr>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
@@ -10636,18 +10639,18 @@ export default function App() {
 
             {/* Filter tabs */}
             {[["pending","⏳ Pending"],["published","✅ Published"],["rejected","❌ Rejected"]].map(([s,l])=>(
-              <button key={s} onClick={()=>setSubFilter(s)}
+              <button key={s} onClick={()=>setReviewFilter(s)}
                 style={{ marginRight:8,marginBottom:16,padding:"6px 18px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:12,
-                  border:`1.5px solid ${subFilter===s?PRIMARY:"rgba(173,20,87,0.2)"}`,
-                  background:subFilter===s?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",
-                  color:subFilter===s?PRIMARY:MED }}>
+                  border:`1.5px solid ${reviewFilter===s?PRIMARY:"rgba(173,20,87,0.2)"}`,
+                  background:reviewFilter===s?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",
+                  color:reviewFilter===s?PRIMARY:MED }}>
                 {l} ({allReviews.filter(r=>r.status===s).length})
               </button>
             ))}
 
-            {allReviews.filter(r=>r.status===(subFilter||"pending")).length===0
-              ?<div style={{ ...glass,padding:32,textAlign:"center",color:LIGHT }}>No {subFilter||"pending"} reviews</div>
-              :allReviews.filter(r=>r.status===(subFilter||"pending")).map(r=>(
+            {allReviews.filter(r=>r.status===reviewFilter).length===0
+              ?<div style={{ ...glass,padding:32,textAlign:"center",color:LIGHT }}>No {reviewFilter} reviews</div>
+              :allReviews.filter(r=>r.status===reviewFilter).map(r=>(
                 <div key={r.id} style={{ ...glass,padding:18,marginBottom:14 }}>
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10 }}>
                     <div style={{ flex:1 }}>
