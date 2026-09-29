@@ -8257,27 +8257,56 @@ export default function App() {
               )}
 
               {/* Published Reviews */}
-              {productReviews.length>0&&(
-                <div style={{ marginBottom:16,borderTop:"1px solid rgba(173,20,87,0.1)",paddingTop:14 }}>
-                  <div style={{ fontSize:13,fontWeight:800,color:DARK,marginBottom:10 }}>
-                    ⭐ Reviews ({productReviews.length})
-                    <span style={{ fontSize:12,fontWeight:400,color:MED,marginLeft:8 }}>
-                      {(productReviews.reduce((s,r)=>s+r.rating,0)/productReviews.length).toFixed(1)} avg
-                    </span>
-                  </div>
-                  {productReviews.slice(0,3).map(r=>(
-                    <div key={r.id} style={{ padding:"10px 12px",background:"rgba(255,248,255,0.8)",borderRadius:10,marginBottom:8,border:"1px solid rgba(173,20,87,0.08)" }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
-                        <div style={{ display:"flex",gap:2 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:12,color:j<=r.rating?"#F59E0B":"#DDD" }}>★</span>)}</div>
-                        <span style={{ fontSize:10,color:LIGHT }}>{r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString("en-BD"):""}</span>
+              {(()=>{
+                const pReviews = publishedReviews.filter(r=>r.productId===selectedProduct.id);
+                if(!pReviews.length) return null;
+                const avgRating = pReviews.reduce((s,r)=>s+r.rating,0)/pReviews.length;
+                return (
+                  <div style={{ marginBottom:16,borderTop:"1px solid rgba(173,20,87,0.1)",paddingTop:14 }}>
+                    {/* Rating summary */}
+                    <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:14,padding:"10px 14px",background:"rgba(255,248,255,0.8)",borderRadius:12 }}>
+                      <div style={{ textAlign:"center" }}>
+                        <div style={{ fontSize:28,fontWeight:900,color:DARK }}>{avgRating.toFixed(1)}</div>
+                        <div style={{ display:"flex",gap:1 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:14,color:j<=Math.round(avgRating)?"#F59E0B":"#DDD" }}>★</span>)}</div>
+                        <div style={{ fontSize:10,color:MED,marginTop:2 }}>{pReviews.length} review{pReviews.length>1?"s":""}</div>
                       </div>
-                      <div style={{ fontSize:11,fontWeight:700,color:DARK,marginBottom:3 }}>{r.userName||"Customer"}</div>
-                      <p style={{ fontSize:12,color:MED,margin:0,lineHeight:1.6 }}>{r.text}</p>
-                      {r.imageUrl&&<img src={r.imageUrl} alt="review" style={{ marginTop:6,width:60,height:60,objectFit:"cover",borderRadius:8,border:"1px solid rgba(173,20,87,0.15)" }}/>}
+                      <div style={{ flex:1 }}>
+                        {[5,4,3,2,1].map(star=>{
+                          const count = pReviews.filter(r=>r.rating===star).length;
+                          const pct = pReviews.length ? (count/pReviews.length)*100 : 0;
+                          return (
+                            <div key={star} style={{ display:"flex",alignItems:"center",gap:6,marginBottom:3 }}>
+                              <span style={{ fontSize:10,color:MED,width:8 }}>{star}</span>
+                              <span style={{ fontSize:10,color:"#F59E0B" }}>★</span>
+                              <div style={{ flex:1,height:4,background:"#EEE",borderRadius:2 }}>
+                                <div style={{ width:pct+"%",height:"100%",background:"#F59E0B",borderRadius:2 }}/>
+                              </div>
+                              <span style={{ fontSize:10,color:MED,width:16 }}>{count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div style={{ fontSize:13,fontWeight:800,color:DARK,marginBottom:10 }}>Customer Reviews</div>
+                    {pReviews.map(r=>(
+                      <div key={r.id} style={{ padding:"12px 14px",background:"rgba(255,248,255,0.7)",borderRadius:12,marginBottom:10,border:"1px solid rgba(173,20,87,0.08)" }}>
+                        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6 }}>
+                          <div>
+                            <div style={{ display:"flex",gap:1,marginBottom:3 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:13,color:j<=r.rating?"#F59E0B":"#DDD" }}>★</span>)}</div>
+                            <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{r.userName||"Customer"}</div>
+                          </div>
+                          <span style={{ fontSize:10,color:LIGHT }}>{r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString("en-BD"):""}</span>
+                        </div>
+                        <p style={{ fontSize:13,color:MED,margin:"0 0 8px",lineHeight:1.7 }}>{r.text}</p>
+                        {r.imageUrl&&(
+                          <img src={r.imageUrl} alt="review" style={{ width:72,height:72,objectFit:"cover",borderRadius:10,border:"1px solid rgba(173,20,87,0.15)",cursor:"pointer" }}
+                            onClick={()=>window.open(r.imageUrl,"_blank")}/>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Description accordion */}
               <div
