@@ -1991,6 +1991,7 @@ export default function App() {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [productReviews, setProductReviews] = useState([]);
   const [allReviews, setAllReviews] = useState([]); // admin
+  const [publishedReviews, setPublishedReviews] = useState([]); // all published
   const [promoCodes, setPromoCodes] = useState([]);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
@@ -2089,16 +2090,24 @@ export default function App() {
   const jewelryImg = products.find(p=>p.category==="jewelry"&&p.imageUrl)?.imageUrl;
   const craftsImg  = products.find(p=>p.category==="crafts"&&p.imageUrl)?.imageUrl;
   const clothingImg= products.find(p=>p.category==="clothing"&&p.imageUrl)?.imageUrl;
-    const getBg = (custom, fallback) => custom ? "url('"+custom+"')" : (fallback ? "url('"+fallback+"')" : null);
-  const heroSlides = [
-    { bg: getBg(bannerImages[0]) || "url('/banner.png')", headline:"Where Every Piece", sub:"Tells a Story", tagline:"🌸 Handmade with Love", btn1:"Shop Now", btn2:"Collections", cat:"all" },
-    { bg: getBg(bannerImages[1], jewelryImg) || "linear-gradient(135deg,#880E4F,#E91E63)", headline:"Handcrafted Jewelry", sub:"for Every Occasion", tagline:"💍 Bangles · Rings · Earrings", btn1:"Shop Jewelry", btn2:"View All", cat:"jewelry" },
-    { bg: getBg(bannerImages[2], craftsImg) || "linear-gradient(135deg,#4A148C,#9C27B0)", headline:"Artisan Crafts", sub:"Made with Passion", tagline:"🏺 Mandala · Canvas · Clay", btn1:"Shop Crafts", btn2:"View All", cat:"crafts" },
-    { bg: getBg(bannerImages[3], clothingImg) || "linear-gradient(135deg,#B71C1C,#EF9A9A)", headline:"Elegant Clothing", sub:"Tradition Meets Style", tagline:"👗 Saree · Tops · Panjabi", btn1:"Shop Clothing", btn2:"View All", cat:"clothing" },
+    const heroSlides = [
+    { imgUrl: bannerImages[0]||"/banner.png",   bg:"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Where Every Piece",    sub:"Tells a Story",          tagline:"🌸 Handmade with Love",          btn1:"Shop Now",     btn2:"Collections", cat:"all"      },
+    { imgUrl: bannerImages[1]||jewelryImg||null, bg:"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Handcrafted Jewelry",  sub:"for Every Occasion",     tagline:"💍 Bangles · Rings · Earrings",  btn1:"Shop Jewelry", btn2:"View All",    cat:"jewelry"  },
+    { imgUrl: bannerImages[2]||craftsImg||null,  bg:"linear-gradient(135deg,#4A148C,#9C27B0)", headline:"Artisan Crafts",       sub:"Made with Passion",      tagline:"🏺 Mandala · Canvas · Clay",     btn1:"Shop Crafts",  btn2:"View All",    cat:"crafts"   },
+    { imgUrl: bannerImages[3]||clothingImg||null,bg:"linear-gradient(135deg,#B71C1C,#EF9A9A)", headline:"Elegant Clothing",     sub:"Tradition Meets Style",  tagline:"👗 Saree · Tops · Panjabi",     btn1:"Shop Clothing",btn2:"View All",    cat:"clothing" },
   ];
   useEffect(() => {
     const t = setInterval(() => setHeroSlide(s => (s+1) % 4), 4000);
     return () => clearInterval(t);
+  }, []);
+
+  // Load all published reviews (for product cards)
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, "reviews"), where("status", "==", "published")),
+      snap => setPublishedReviews(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+    return unsub;
   }, []);
 
   // Load all reviews for admin
@@ -2140,6 +2149,13 @@ export default function App() {
     )
     .reduce((s, o) => s + (o.total || 0), 0);
 
+
+  const getProductRating = (productId) => {
+    const reviews = publishedReviews.filter(r => r.productId === productId);
+    if (!reviews.length) return null;
+    const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+    return { avg: avg.toFixed(1), count: reviews.length };
+  };
   const allSizes = [...new Set(products.flatMap((p) => p.sizes || []))].sort();
 
   const visible = products
@@ -3809,7 +3825,11 @@ export default function App() {
               </div>
               <div className="kk-hero" style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
                 {heroSlides.map((slide,i)=>(
-                  <div key={i} style={{ position:"absolute",inset:0,transition:"opacity 0.6s ease-in-out",opacity:heroSlide===i?1:0,display:heroSlide===i||Math.abs(heroSlide-i)===1||(heroSlide===0&&i===3)||(heroSlide===3&&i===0)?"block":"none",background:slide.bg,backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat",zIndex:heroSlide===i?2:1 }}>
+                  <div key={i} style={{ position:"absolute",inset:0,zIndex:heroSlide===i?2:1,opacity:heroSlide===i?1:0,transition:"opacity 0.7s ease",pointerEvents:heroSlide===i?"auto":"none" }}>
+                    {slide.imgUrl
+                      ? <img src={slide.imgUrl} alt="" style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center" }}/>
+                      : <div style={{ position:"absolute",inset:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat" }}/>
+                    }
                     <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.75) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
                     <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
                       <div style={{ fontSize:11,color:"rgba(255,255,255,0.8)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
@@ -4087,6 +4107,12 @@ export default function App() {
                       >
                         {p.name}
                       </div>
+                      {getProductRating(p.id)&&(
+                        <div style={{ display:"flex",alignItems:"center",gap:2,marginBottom:4 }}>
+                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:10,color:j<=Math.round(Number(getProductRating(p.id).avg))?"#F59E0B":"#DDD" }}>★</span>)}
+                          <span style={{ fontSize:10,color:MED,marginLeft:2 }}>({getProductRating(p.id).count})</span>
+                        </div>
+                      )}
                       <div
                         style={{
                           display: "flex",
@@ -4202,6 +4228,12 @@ export default function App() {
                           >
                             {p.name}
                           </div>
+                      {getProductRating(p.id)&&(
+                        <div style={{ display:"flex",alignItems:"center",gap:2,marginBottom:4 }}>
+                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:10,color:j<=Math.round(Number(getProductRating(p.id).avg))?"#F59E0B":"#DDD" }}>★</span>)}
+                          <span style={{ fontSize:10,color:MED,marginLeft:2 }}>({getProductRating(p.id).count})</span>
+                        </div>
+                      )}
                           <div
                             style={{
                               fontSize: 13,
@@ -4978,6 +5010,12 @@ export default function App() {
                           >
                             {p.name}
                           </div>
+                      {getProductRating(p.id)&&(
+                        <div style={{ display:"flex",alignItems:"center",gap:2,marginBottom:4 }}>
+                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:10,color:j<=Math.round(Number(getProductRating(p.id).avg))?"#F59E0B":"#DDD" }}>★</span>)}
+                          <span style={{ fontSize:10,color:MED,marginLeft:2 }}>({getProductRating(p.id).count})</span>
+                        </div>
+                      )}
                           <div
                             style={{
                               fontSize: 13,
@@ -5109,6 +5147,12 @@ export default function App() {
                         >
                           {p.name}
                         </div>
+                      {getProductRating(p.id)&&(
+                        <div style={{ display:"flex",alignItems:"center",gap:2,marginBottom:4 }}>
+                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:10,color:j<=Math.round(Number(getProductRating(p.id).avg))?"#F59E0B":"#DDD" }}>★</span>)}
+                          <span style={{ fontSize:10,color:MED,marginLeft:2 }}>({getProductRating(p.id).count})</span>
+                        </div>
+                      )}
                         <div
                           style={{
                             display: "flex",
