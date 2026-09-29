@@ -1981,6 +1981,7 @@ export default function App() {
   const [bannerImages, setBannerImages] = useState(["","","",""]);
   const [showBannerMgr, setShowBannerMgr] = useState(false);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [orderSuccessMsg, setOrderSuccessMsg] = useState(null); // {type:"cod"|"online", gateway?}
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewFilter, setReviewFilter] = useState("pending");
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -2619,7 +2620,7 @@ export default function App() {
         const ordSnap = await getDocs(ordQ);
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {}
-      notify("✓ Order placed! Cash on delivery confirmed 🎉");
+      setOrderSuccessMsg({type:"cod"});
       return;
     }
 
@@ -10783,6 +10784,61 @@ export default function App() {
             }
           </div>
         )}
+
+
+      {/* ══ ORDER SUCCESS POPUP ══ */}
+      {orderSuccessMsg && (
+        <>
+          <div style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:400,backdropFilter:"blur(6px)" }}/>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",
+            width:"min(420px,92vw)",background:"#FFF",borderRadius:24,zIndex:401,
+            boxShadow:"0 24px 80px rgba(173,20,87,0.35)",overflow:"hidden",textAlign:"center" }}>
+            {/* Header */}
+            <div style={{ background:orderSuccessMsg.type==="cod"?GRAD:"linear-gradient(135deg,#1565C0,#283593)",padding:"28px 24px 20px" }}>
+              <div style={{ fontSize:52,marginBottom:8 }}>
+                {orderSuccessMsg.type==="cod" ? "🎉" : "📱"}
+              </div>
+              <div style={{ color:"#FFF",fontSize:20,fontWeight:900,lineHeight:1.3 }}>
+                {orderSuccessMsg.type==="cod" ? "Order Confirmed!" : "Order Placed!"}
+              </div>
+            </div>
+            {/* Body */}
+            <div style={{ padding:"24px 28px 28px" }}>
+              {orderSuccessMsg.type==="cod" ? (
+                <>
+                  <div style={{ fontSize:15,color:DARK,fontWeight:700,marginBottom:10 }}>
+                    ✅ Your order is confirmed!
+                  </div>
+                  <p style={{ fontSize:13,color:MED,lineHeight:1.8,marginBottom:20 }}>
+                    Your cash on delivery order has been placed successfully. Our team will contact you before delivery. Thank you for shopping with কাঁকনবালা! 🌸
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize:15,color:DARK,fontWeight:700,marginBottom:10 }}>
+                    ⏳ Your order is placed!
+                  </div>
+                  <p style={{ fontSize:13,color:MED,lineHeight:1.8,marginBottom:14 }}>
+                    Our admin will confirm your order after matching your <strong>{orderSuccessMsg.gateway}</strong> Transaction ID.
+                  </p>
+                  <div style={{ background:"rgba(21,101,192,0.06)",border:"1.5px solid rgba(21,101,192,0.2)",borderRadius:12,padding:"12px 16px",marginBottom:20 }}>
+                    <div style={{ fontSize:11,color:"#1565C0",fontWeight:700,marginBottom:4 }}>📌 What happens next?</div>
+                    <div style={{ fontSize:12,color:MED,lineHeight:1.7,textAlign:"left" }}>
+                      1. Admin checks your Transaction ID<br/>
+                      2. Order is confirmed within 1–2 hours<br/>
+                      3. You'll receive a confirmation message
+                    </div>
+                  </div>
+                </>
+              )}
+              <button onClick={()=>setOrderSuccessMsg(null)}
+                style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>
+                {orderSuccessMsg.type==="cod" ? "Great, Thank You! 🌸" : "OK, Got It!"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
 {/* FOOTER */}
       <footer
