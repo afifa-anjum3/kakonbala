@@ -2342,6 +2342,9 @@ export default function App() {
       sizes: newP.sizes || [],
       colors: newP.colors || [],
       pieceCounts: newP.pieceCounts || [],
+      packOptions: newP.packOptions || [],
+      colorImages: newP.colorImages || {},
+      createdAt: serverTimestamp(),
     });
     setNewP({
       name: "",
@@ -2406,8 +2409,8 @@ export default function App() {
   }
 
   function finalTotal() {
-    const disc = promoApplied ? promoApplied.discount : 0;
-    return cartTotal + deliveryCharge() - disc;
+    const disc = promoApplied ? Math.min(promoApplied.discount, cartTotal) : 0;
+    return Math.max(0, cartTotal + (deliveryCharge()||0) - disc);
   }
 
   async function applyPromo() {
@@ -2631,12 +2634,13 @@ export default function App() {
     }
     setPayLoading(true);
     try {
-      await addDoc(collection(db, "orders"), {
-        ...orderData,
-        status: "pending_payment",
-        transactionId: transactionId.trim(),
-        paymentGateway: selectedGateway,
-      });
+      const ob = writeBatch(db);
+      const oRef = doc(collection(db, "orders"));
+      ob.set(oRef, { ...orderData, status:"pending_payment", transactionId:transactionId.trim(), paymentGateway:selectedGateway });
+      for (const item of cart) {
+        if (item.product?.id) ob.update(doc(db,"products",item.product.id),{stock:increment(-item.qty)});
+      }
+      await ob.commit();
       if (user && user.uid) {
         await setDoc(
           doc(db, "customers", user.uid),
@@ -9925,12 +9929,12 @@ export default function App() {
                   <span
                     style={{
                       fontWeight: 600,
-                      color: deliveryCharge() === 0 ? LIGHT : DARK,
+                      color: deliveryCharge() === null ? LIGHT : DARK,
                     }}
                   >
                     {customer.city
-                      ? `৳${deliveryCharge()}`
-                      : "Enter city first"}
+                      ? (deliveryCharge()===null ? "(select district)" : `৳${deliveryCharge()}`)
+                      : "Select district"}
                   </span>
                 </div>
                 {promoApplied && (
