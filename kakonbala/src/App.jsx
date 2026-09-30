@@ -1913,11 +1913,11 @@ export default function App() {
   const [wishlist, setWishlist] = useState([]);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState(null);
-  const [tab, setTab] = useState("home");
+  const [tab, setTab] = useState(() => { try { return localStorage.getItem("kk_tab")||"home"; } catch{return "home";} });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [myOrders, setMyOrders] = useState([]);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => { try { return JSON.parse(localStorage.getItem("kk_cart"))||[]; } catch{return [];} });
   const [catFilter, setCatFilter] = useState("all");
   const [subFilter, setSubFilter] = useState("all");
   const [clothingGroup, setClothingGroup] = useState("all");
@@ -2102,6 +2102,9 @@ export default function App() {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => { try { localStorage.setItem("kk_tab", tab); } catch{} }, [tab]);
+  useEffect(() => { try { localStorage.setItem("kk_cart", JSON.stringify(cart)); } catch{} }, [cart]);
+
   // Load all published reviews (for product cards)
   useEffect(() => {
     const unsub = onSnapshot(
@@ -2151,6 +2154,47 @@ export default function App() {
     .reduce((s, o) => s + (o.total || 0), 0);
 
 
+
+  const ORDER_TIMELINE = [
+    { status:"pending_payment", label:"Payment Pending", icon:"⏳", color:"#F59E0B" },
+    { status:"processing",      label:"Order Confirmed", icon:"✅", color:"#2E7D32" },
+    { status:"in_packaging",    label:"Being Packaged",  icon:"📦", color:"#1565C0" },
+    { status:"shipped",         label:"On the Way",      icon:"🚚", color:"#6A1B9A" },
+    { status:"delivered",       label:"Delivered",       icon:"🎉", color:"#AD1457" },
+  ];
+  const getTrackingStep = (status) => {
+    const idx = ORDER_TIMELINE.findIndex(t => t.status === status);
+    return idx >= 0 ? idx : (status === "cancelled" ? -1 : 0);
+  };
+
+  const sendOrderEmail = async (orderType, orderDetails) => {
+    // Uses EmailJS - set up at emailjs.com (free 200/month)
+    // Replace SERVICE_ID, TEMPLATE_ID, PUBLIC_KEY with your EmailJS credentials
+    const SERVICE_ID = "YOUR_SERVICE_ID";
+    const TEMPLATE_ID_COD = "YOUR_COD_TEMPLATE_ID";
+    const TEMPLATE_ID_ONLINE = "YOUR_ONLINE_TEMPLATE_ID";
+    const PUBLIC_KEY = "YOUR_PUBLIC_KEY";
+    if (SERVICE_ID === "YOUR_SERVICE_ID") return; // not configured yet
+    try {
+      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          service_id: SERVICE_ID,
+          template_id: orderType==="cod" ? TEMPLATE_ID_COD : TEMPLATE_ID_ONLINE,
+          user_id: PUBLIC_KEY,
+          template_params: {
+            to_email: orderDetails.email,
+            to_name: orderDetails.name,
+            order_total: "৳"+orderDetails.total,
+            order_items: orderDetails.items,
+            payment_method: orderDetails.paymentMethod,
+            gateway: orderDetails.gateway||"",
+          }
+        })
+      });
+    } catch(e) { console.warn("Email send failed:", e.message); }
+  };
   const getProductRating = (productId) => {
     const reviews = publishedReviews.filter(r => r.productId === productId);
     if (!reviews.length) return null;
@@ -2620,6 +2664,7 @@ export default function App() {
         const ordSnap = await getDocs(ordQ);
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {}
+      sendOrderEmail("cod",{email:customer.email,name:customer.name,total,items:(cart.map(i=>i.product.name+"×"+i.qty).join(", ")),paymentMethod:"Cash on Delivery"});
       setOrderSuccessMsg({type:"cod"});
       return;
     }
@@ -10590,15 +10635,43 @@ export default function App() {
                 {myOrdersLoading&&<div style={{ fontSize:12,color:MED,textAlign:"center",padding:12 }}>Loading...</div>}
                 {!myOrdersLoading&&myOrders.length===0&&<div style={{ fontSize:13,color:LIGHT,textAlign:"center",padding:"16px 0" }}>No orders yet. Place an order to see it here!</div>}
                 {!myOrdersLoading&&myOrders.map(o=>(
-                  <div key={o.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(255,255,255,0.7)",borderRadius:10,marginBottom:8,border:"1px solid rgba(173,20,87,0.08)" }}>
-                    <div>
-                      <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")||"Order"}</div>
-                      <div style={{ fontSize:10,color:MED }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString("en-BD"):""}</div>
+                  <div key={o.id} style={{ background:"rgba(255,255,255,0.8)",borderRadius:12,marginBottom:12,border:"1px solid rgba(173,20,87,0.1)",overflow:"hidden" }}>
+                    {/* Order header */}
+                    <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid rgba(173,20,87,0.06)" }}>
+                      <div>
+                        <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")||"Order"}</div>
+                        <div style={{ fontSize:10,color:MED }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString("en-BD"):""} · ৳{(o.total||0).toLocaleString()}</div>
+                      </div>
+                      {o.status==="cancelled"
+                        ?<span style={{ fontSize:10,padding:"3px 10px",borderRadius:8,fontWeight:700,background:"rgba(198,40,40,0.1)",color:DANGER }}>❌ Cancelled</span>
+                        :<span style={{ fontSize:10,padding:"3px 10px",borderRadius:8,fontWeight:700,background:"rgba(46,125,50,0.1)",color:SUCCESS }}>{ORDER_TIMELINE[getTrackingStep(o.status)]?.icon} {ORDER_TIMELINE[getTrackingStep(o.status)]?.label||o.status}</span>
+                      }
                     </div>
-                    <div style={{ textAlign:"right" }}>
-                      <div style={{ fontSize:13,fontWeight:800,color:PRIMARY }}>৳{(o.total||0).toLocaleString()}</div>
-                      <span style={{ fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,background:"rgba(232,245,233,0.9)",color:SUCCESS }}>{(o.status||"").replace(/_/g," ")}</span>
-                    </div>
+                    {/* Tracking timeline */}
+                    {o.status!=="cancelled"&&(
+                      <div style={{ padding:"12px 14px" }}>
+                        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",position:"relative" }}>
+                          {/* Progress line */}
+                          <div style={{ position:"absolute",top:14,left:"10%",right:"10%",height:3,background:"#EEE",borderRadius:2,zIndex:0 }}>
+                            <div style={{ width:(getTrackingStep(o.status)/(ORDER_TIMELINE.length-1)*100)+"%",height:"100%",background:GRAD,borderRadius:2,transition:"width 0.5s" }}/>
+                          </div>
+                          {ORDER_TIMELINE.map((step,si)=>{
+                            const done = si<=getTrackingStep(o.status);
+                            return (
+                              <div key={si} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:4,zIndex:1,flex:1 }}>
+                                <div style={{ width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,
+                                  background:done?step.color:"#EEE",
+                                  boxShadow:done?`0 0 0 3px ${step.color}33`:"none",
+                                  transition:"all 0.3s" }}>
+                                  {done?<span style={{ fontSize:12 }}>{step.icon}</span>:<span style={{ fontSize:10,color:"#AAA" }}>○</span>}
+                                </div>
+                                <span style={{ fontSize:9,color:done?step.color:"#AAA",fontWeight:done?700:400,textAlign:"center",lineHeight:1.2,maxWidth:50 }}>{step.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
