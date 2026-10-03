@@ -1913,11 +1913,23 @@ export default function App() {
   const [wishlist, setWishlist] = useState([]);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState(null);
-  const [tab, setTab] = useState(() => { try { return localStorage.getItem("kk_tab")||"home"; } catch{return "home";} });
+  const [tab, setTab] = useState(() => {
+    try {
+      return localStorage.getItem("kk_tab") || "home";
+    } catch {
+      return "home";
+    }
+  });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [myOrders, setMyOrders] = useState([]);
-  const [cart, setCart] = useState(() => { try { return JSON.parse(localStorage.getItem("kk_cart"))||[]; } catch{return [];} });
+  const [cart, setCart] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kk_cart")) || [];
+    } catch {
+      return [];
+    }
+  });
   const [catFilter, setCatFilter] = useState("all");
   const [subFilter, setSubFilter] = useState("all");
   const [clothingGroup, setClothingGroup] = useState("all");
@@ -1976,9 +1988,18 @@ export default function App() {
   const [transactionId, setTransactionId] = useState("");
   const [selectedGateway, setSelectedGateway] = useState("bKash");
   const [showProfile, setShowProfile] = useState(false);
-  const [profileData, setProfileData] = useState({ name:"",phone:"",email:"",district:"",area:"",thana:"",postOffice:"",houseRoad:"" });
+  const [profileData, setProfileData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    district: "",
+    area: "",
+    thana: "",
+    postOffice: "",
+    houseRoad: "",
+  });
   const [heroSlide, setHeroSlide] = useState(0);
-  const [bannerImages, setBannerImages] = useState(["","","",""]);
+  const [bannerImages, setBannerImages] = useState(["", "", "", ""]);
   const [showBannerMgr, setShowBannerMgr] = useState(false);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState(null); // {type:"cod"|"online", gateway?}
@@ -2014,18 +2035,33 @@ export default function App() {
         if (u) {
           // Load orders by userId + email merged
           try {
-            const q1=query(collection(db,"orders"),where("userId","==",u.uid));
-            const s1=await getDocs(q1);
-            const byUid=s1.docs.map(d=>({id:d.id,...d.data()}));
-            const q2=query(collection(db,"orders"),where("customerEmail","==",u.email));
-            const s2=await getDocs(q2);
-            const byEmail=s2.docs.map(d=>({id:d.id,...d.data()}));
-            const allIds=new Set();
-            const merged=[...byUid,...byEmail].filter(o=>{
-              if(allIds.has(o.id))return false; allIds.add(o.id); return true;
+            const q1 = query(
+              collection(db, "orders"),
+              where("userId", "==", u.uid),
+            );
+            const s1 = await getDocs(q1);
+            const byUid = s1.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const q2 = query(
+              collection(db, "orders"),
+              where("customerEmail", "==", u.email),
+            );
+            const s2 = await getDocs(q2);
+            const byEmail = s2.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const allIds = new Set();
+            const merged = [...byUid, ...byEmail].filter((o) => {
+              if (allIds.has(o.id)) return false;
+              allIds.add(o.id);
+              return true;
             });
-            setMyOrders(merged.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)));
-          } catch(e) { console.warn("My orders:", e.message); }
+            setMyOrders(
+              merged.sort(
+                (a, b) =>
+                  (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0),
+              ),
+            );
+          } catch (e) {
+            console.warn("My orders:", e.message);
+          }
           try {
             const snap = await getDoc(doc(db, "customers", u.uid));
             if (snap.exists()) {
@@ -2061,9 +2097,13 @@ export default function App() {
 
   useEffect(() => {
     // Load banner images from Firestore
-    getDoc(doc(db,"settings","banners")).then(snap=>{
-      if(snap.exists()&&snap.data().images){setBannerImages(snap.data().images);}
-    }).catch(()=>{});
+    getDoc(doc(db, "settings", "banners"))
+      .then((snap) => {
+        if (snap.exists() && snap.data().images) {
+          setBannerImages(snap.data().images);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -2088,28 +2128,79 @@ export default function App() {
     return unsub;
   }, []);
 
-  const jewelryImg = products.find(p=>p.category==="jewelry"&&p.imageUrl)?.imageUrl;
-  const craftsImg  = products.find(p=>p.category==="crafts"&&p.imageUrl)?.imageUrl;
-  const clothingImg= products.find(p=>p.category==="clothing"&&p.imageUrl)?.imageUrl;
-    const heroSlides = [
-    { imgUrl: bannerImages[0]||"/banner.png",   bg:"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Where Every Piece",    sub:"Tells a Story",          tagline:"🌸 Handmade with Love",          btn1:"Shop Now",     btn2:"Collections", cat:"all"      },
-    { imgUrl: bannerImages[1]||jewelryImg||null, bg:"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Handcrafted Jewelry",  sub:"for Every Occasion",     tagline:"💍 Bangles · Rings · Earrings",  btn1:"Shop Jewelry", btn2:"View All",    cat:"jewelry"  },
-    { imgUrl: bannerImages[2]||craftsImg||null,  bg:"linear-gradient(135deg,#4A148C,#9C27B0)", headline:"Artisan Crafts",       sub:"Made with Passion",      tagline:"🏺 Mandala · Canvas · Clay",     btn1:"Shop Crafts",  btn2:"View All",    cat:"crafts"   },
-    { imgUrl: bannerImages[3]||clothingImg||null,bg:"linear-gradient(135deg,#B71C1C,#EF9A9A)", headline:"Elegant Clothing",     sub:"Tradition Meets Style",  tagline:"👗 Saree · Tops · Panjabi",     btn1:"Shop Clothing",btn2:"View All",    cat:"clothing" },
+  const jewelryImg = products.find(
+    (p) => p.category === "jewelry" && p.imageUrl,
+  )?.imageUrl;
+  const craftsImg = products.find(
+    (p) => p.category === "crafts" && p.imageUrl,
+  )?.imageUrl;
+  const clothingImg = products.find(
+    (p) => p.category === "clothing" && p.imageUrl,
+  )?.imageUrl;
+  const heroSlides = [
+    {
+      imgUrl: bannerImages[0] || "/banner.png",
+      bg: "linear-gradient(135deg,#880E4F,#E91E63)",
+      headline: "Where Every Piece",
+      sub: "Tells a Story",
+      tagline: "🌸 Handmade with Love",
+      btn1: "Shop Now",
+      btn2: "Collections",
+      cat: "all",
+    },
+    {
+      imgUrl: bannerImages[1] || jewelryImg || null,
+      bg: "linear-gradient(135deg,#880E4F,#E91E63)",
+      headline: "Handcrafted Jewelry",
+      sub: "for Every Occasion",
+      tagline: "💍 Bangles · Rings · Earrings",
+      btn1: "Shop Jewelry",
+      btn2: "View All",
+      cat: "jewelry",
+    },
+    {
+      imgUrl: bannerImages[2] || craftsImg || null,
+      bg: "linear-gradient(135deg,#4A148C,#9C27B0)",
+      headline: "Artisan Crafts",
+      sub: "Made with Passion",
+      tagline: "🏺 Mandala · Canvas · Clay",
+      btn1: "Shop Crafts",
+      btn2: "View All",
+      cat: "crafts",
+    },
+    {
+      imgUrl: bannerImages[3] || clothingImg || null,
+      bg: "linear-gradient(135deg,#B71C1C,#EF9A9A)",
+      headline: "Elegant Clothing",
+      sub: "Tradition Meets Style",
+      tagline: "👗 Saree · Tops · Panjabi",
+      btn1: "Shop Clothing",
+      btn2: "View All",
+      cat: "clothing",
+    },
   ];
   useEffect(() => {
-    const t = setInterval(() => setHeroSlide(s => (s+1) % 4), 4000);
+    const t = setInterval(() => setHeroSlide((s) => (s + 1) % 4), 4000);
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => { try { localStorage.setItem("kk_tab", tab); } catch{} }, [tab]);
-  useEffect(() => { try { localStorage.setItem("kk_cart", JSON.stringify(cart)); } catch{} }, [cart]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("kk_tab", tab);
+    } catch {}
+  }, [tab]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("kk_cart", JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
 
   // Load all published reviews (for product cards)
   useEffect(() => {
     const unsub = onSnapshot(
       query(collection(db, "reviews"), where("status", "==", "published")),
-      snap => setPublishedReviews(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      (snap) =>
+        setPublishedReviews(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
     return unsub;
   }, []);
@@ -2119,7 +2210,8 @@ export default function App() {
     if (!isAdmin) return;
     const unsub = onSnapshot(
       query(collection(db, "reviews"), orderBy("createdAt", "desc")),
-      snap => setAllReviews(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      (snap) =>
+        setAllReviews(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
     return unsub;
   }, [isAdmin]);
@@ -2153,50 +2245,66 @@ export default function App() {
     )
     .reduce((s, o) => s + (o.total || 0), 0);
 
-
-
   const ORDER_TIMELINE = [
-    { status:"pending_payment", label:"Payment Pending", icon:"⏳", color:"#F59E0B" },
-    { status:"processing",      label:"Order Confirmed", icon:"✅", color:"#2E7D32" },
-    { status:"in_packaging",    label:"Being Packaged",  icon:"📦", color:"#1565C0" },
-    { status:"shipped",         label:"On the Way",      icon:"🚚", color:"#6A1B9A" },
-    { status:"delivered",       label:"Delivered",       icon:"🎉", color:"#AD1457" },
+    {
+      status: "pending_payment",
+      label: "Payment Pending",
+      icon: "⏳",
+      color: "#F59E0B",
+    },
+    {
+      status: "processing",
+      label: "Order Confirmed",
+      icon: "✅",
+      color: "#2E7D32",
+    },
+    {
+      status: "in_packaging",
+      label: "Being Packaged",
+      icon: "📦",
+      color: "#1565C0",
+    },
+    { status: "shipped", label: "On the Way", icon: "🚚", color: "#6A1B9A" },
+    { status: "delivered", label: "Delivered", icon: "🎉", color: "#AD1457" },
   ];
   const getTrackingStep = (status) => {
-    const idx = ORDER_TIMELINE.findIndex(t => t.status === status);
-    return idx >= 0 ? idx : (status === "cancelled" ? -1 : 0);
+    const idx = ORDER_TIMELINE.findIndex((t) => t.status === status);
+    return idx >= 0 ? idx : status === "cancelled" ? -1 : 0;
   };
 
   const sendOrderEmail = async (orderType, orderDetails) => {
     // Uses EmailJS - set up at emailjs.com (free 200/month)
     // Replace SERVICE_ID, TEMPLATE_ID, PUBLIC_KEY with your EmailJS credentials
-    const SERVICE_ID = "YOUR_SERVICE_ID";
-    const TEMPLATE_ID_COD = "YOUR_COD_TEMPLATE_ID";
-    const TEMPLATE_ID_ONLINE = "YOUR_ONLINE_TEMPLATE_ID";
-    const PUBLIC_KEY = "YOUR_PUBLIC_KEY";
+    const SERVICE_ID = "service_auzfjjo";
+    const TEMPLATE_ID_COD = "u6vy4k4";
+    const TEMPLATE_ID_ONLINE = "u6vy4k4";
+    const PUBLIC_KEY = "ld2ItbrZrAmDc3s1";
     if (SERVICE_ID === "YOUR_SERVICE_ID") return; // not configured yet
     try {
       await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           service_id: SERVICE_ID,
-          template_id: orderType==="cod" ? TEMPLATE_ID_COD : TEMPLATE_ID_ONLINE,
+          template_id:
+            orderType === "cod" ? TEMPLATE_ID_COD : TEMPLATE_ID_ONLINE,
           user_id: PUBLIC_KEY,
           template_params: {
             to_email: orderDetails.email,
             to_name: orderDetails.name,
-            order_total: "৳"+orderDetails.total,
+            order_total: "৳" + orderDetails.total,
             order_items: orderDetails.items,
             payment_method: orderDetails.paymentMethod,
-            gateway: orderDetails.gateway||"",
-          }
-        })
+            gateway: orderDetails.gateway || "",
+          },
+        }),
       });
-    } catch(e) { console.warn("Email send failed:", e.message); }
+    } catch (e) {
+      console.warn("Email send failed:", e.message);
+    }
   };
   const getProductRating = (productId) => {
-    const reviews = publishedReviews.filter(r => r.productId === productId);
+    const reviews = publishedReviews.filter((r) => r.productId === productId);
     if (!reviews.length) return null;
     const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
     return { avg: avg.toFixed(1), count: reviews.length };
@@ -2455,7 +2563,7 @@ export default function App() {
 
   function finalTotal() {
     const disc = promoApplied ? Math.min(promoApplied.discount, cartTotal) : 0;
-    return Math.max(0, cartTotal + (deliveryCharge()||0) - disc);
+    return Math.max(0, cartTotal + (deliveryCharge() || 0) - disc);
   }
 
   async function applyPromo() {
@@ -2616,8 +2724,8 @@ export default function App() {
     const total = cartTotal + dc - disc;
     const orderData = {
       customer,
-      customerEmail: customer.email||"",
-      customerPhone: customer.phone||"",
+      customerEmail: customer.email || "",
+      customerPhone: customer.phone || "",
       userId: user ? user.uid : "",
       items: cart.map((i) => ({
         id: i.product.id,
@@ -2664,8 +2772,14 @@ export default function App() {
         const ordSnap = await getDocs(ordQ);
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {}
-      sendOrderEmail("cod",{email:customer.email,name:customer.name,total,items:(cart.map(i=>i.product.name+"×"+i.qty).join(", ")),paymentMethod:"Cash on Delivery"});
-      setOrderSuccessMsg({type:"cod"});
+      sendOrderEmail("cod", {
+        email: customer.email,
+        name: customer.name,
+        total,
+        items: cart.map((i) => i.product.name + "×" + i.qty).join(", "),
+        paymentMethod: "Cash on Delivery",
+      });
+      setOrderSuccessMsg({ type: "cod" });
       return;
     }
 
@@ -2682,9 +2796,17 @@ export default function App() {
     try {
       const ob = writeBatch(db);
       const oRef = doc(collection(db, "orders"));
-      ob.set(oRef, { ...orderData, status:"pending_payment", transactionId:transactionId.trim(), paymentGateway:selectedGateway });
+      ob.set(oRef, {
+        ...orderData,
+        status: "pending_payment",
+        transactionId: transactionId.trim(),
+        paymentGateway: selectedGateway,
+      });
       for (const item of cart) {
-        if (item.product?.id) ob.update(doc(db,"products",item.product.id),{stock:increment(-item.qty)});
+        if (item.product?.id)
+          ob.update(doc(db, "products", item.product.id), {
+            stock: increment(-item.qty),
+          });
       }
       await ob.commit();
       if (user && user.uid) {
@@ -3577,7 +3699,7 @@ export default function App() {
                 ["dashboard", "Dashboard"],
                 ["inventory", "Inventory"],
                 ["orders", "Orders"],
-              ["reviews", "Reviews 🌟"],
+                ["reviews", "Reviews 🌟"],
               ]
             : [
                 ["home", "Home"],
@@ -3854,62 +3976,409 @@ export default function App() {
         {tab === "home" && (
           <div>
             {/* ── HERO SLIDER ── */}
-            <div style={{ marginBottom:0,position:"relative" }}>
-              <div style={{ background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",padding:"16px 20px",borderRadius:"20px 20px 0 0",border:"1px solid rgba(173,20,87,0.1)",borderBottom:"none" }}>
-                <div style={{ display:"flex",gap:0,borderRadius:14,overflow:"hidden",border:`2px solid ${PRIMARY}`,boxShadow:`0 4px 20px rgba(173,20,87,0.2)` }}>
-                  <select onChange={e=>{setCatFilter(e.target.value);setSubFilter("all");if(e.target.value!=="all")setTab("shop");}} style={{ padding:"13px 14px",border:"none",borderRight:`1px solid rgba(173,20,87,0.2)`,background:"rgba(173,20,87,0.06)",color:DARK,fontSize:13,fontFamily:"inherit",fontWeight:600,cursor:"pointer",outline:"none",minWidth:130 }}>
+            <div style={{ marginBottom: 0, position: "relative" }}>
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.95)",
+                  backdropFilter: "blur(20px)",
+                  padding: "16px 20px",
+                  borderRadius: "20px 20px 0 0",
+                  border: "1px solid rgba(173,20,87,0.1)",
+                  borderBottom: "none",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 0,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    border: `2px solid ${PRIMARY}`,
+                    boxShadow: `0 4px 20px rgba(173,20,87,0.2)`,
+                  }}
+                >
+                  <select
+                    onChange={(e) => {
+                      setCatFilter(e.target.value);
+                      setSubFilter("all");
+                      if (e.target.value !== "all") setTab("shop");
+                    }}
+                    style={{
+                      padding: "13px 14px",
+                      border: "none",
+                      borderRight: `1px solid rgba(173,20,87,0.2)`,
+                      background: "rgba(173,20,87,0.06)",
+                      color: DARK,
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      outline: "none",
+                      minWidth: 130,
+                    }}
+                  >
                     <option value="all">All Items</option>
                     <option value="jewelry">💍 Jewelry</option>
                     <option value="crafts">🏺 Crafts</option>
                     <option value="clothing">👗 Clothing</option>
                   </select>
-                  <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&searchQuery.trim())setTab("shop");}} placeholder="Search products, categories, styles..." style={{ flex:1,padding:"13px 16px",border:"none",outline:"none",fontSize:14,fontFamily:"inherit",background:"#FFF",color:DARK }} />
-                  <button onClick={()=>{if(searchQuery.trim())setTab("shop");}} style={{ ...btn,borderRadius:0,padding:"13px 24px",fontSize:14,boxShadow:"none" }}>🔍 Search</button>
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && searchQuery.trim())
+                        setTab("shop");
+                    }}
+                    placeholder="Search products, categories, styles..."
+                    style={{
+                      flex: 1,
+                      padding: "13px 16px",
+                      border: "none",
+                      outline: "none",
+                      fontSize: 14,
+                      fontFamily: "inherit",
+                      background: "#FFF",
+                      color: DARK,
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (searchQuery.trim()) setTab("shop");
+                    }}
+                    style={{
+                      ...btn,
+                      borderRadius: 0,
+                      padding: "13px 24px",
+                      fontSize: 14,
+                      boxShadow: "none",
+                    }}
+                  >
+                    🔍 Search
+                  </button>
                 </div>
-                <div style={{ display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center" }}>
-                  <span style={{ fontSize:11,color:LIGHT,fontWeight:600 }}>Popular:</span>
-                  {["Bangles","Mandala","Saree","Rings","Earrings","Canvas Paint"].map(tag=>(
-                    <button key={tag} onClick={()=>{setSearchQuery(tag);setTab("shop");}} style={{ fontSize:11,color:PRIMARY,background:"rgba(173,20,87,0.06)",border:"1px solid rgba(173,20,87,0.15)",borderRadius:20,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>{tag}</button>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginTop: 10,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ fontSize: 11, color: LIGHT, fontWeight: 600 }}>
+                    Popular:
+                  </span>
+                  {[
+                    "Bangles",
+                    "Mandala",
+                    "Saree",
+                    "Rings",
+                    "Earrings",
+                    "Canvas Paint",
+                  ].map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        setSearchQuery(tag);
+                        setTab("shop");
+                      }}
+                      style={{
+                        fontSize: 11,
+                        color: PRIMARY,
+                        background: "rgba(173,20,87,0.06)",
+                        border: "1px solid rgba(173,20,87,0.15)",
+                        borderRadius: 20,
+                        padding: "3px 10px",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {tag}
+                    </button>
                   ))}
                 </div>
               </div>
-              <div className="kk-hero" style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
-                {heroSlides.map((slide,i)=>(
-                  <div key={i} style={{ position:"absolute",inset:0,zIndex:heroSlide===i?2:1,opacity:heroSlide===i?1:0,transition:"opacity 0.7s ease",pointerEvents:heroSlide===i?"auto":"none" }}>
-                    {slide.imgUrl
-                      ? <img src={slide.imgUrl} alt="" style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center" }}/>
-                      : <div style={{ position:"absolute",inset:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat" }}/>
-                    }
-                    <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.75) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
-                    <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
-                      <div style={{ fontSize:11,color:"rgba(255,255,255,0.8)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
-                      <h1 style={{ fontSize:"clamp(22px,4vw,44px)",fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1>
-                      <h2 style={{ fontSize:"clamp(20px,3.5vw,42px)",fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:"0 0 20px",lineHeight:1.15 }}>{slide.sub}</h2>
-                      <div style={{ display:"flex",gap:12,flexWrap:"wrap" }}>
-                        <button onClick={()=>{setCatFilter(slide.cat||"all");setSubFilter("all");setTab("shop");}} style={{ ...btn,padding:"11px 24px",fontSize:13,background:"#FFF",color:PRIMARY,boxShadow:"0 4px 15px rgba(255,255,255,0.4)" }}>{slide.btn1}</button>
-                        <button onClick={()=>setTab("collections")} style={{ border:"2px solid rgba(255,255,255,0.7)",color:"#FFF",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(8px)",padding:"11px 24px",fontSize:13,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700 }}>{slide.btn2}</button>
+              <div
+                className="kk-hero"
+                style={{
+                  position: "relative",
+                  overflow: "hidden",
+                  height: 400,
+                  borderRadius: "0 0 20px 20px",
+                  boxShadow: "0 12px 40px rgba(173,20,87,0.2)",
+                }}
+              >
+                {heroSlides.map((slide, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      zIndex: heroSlide === i ? 2 : 1,
+                      opacity: heroSlide === i ? 1 : 0,
+                      transition: "opacity 0.7s ease",
+                      pointerEvents: heroSlide === i ? "auto" : "none",
+                    }}
+                  >
+                    {slide.imgUrl ? (
+                      <img
+                        src={slide.imgUrl}
+                        alt=""
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          objectPosition: "center",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background: slide.bg,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                      />
+                    )}
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        background:
+                          "linear-gradient(90deg,rgba(45,10,63,0.75) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)",
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "relative",
+                        zIndex: 2,
+                        padding: "50px 56px",
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        maxWidth: "55%",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "rgba(255,255,255,0.8)",
+                          letterSpacing: 3,
+                          textTransform: "uppercase",
+                          fontWeight: 600,
+                          marginBottom: 10,
+                        }}
+                      >
+                        {slide.tagline}
+                      </div>
+                      <h1
+                        style={{
+                          fontSize: "clamp(22px,4vw,44px)",
+                          fontWeight: 900,
+                          color: "#FFF",
+                          lineHeight: 1.15,
+                          margin: "0 0 6px",
+                          textShadow: "0 2px 12px rgba(0,0,0,0.3)",
+                        }}
+                      >
+                        {slide.headline}
+                      </h1>
+                      <h2
+                        style={{
+                          fontSize: "clamp(20px,3.5vw,42px)",
+                          fontWeight: 900,
+                          background: "linear-gradient(90deg,#FFB3D1,#FFD6EC)",
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                          margin: "0 0 20px",
+                          lineHeight: 1.15,
+                        }}
+                      >
+                        {slide.sub}
+                      </h2>
+                      <div
+                        style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
+                      >
+                        <button
+                          onClick={() => {
+                            setCatFilter(slide.cat || "all");
+                            setSubFilter("all");
+                            setTab("shop");
+                          }}
+                          style={{
+                            ...btn,
+                            padding: "11px 24px",
+                            fontSize: 13,
+                            background: "#FFF",
+                            color: PRIMARY,
+                            boxShadow: "0 4px 15px rgba(255,255,255,0.4)",
+                          }}
+                        >
+                          {slide.btn1}
+                        </button>
+                        <button
+                          onClick={() => setTab("collections")}
+                          style={{
+                            border: "2px solid rgba(255,255,255,0.7)",
+                            color: "#FFF",
+                            background: "rgba(255,255,255,0.12)",
+                            backdropFilter: "blur(8px)",
+                            padding: "11px 24px",
+                            fontSize: 13,
+                            borderRadius: 20,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {slide.btn2}
+                        </button>
                       </div>
                     </div>
                   </div>
                 ))}
-                <div style={{ position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",display:"flex",gap:8,zIndex:5 }}>
-                  {heroSlides.map((_,i)=>(<button key={i} onClick={()=>setHeroSlide(i)} style={{ width:i===heroSlide?28:8,height:8,borderRadius:4,border:"none",cursor:"pointer",background:i===heroSlide?"#FFF":"rgba(255,255,255,0.4)",transition:"all 0.3s" }}/>))}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 16,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    display: "flex",
+                    gap: 8,
+                    zIndex: 5,
+                  }}
+                >
+                  {heroSlides.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setHeroSlide(i)}
+                      style={{
+                        width: i === heroSlide ? 28 : 8,
+                        height: 8,
+                        borderRadius: 4,
+                        border: "none",
+                        cursor: "pointer",
+                        background:
+                          i === heroSlide ? "#FFF" : "rgba(255,255,255,0.4)",
+                        transition: "all 0.3s",
+                      }}
+                    />
+                  ))}
                 </div>
-                <button onClick={()=>setHeroSlide(s=>(s+3)%4)} style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>‹</button>
-                <button onClick={()=>setHeroSlide(s=>(s+1)%4)} style={{ position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>›</button>
+                <button
+                  onClick={() => setHeroSlide((s) => (s + 3) % 4)}
+                  style={{
+                    position: "absolute",
+                    left: 14,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "rgba(255,255,255,0.2)",
+                    border: "1px solid rgba(255,255,255,0.4)",
+                    color: "#FFF",
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    cursor: "pointer",
+                    fontSize: 20,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 5,
+                  }}
+                >
+                  ‹
+                </button>
+                <button
+                  onClick={() => setHeroSlide((s) => (s + 1) % 4)}
+                  style={{
+                    position: "absolute",
+                    right: 14,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "rgba(255,255,255,0.2)",
+                    border: "1px solid rgba(255,255,255,0.4)",
+                    color: "#FFF",
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    cursor: "pointer",
+                    fontSize: 20,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 5,
+                  }}
+                >
+                  ›
+                </button>
               </div>
-              <div className="kk-stats" style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",padding:"12px 0",marginBottom:40,boxShadow:"0 4px 20px rgba(173,20,87,0.08)" }}>
-                {[[products.length+"+","Products"],["500+","Customers"],["5★","Rating"],["Free","Dhaka Delivery"]].map(([val,label],i)=>(
-                  <div key={i} style={{ textAlign:"center",borderRight:i<3?"1px solid rgba(173,20,87,0.1)":"none",padding:"4px 0" }}>
-                    <div style={{ fontSize:20,fontWeight:900,background:GRAD,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>{val}</div>
-                    <div style={{ fontSize:11,color:MED,fontWeight:600 }}>{label}</div>
+              <div
+                className="kk-stats"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4,1fr)",
+                  background: "rgba(255,255,255,0.92)",
+                  backdropFilter: "blur(12px)",
+                  borderRadius: "0 0 16px 16px",
+                  padding: "12px 0",
+                  marginBottom: 40,
+                  boxShadow: "0 4px 20px rgba(173,20,87,0.08)",
+                }}
+              >
+                {[
+                  [products.length + "+", "Products"],
+                  ["500+", "Customers"],
+                  ["5★", "Rating"],
+                  ["Free", "Dhaka Delivery"],
+                ].map(([val, label], i) => (
+                  <div
+                    key={i}
+                    style={{
+                      textAlign: "center",
+                      borderRight:
+                        i < 3 ? "1px solid rgba(173,20,87,0.1)" : "none",
+                      padding: "4px 0",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 900,
+                        background: GRAD,
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      {val}
+                    </div>
+                    <div style={{ fontSize: 11, color: MED, fontWeight: 600 }}>
+                      {label}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div style={{ marginBottom:48 }}>
-              <h2 style={{ fontSize:"clamp(18px,3vw,24px)",fontWeight:800,color:DARK,marginBottom:6 }}>Shop by Category</h2>
+            <div style={{ marginBottom: 48 }}>
+              <h2
+                style={{
+                  fontSize: "clamp(18px,3vw,24px)",
+                  fontWeight: 800,
+                  color: DARK,
+                  marginBottom: 6,
+                }}
+              >
+                Shop by Category
+              </h2>
               <p style={{ color: MED, fontSize: 14, marginBottom: 24 }}>
                 Explore our handcrafted collections
               </p>
@@ -4157,10 +4626,35 @@ export default function App() {
                       >
                         {p.name}
                       </div>
-                      {getProductRating(p.id)&&(
-                        <div style={{ display:"flex",alignItems:"center",gap:2,marginBottom:4 }}>
-                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:10,color:j<=Math.round(Number(getProductRating(p.id).avg))?"#F59E0B":"#DDD" }}>★</span>)}
-                          <span style={{ fontSize:10,color:MED,marginLeft:2 }}>({getProductRating(p.id).count})</span>
+                      {getProductRating(p.id) && (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                            marginBottom: 4,
+                          }}
+                        >
+                          {[1, 2, 3, 4, 5].map((j) => (
+                            <span
+                              key={j}
+                              style={{
+                                fontSize: 10,
+                                color:
+                                  j <=
+                                  Math.round(Number(getProductRating(p.id).avg))
+                                    ? "#F59E0B"
+                                    : "#DDD",
+                              }}
+                            >
+                              ★
+                            </span>
+                          ))}
+                          <span
+                            style={{ fontSize: 10, color: MED, marginLeft: 2 }}
+                          >
+                            ({getProductRating(p.id).count})
+                          </span>
                         </div>
                       )}
                       <div
@@ -4278,12 +4772,43 @@ export default function App() {
                           >
                             {p.name}
                           </div>
-                      {getProductRating(p.id)&&(
-                        <div style={{ display:"flex",alignItems:"center",gap:2,marginBottom:4 }}>
-                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:10,color:j<=Math.round(Number(getProductRating(p.id).avg))?"#F59E0B":"#DDD" }}>★</span>)}
-                          <span style={{ fontSize:10,color:MED,marginLeft:2 }}>({getProductRating(p.id).count})</span>
-                        </div>
-                      )}
+                          {getProductRating(p.id) && (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 2,
+                                marginBottom: 4,
+                              }}
+                            >
+                              {[1, 2, 3, 4, 5].map((j) => (
+                                <span
+                                  key={j}
+                                  style={{
+                                    fontSize: 10,
+                                    color:
+                                      j <=
+                                      Math.round(
+                                        Number(getProductRating(p.id).avg),
+                                      )
+                                        ? "#F59E0B"
+                                        : "#DDD",
+                                  }}
+                                >
+                                  ★
+                                </span>
+                              ))}
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  color: MED,
+                                  marginLeft: 2,
+                                }}
+                              >
+                                ({getProductRating(p.id).count})
+                              </span>
+                            </div>
+                          )}
                           <div
                             style={{
                               fontSize: 13,
@@ -4300,25 +4825,108 @@ export default function App() {
               </div>
             )}
 
-
             {/* ── TESTIMONIALS ── */}
-            <div style={{ marginBottom:48 }}>
-              <div style={{ textAlign:"center",marginBottom:28 }}>
-                <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 14px",fontSize:12,color:PRIMARY,fontWeight:700,marginBottom:10 }}>⭐ Happy Customers</div>
-                <h2 style={{ fontSize:"clamp(20px,3vw,26px)",fontWeight:800,color:DARK,margin:0 }}>What They Say</h2>
+            <div style={{ marginBottom: 48 }}>
+              <div style={{ textAlign: "center", marginBottom: 28 }}>
+                <div
+                  style={{
+                    display: "inline-block",
+                    background: "rgba(173,20,87,0.08)",
+                    border: "1px solid rgba(173,20,87,0.2)",
+                    borderRadius: 20,
+                    padding: "4px 14px",
+                    fontSize: 12,
+                    color: PRIMARY,
+                    fontWeight: 700,
+                    marginBottom: 10,
+                  }}
+                >
+                  ⭐ Happy Customers
+                </div>
+                <h2
+                  style={{
+                    fontSize: "clamp(20px,3vw,26px)",
+                    fontWeight: 800,
+                    color: DARK,
+                    margin: 0,
+                  }}
+                >
+                  What They Say
+                </h2>
               </div>
-              <div className="kk-reviews" style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
+              <div
+                className="kk-reviews"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3,1fr)",
+                  gap: 18,
+                }}
+              >
                 {[
-                  {name:"Nusrat J.",loc:"Dhaka",text:"The bangles are gorgeous! Packaging was beautiful and delivery was super fast. Will order again! 🌸"},
-                  {name:"Rabeya K.",loc:"Chittagong",text:"I ordered the mandala artwork and it exceeded my expectations. Truly handmade with detail and care!"},
-                  {name:"Sadia M.",loc:"Sylhet",text:"Got the saree for my cousin's wedding — everyone loved it! Amazing quality for the price. কাঁকনবালা rocks! ❤️"},
-                ].map((r,i)=>(
-                  <div key={i} style={{ ...glass,padding:22 }}>
-                    <div style={{ display:"flex",gap:2,marginBottom:10 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:14 }}>⭐</span>)}</div>
-                    <p style={{ fontSize:13,color:MED,lineHeight:1.7,marginBottom:14,fontStyle:"italic" }}>"{r.text}"</p>
-                    <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                      <div style={{ width:36,height:36,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",fontWeight:800,fontSize:14 }}>{r.name[0]}</div>
-                      <div><div style={{ fontSize:13,fontWeight:700,color:DARK }}>{r.name}</div><div style={{ fontSize:11,color:LIGHT }}>{r.loc}</div></div>
+                  {
+                    name: "Nusrat J.",
+                    loc: "Dhaka",
+                    text: "The bangles are gorgeous! Packaging was beautiful and delivery was super fast. Will order again! 🌸",
+                  },
+                  {
+                    name: "Rabeya K.",
+                    loc: "Chittagong",
+                    text: "I ordered the mandala artwork and it exceeded my expectations. Truly handmade with detail and care!",
+                  },
+                  {
+                    name: "Sadia M.",
+                    loc: "Sylhet",
+                    text: "Got the saree for my cousin's wedding — everyone loved it! Amazing quality for the price. কাঁকনবালা rocks! ❤️",
+                  },
+                ].map((r, i) => (
+                  <div key={i} style={{ ...glass, padding: 22 }}>
+                    <div style={{ display: "flex", gap: 2, marginBottom: 10 }}>
+                      {[1, 2, 3, 4, 5].map((j) => (
+                        <span key={j} style={{ fontSize: 14 }}>
+                          ⭐
+                        </span>
+                      ))}
+                    </div>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        color: MED,
+                        lineHeight: 1.7,
+                        marginBottom: 14,
+                        fontStyle: "italic",
+                      }}
+                    >
+                      "{r.text}"
+                    </p>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: "50%",
+                          background: GRAD,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#FFF",
+                          fontWeight: 800,
+                          fontSize: 14,
+                        }}
+                      >
+                        {r.name[0]}
+                      </div>
+                      <div>
+                        <div
+                          style={{ fontSize: 13, fontWeight: 700, color: DARK }}
+                        >
+                          {r.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: LIGHT }}>
+                          {r.loc}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -5038,7 +5646,7 @@ export default function App() {
                         }
                         onClick={() => setSelectedProduct(p)}
                       >
-                        <div style={{ height: 200, overflow:"hidden" }}>
+                        <div style={{ height: 200, overflow: "hidden" }}>
                           <Carousel
                             images={
                               p.imageUrls && p.imageUrls.length
@@ -5060,12 +5668,43 @@ export default function App() {
                           >
                             {p.name}
                           </div>
-                      {getProductRating(p.id)&&(
-                        <div style={{ display:"flex",alignItems:"center",gap:2,marginBottom:4 }}>
-                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:10,color:j<=Math.round(Number(getProductRating(p.id).avg))?"#F59E0B":"#DDD" }}>★</span>)}
-                          <span style={{ fontSize:10,color:MED,marginLeft:2 }}>({getProductRating(p.id).count})</span>
-                        </div>
-                      )}
+                          {getProductRating(p.id) && (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 2,
+                                marginBottom: 4,
+                              }}
+                            >
+                              {[1, 2, 3, 4, 5].map((j) => (
+                                <span
+                                  key={j}
+                                  style={{
+                                    fontSize: 10,
+                                    color:
+                                      j <=
+                                      Math.round(
+                                        Number(getProductRating(p.id).avg),
+                                      )
+                                        ? "#F59E0B"
+                                        : "#DDD",
+                                  }}
+                                >
+                                  ★
+                                </span>
+                              ))}
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  color: MED,
+                                  marginLeft: 2,
+                                }}
+                              >
+                                ({getProductRating(p.id).count})
+                              </span>
+                            </div>
+                          )}
                           <div
                             style={{
                               fontSize: 13,
@@ -5197,12 +5836,43 @@ export default function App() {
                         >
                           {p.name}
                         </div>
-                      {getProductRating(p.id)&&(
-                        <div style={{ display:"flex",alignItems:"center",gap:2,marginBottom:4 }}>
-                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:10,color:j<=Math.round(Number(getProductRating(p.id).avg))?"#F59E0B":"#DDD" }}>★</span>)}
-                          <span style={{ fontSize:10,color:MED,marginLeft:2 }}>({getProductRating(p.id).count})</span>
-                        </div>
-                      )}
+                        {getProductRating(p.id) && (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 2,
+                              marginBottom: 4,
+                            }}
+                          >
+                            {[1, 2, 3, 4, 5].map((j) => (
+                              <span
+                                key={j}
+                                style={{
+                                  fontSize: 10,
+                                  color:
+                                    j <=
+                                    Math.round(
+                                      Number(getProductRating(p.id).avg),
+                                    )
+                                      ? "#F59E0B"
+                                      : "#DDD",
+                                }}
+                              >
+                                ★
+                              </span>
+                            ))}
+                            <span
+                              style={{
+                                fontSize: 10,
+                                color: MED,
+                                marginLeft: 2,
+                              }}
+                            >
+                              ({getProductRating(p.id).count})
+                            </span>
+                          </div>
+                        )}
                         <div
                           style={{
                             display: "flex",
@@ -6486,11 +7156,20 @@ export default function App() {
               </div>
             )}
 
-                {/* Banner Manager Button */}
-                <button onClick={()=>setShowBannerMgr(true)}
-                  style={{ ...btn,marginBottom:20,background:"rgba(173,20,87,0.08)",color:PRIMARY,border:`1.5px solid ${PRIMARY}`,boxShadow:"none" }}>
-                  🖼 Manage Hero Banners
-                </button>
+            {/* Banner Manager Button */}
+            <button
+              onClick={() => setShowBannerMgr(true)}
+              style={{
+                ...btn,
+                marginBottom: 20,
+                background: "rgba(173,20,87,0.08)",
+                color: PRIMARY,
+                border: `1.5px solid ${PRIMARY}`,
+                boxShadow: "none",
+              }}
+            >
+              🖼 Manage Hero Banners
+            </button>
             {/* Promo Code Manager */}
             <div style={{ ...glass, padding: 20, marginTop: 18 }}>
               <div
@@ -7535,80 +8214,330 @@ export default function App() {
                     ) || { color: MED, bg: "rgba(245,245,245,0.9)" };
                     return (
                       <React.Fragment key={o.id}>
-                      <tr style={{ background:"rgba(255,255,255,0.15)",cursor:"pointer" }}
-                        onClick={()=>setExpandedOrderId(expandedOrderId===o.id?null:o.id)}>
-                        <td style={{ ...TD,fontWeight:600,color:PRIMARY,fontFamily:"monospace",fontSize:11 }}>
-                          #{(o.id||"").slice(-6).toUpperCase()} {expandedOrderId===o.id?"▲":"▼"}
-                        </td>
-                        <td style={{ ...TD,color:MED,fontSize:11 }}>
-                          {o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString():"—"}
-                        </td>
-                        <td style={{ ...TD,fontWeight:600,fontSize:12 }}>
-                          {o.customer?.name||"—"}<br/>
-                          <span style={{ fontSize:10,color:MED }}>{o.customer?.phone||""}</span>
-                        </td>
-                        <td style={{ ...TD,color:MED,fontSize:11 }}>
-                          {(o.items||[]).length} item(s)
-                        </td>
-                        <td style={{ ...TD,fontWeight:800,color:PRIMARY,fontSize:13 }}>
-                          ৳{(o.total||0).toLocaleString()}
-                        </td>
-                        <td style={{ ...TD,minWidth:160 }} onClick={e=>e.stopPropagation()}>
-                          <select value={o.status||"processing"} onChange={e=>updateOrderStatus(o.id,e.target.value)}
-                            style={{ width:"100%",padding:"6px 8px",borderRadius:8,border:`1.5px solid ${st.color}`,background:st.bg,color:st.color,fontWeight:700,fontSize:11,fontFamily:"inherit",cursor:"pointer" }}>
-                            {ORDER_STATUSES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}
-                          </select>
-                        </td>
-                      </tr>
-                      {expandedOrderId===o.id&&(
-                        <tr><td colSpan={6} style={{ padding:0,background:"rgba(255,248,255,0.5)" }}>
-                          <div style={{ padding:"14px 16px",margin:"0 8px 8px",borderRadius:12,background:"#FFF",border:"1px solid rgba(173,20,87,0.12)" }}>
-                            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:14 }}>
-                              <div>
-                                <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:6 }}>👤 CUSTOMER</div>
-                                <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{o.customer?.name||"—"}</div>
-                                <div style={{ fontSize:11,color:MED }}>{o.customer?.phone||"—"}</div>
-                                <div style={{ fontSize:11,color:MED }}>{o.customer?.email||"—"}</div>
-                              </div>
-                              <div>
-                                <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:6 }}>📍 ADDRESS</div>
-                                <div style={{ fontSize:11,color:DARK,lineHeight:1.7 }}>
-                                  {o.customer?.houseRoad&&<div>{o.customer.houseRoad}</div>}
-                                  <div>{[o.customer?.thana,o.customer?.area].filter(Boolean).join(", ")}</div>
-                                  <div style={{ fontWeight:600 }}>{[o.customer?.district,o.customer?.postOffice].filter(Boolean).join(" — ")}</div>
+                        <tr
+                          style={{
+                            background: "rgba(255,255,255,0.15)",
+                            cursor: "pointer",
+                          }}
+                          onClick={() =>
+                            setExpandedOrderId(
+                              expandedOrderId === o.id ? null : o.id,
+                            )
+                          }
+                        >
+                          <td
+                            style={{
+                              ...TD,
+                              fontWeight: 600,
+                              color: PRIMARY,
+                              fontFamily: "monospace",
+                              fontSize: 11,
+                            }}
+                          >
+                            #{(o.id || "").slice(-6).toUpperCase()}{" "}
+                            {expandedOrderId === o.id ? "▲" : "▼"}
+                          </td>
+                          <td style={{ ...TD, color: MED, fontSize: 11 }}>
+                            {o.createdAt?.seconds
+                              ? new Date(
+                                  o.createdAt.seconds * 1000,
+                                ).toLocaleDateString()
+                              : "—"}
+                          </td>
+                          <td style={{ ...TD, fontWeight: 600, fontSize: 12 }}>
+                            {o.customer?.name || "—"}
+                            <br />
+                            <span style={{ fontSize: 10, color: MED }}>
+                              {o.customer?.phone || ""}
+                            </span>
+                          </td>
+                          <td style={{ ...TD, color: MED, fontSize: 11 }}>
+                            {(o.items || []).length} item(s)
+                          </td>
+                          <td
+                            style={{
+                              ...TD,
+                              fontWeight: 800,
+                              color: PRIMARY,
+                              fontSize: 13,
+                            }}
+                          >
+                            ৳{(o.total || 0).toLocaleString()}
+                          </td>
+                          <td
+                            style={{ ...TD, minWidth: 160 }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <select
+                              value={o.status || "processing"}
+                              onChange={(e) =>
+                                updateOrderStatus(o.id, e.target.value)
+                              }
+                              style={{
+                                width: "100%",
+                                padding: "6px 8px",
+                                borderRadius: 8,
+                                border: `1.5px solid ${st.color}`,
+                                background: st.bg,
+                                color: st.color,
+                                fontWeight: 700,
+                                fontSize: 11,
+                                fontFamily: "inherit",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {ORDER_STATUSES.map((s) => (
+                                <option key={s.value} value={s.value}>
+                                  {s.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                        {expandedOrderId === o.id && (
+                          <tr>
+                            <td
+                              colSpan={6}
+                              style={{
+                                padding: 0,
+                                background: "rgba(255,248,255,0.5)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  padding: "14px 16px",
+                                  margin: "0 8px 8px",
+                                  borderRadius: 12,
+                                  background: "#FFF",
+                                  border: "1px solid rgba(173,20,87,0.12)",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr 1fr 1fr",
+                                    gap: 16,
+                                    marginBottom: 14,
+                                  }}
+                                >
+                                  <div>
+                                    <div
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        color: PRIMARY,
+                                        letterSpacing: 1,
+                                        marginBottom: 6,
+                                      }}
+                                    >
+                                      👤 CUSTOMER
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        color: DARK,
+                                      }}
+                                    >
+                                      {o.customer?.name || "—"}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: MED }}>
+                                      {o.customer?.phone || "—"}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: MED }}>
+                                      {o.customer?.email || "—"}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        color: PRIMARY,
+                                        letterSpacing: 1,
+                                        marginBottom: 6,
+                                      }}
+                                    >
+                                      📍 ADDRESS
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontSize: 11,
+                                        color: DARK,
+                                        lineHeight: 1.7,
+                                      }}
+                                    >
+                                      {o.customer?.houseRoad && (
+                                        <div>{o.customer.houseRoad}</div>
+                                      )}
+                                      <div>
+                                        {[o.customer?.thana, o.customer?.area]
+                                          .filter(Boolean)
+                                          .join(", ")}
+                                      </div>
+                                      <div style={{ fontWeight: 600 }}>
+                                        {[
+                                          o.customer?.district,
+                                          o.customer?.postOffice,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(" — ")}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        color: PRIMARY,
+                                        letterSpacing: 1,
+                                        marginBottom: 6,
+                                      }}
+                                    >
+                                      💳 PAYMENT
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        color: DARK,
+                                      }}
+                                    >
+                                      {o.paymentMethod === "cod"
+                                        ? "Cash on Delivery"
+                                        : o.paymentGateway || "Online"}
+                                    </div>
+                                    {o.transactionId && (
+                                      <div
+                                        style={{
+                                          fontSize: 11,
+                                          color: MED,
+                                          fontFamily: "monospace",
+                                        }}
+                                      >
+                                        TX: {o.transactionId}
+                                      </div>
+                                    )}
+                                    <div style={{ fontSize: 11, color: MED }}>
+                                      Delivery: ৳{o.deliveryCharge || 0}
+                                    </div>
+                                    {o.promoCode && (
+                                      <div
+                                        style={{ fontSize: 11, color: SUCCESS }}
+                                      >
+                                        Promo: {o.promoCode} (-৳
+                                        {o.discount || 0})
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div
+                                  style={{
+                                    borderTop: "1px solid rgba(173,20,87,0.1)",
+                                    paddingTop: 10,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 800,
+                                      color: PRIMARY,
+                                      letterSpacing: 1,
+                                      marginBottom: 8,
+                                    }}
+                                  >
+                                    📦 ITEMS
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: 6,
+                                    }}
+                                  >
+                                    {(o.items || []).map((item, idx) => (
+                                      <div
+                                        key={idx}
+                                        style={{
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          padding: "6px 10px",
+                                          background: "rgba(173,20,87,0.04)",
+                                          borderRadius: 8,
+                                        }}
+                                      >
+                                        <div>
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              fontWeight: 700,
+                                              color: DARK,
+                                            }}
+                                          >
+                                            {item.name}
+                                          </span>
+                                          <span
+                                            style={{
+                                              fontSize: 11,
+                                              color: MED,
+                                              marginLeft: 8,
+                                            }}
+                                          >
+                                            × {item.qty}
+                                          </span>
+                                        </div>
+                                        <span
+                                          style={{
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            color: PRIMARY,
+                                          }}
+                                        >
+                                          ৳
+                                          {(
+                                            item.qty * item.price
+                                          ).toLocaleString()}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "flex-end",
+                                      gap: 14,
+                                      marginTop: 8,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    <span style={{ color: MED }}>
+                                      Subtotal: ৳
+                                      {(o.subtotal || 0).toLocaleString()}
+                                    </span>
+                                    <span style={{ color: MED }}>
+                                      +Delivery: ৳{o.deliveryCharge || 0}
+                                    </span>
+                                    {o.discount > 0 && (
+                                      <span style={{ color: SUCCESS }}>
+                                        -Discount: ৳{o.discount}
+                                      </span>
+                                    )}
+                                    <span
+                                      style={{
+                                        fontWeight: 900,
+                                        color: PRIMARY,
+                                        fontSize: 14,
+                                      }}
+                                    >
+                                      Total: ৳{(o.total || 0).toLocaleString()}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                              <div>
-                                <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:6 }}>💳 PAYMENT</div>
-                                <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{o.paymentMethod==="cod"?"Cash on Delivery":o.paymentGateway||"Online"}</div>
-                                {o.transactionId&&<div style={{ fontSize:11,color:MED,fontFamily:"monospace" }}>TX: {o.transactionId}</div>}
-                                <div style={{ fontSize:11,color:MED }}>Delivery: ৳{o.deliveryCharge||0}</div>
-                                {o.promoCode&&<div style={{ fontSize:11,color:SUCCESS }}>Promo: {o.promoCode} (-৳{o.discount||0})</div>}
-                              </div>
-                            </div>
-                            <div style={{ borderTop:"1px solid rgba(173,20,87,0.1)",paddingTop:10 }}>
-                              <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:8 }}>📦 ITEMS</div>
-                              <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
-                                {(o.items||[]).map((item,idx)=>(
-                                  <div key={idx} style={{ display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:8 }}>
-                                    <div>
-                                      <span style={{ fontSize:12,fontWeight:700,color:DARK }}>{item.name}</span>
-                                      <span style={{ fontSize:11,color:MED,marginLeft:8 }}>× {item.qty}</span>
-                                    </div>
-                                    <span style={{ fontSize:12,fontWeight:800,color:PRIMARY }}>৳{(item.qty*item.price).toLocaleString()}</span>
-                                  </div>
-                                ))}
-                              </div>
-                              <div style={{ display:"flex",justifyContent:"flex-end",gap:14,marginTop:8,fontSize:12 }}>
-                                <span style={{ color:MED }}>Subtotal: ৳{(o.subtotal||0).toLocaleString()}</span>
-                                <span style={{ color:MED }}>+Delivery: ৳{o.deliveryCharge||0}</span>
-                                {o.discount>0&&<span style={{ color:SUCCESS }}>-Discount: ৳{o.discount}</span>}
-                                <span style={{ fontWeight:900,color:PRIMARY,fontSize:14 }}>Total: ৳{(o.total||0).toLocaleString()}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td></tr>
-                      )}
+                            </td>
+                          </tr>
+                        )}
                       </React.Fragment>
                     );
                   })}
@@ -8300,57 +9229,231 @@ export default function App() {
 
               {/* Write Review Button */}
               {user && !isAdmin && (
-                <button onClick={()=>{setReviewProduct(selectedProduct);setShowReviewModal(true);setReviewRating(5);setReviewText("");setReviewImage("");}}
-                  style={{ width:"100%",padding:"11px",fontSize:13,fontWeight:700,fontFamily:"inherit",background:"rgba(173,20,87,0.06)",border:`1.5px solid ${PRIMARY}`,color:PRIMARY,borderRadius:12,cursor:"pointer",marginBottom:12 }}>
+                <button
+                  onClick={() => {
+                    setReviewProduct(selectedProduct);
+                    setShowReviewModal(true);
+                    setReviewRating(5);
+                    setReviewText("");
+                    setReviewImage("");
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "11px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    background: "rgba(173,20,87,0.06)",
+                    border: `1.5px solid ${PRIMARY}`,
+                    color: PRIMARY,
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    marginBottom: 12,
+                  }}
+                >
                   ✍️ Write a Review
                 </button>
               )}
 
               {/* Published Reviews */}
-              {(()=>{
-                const pReviews = publishedReviews.filter(r=>r.productId===selectedProduct.id);
-                if(!pReviews.length) return null;
-                const avgRating = pReviews.reduce((s,r)=>s+r.rating,0)/pReviews.length;
+              {(() => {
+                const pReviews = publishedReviews.filter(
+                  (r) => r.productId === selectedProduct.id,
+                );
+                if (!pReviews.length) return null;
+                const avgRating =
+                  pReviews.reduce((s, r) => s + r.rating, 0) / pReviews.length;
                 return (
-                  <div style={{ marginBottom:16,borderTop:"1px solid rgba(173,20,87,0.1)",paddingTop:14 }}>
+                  <div
+                    style={{
+                      marginBottom: 16,
+                      borderTop: "1px solid rgba(173,20,87,0.1)",
+                      paddingTop: 14,
+                    }}
+                  >
                     {/* Rating summary */}
-                    <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:14,padding:"10px 14px",background:"rgba(255,248,255,0.8)",borderRadius:12 }}>
-                      <div style={{ textAlign:"center" }}>
-                        <div style={{ fontSize:28,fontWeight:900,color:DARK }}>{avgRating.toFixed(1)}</div>
-                        <div style={{ display:"flex",gap:1 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:14,color:j<=Math.round(avgRating)?"#F59E0B":"#DDD" }}>★</span>)}</div>
-                        <div style={{ fontSize:10,color:MED,marginTop:2 }}>{pReviews.length} review{pReviews.length>1?"s":""}</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        marginBottom: 14,
+                        padding: "10px 14px",
+                        background: "rgba(255,248,255,0.8)",
+                        borderRadius: 12,
+                      }}
+                    >
+                      <div style={{ textAlign: "center" }}>
+                        <div
+                          style={{ fontSize: 28, fontWeight: 900, color: DARK }}
+                        >
+                          {avgRating.toFixed(1)}
+                        </div>
+                        <div style={{ display: "flex", gap: 1 }}>
+                          {[1, 2, 3, 4, 5].map((j) => (
+                            <span
+                              key={j}
+                              style={{
+                                fontSize: 14,
+                                color:
+                                  j <= Math.round(avgRating)
+                                    ? "#F59E0B"
+                                    : "#DDD",
+                              }}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 10, color: MED, marginTop: 2 }}>
+                          {pReviews.length} review
+                          {pReviews.length > 1 ? "s" : ""}
+                        </div>
                       </div>
-                      <div style={{ flex:1 }}>
-                        {[5,4,3,2,1].map(star=>{
-                          const count = pReviews.filter(r=>r.rating===star).length;
-                          const pct = pReviews.length ? (count/pReviews.length)*100 : 0;
+                      <div style={{ flex: 1 }}>
+                        {[5, 4, 3, 2, 1].map((star) => {
+                          const count = pReviews.filter(
+                            (r) => r.rating === star,
+                          ).length;
+                          const pct = pReviews.length
+                            ? (count / pReviews.length) * 100
+                            : 0;
                           return (
-                            <div key={star} style={{ display:"flex",alignItems:"center",gap:6,marginBottom:3 }}>
-                              <span style={{ fontSize:10,color:MED,width:8 }}>{star}</span>
-                              <span style={{ fontSize:10,color:"#F59E0B" }}>★</span>
-                              <div style={{ flex:1,height:4,background:"#EEE",borderRadius:2 }}>
-                                <div style={{ width:pct+"%",height:"100%",background:"#F59E0B",borderRadius:2 }}/>
+                            <div
+                              key={star}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                marginBottom: 3,
+                              }}
+                            >
+                              <span
+                                style={{ fontSize: 10, color: MED, width: 8 }}
+                              >
+                                {star}
+                              </span>
+                              <span style={{ fontSize: 10, color: "#F59E0B" }}>
+                                ★
+                              </span>
+                              <div
+                                style={{
+                                  flex: 1,
+                                  height: 4,
+                                  background: "#EEE",
+                                  borderRadius: 2,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: pct + "%",
+                                    height: "100%",
+                                    background: "#F59E0B",
+                                    borderRadius: 2,
+                                  }}
+                                />
                               </div>
-                              <span style={{ fontSize:10,color:MED,width:16 }}>{count}</span>
+                              <span
+                                style={{ fontSize: 10, color: MED, width: 16 }}
+                              >
+                                {count}
+                              </span>
                             </div>
                           );
                         })}
                       </div>
                     </div>
-                    <div style={{ fontSize:13,fontWeight:800,color:DARK,marginBottom:10 }}>Customer Reviews</div>
-                    {pReviews.map(r=>(
-                      <div key={r.id} style={{ padding:"12px 14px",background:"rgba(255,248,255,0.7)",borderRadius:12,marginBottom:10,border:"1px solid rgba(173,20,87,0.08)" }}>
-                        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 800,
+                        color: DARK,
+                        marginBottom: 10,
+                      }}
+                    >
+                      Customer Reviews
+                    </div>
+                    {pReviews.map((r) => (
+                      <div
+                        key={r.id}
+                        style={{
+                          padding: "12px 14px",
+                          background: "rgba(255,248,255,0.7)",
+                          borderRadius: 12,
+                          marginBottom: 10,
+                          border: "1px solid rgba(173,20,87,0.08)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            marginBottom: 6,
+                          }}
+                        >
                           <div>
-                            <div style={{ display:"flex",gap:1,marginBottom:3 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:13,color:j<=r.rating?"#F59E0B":"#DDD" }}>★</span>)}</div>
-                            <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{r.userName||"Customer"}</div>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 1,
+                                marginBottom: 3,
+                              }}
+                            >
+                              {[1, 2, 3, 4, 5].map((j) => (
+                                <span
+                                  key={j}
+                                  style={{
+                                    fontSize: 13,
+                                    color: j <= r.rating ? "#F59E0B" : "#DDD",
+                                  }}
+                                >
+                                  ★
+                                </span>
+                              ))}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: DARK,
+                              }}
+                            >
+                              {r.userName || "Customer"}
+                            </div>
                           </div>
-                          <span style={{ fontSize:10,color:LIGHT }}>{r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString("en-BD"):""}</span>
+                          <span style={{ fontSize: 10, color: LIGHT }}>
+                            {r.createdAt?.seconds
+                              ? new Date(
+                                  r.createdAt.seconds * 1000,
+                                ).toLocaleDateString("en-BD")
+                              : ""}
+                          </span>
                         </div>
-                        <p style={{ fontSize:13,color:MED,margin:"0 0 8px",lineHeight:1.7 }}>{r.text}</p>
-                        {r.imageUrl&&(
-                          <img src={r.imageUrl} alt="review" style={{ width:72,height:72,objectFit:"cover",borderRadius:10,border:"1px solid rgba(173,20,87,0.15)",cursor:"pointer" }}
-                            onClick={()=>window.open(r.imageUrl,"_blank")}/>
+                        <p
+                          style={{
+                            fontSize: 13,
+                            color: MED,
+                            margin: "0 0 8px",
+                            lineHeight: 1.7,
+                          }}
+                        >
+                          {r.text}
+                        </p>
+                        {r.imageUrl && (
+                          <img
+                            src={r.imageUrl}
+                            alt="review"
+                            style={{
+                              width: 72,
+                              height: 72,
+                              objectFit: "cover",
+                              borderRadius: 10,
+                              border: "1px solid rgba(173,20,87,0.15)",
+                              cursor: "pointer",
+                            }}
+                            onClick={() => window.open(r.imageUrl, "_blank")}
+                          />
                         )}
                       </div>
                     ))}
@@ -9911,34 +11014,261 @@ export default function App() {
               </div>
 
               {/* Payment method */}
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:12,color:MED,fontWeight:700,display:"block",marginBottom:8 }}>💳 Payment Method</label>
-                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10 }}>
-                  <button onClick={()=>setPayMethod("cod")} style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${payMethod==="cod"?PRIMARY:"rgba(173,20,87,0.2)"}`,background:payMethod==="cod"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",color:payMethod==="cod"?PRIMARY:MED }}>
-                    🚚 Cash on Delivery<br/><span style={{ fontSize:10,fontWeight:400 }}>Dhaka only</span>
+              <div style={{ marginBottom: 16 }}>
+                <label
+                  style={{
+                    fontSize: 12,
+                    color: MED,
+                    fontWeight: 700,
+                    display: "block",
+                    marginBottom: 8,
+                  }}
+                >
+                  💳 Payment Method
+                </label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 10,
+                    marginBottom: 10,
+                  }}
+                >
+                  <button
+                    onClick={() => setPayMethod("cod")}
+                    style={{
+                      padding: "12px",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      border: `2px solid ${payMethod === "cod" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
+                      background:
+                        payMethod === "cod"
+                          ? "rgba(173,20,87,0.08)"
+                          : "rgba(255,255,255,0.6)",
+                      color: payMethod === "cod" ? PRIMARY : MED,
+                    }}
+                  >
+                    🚚 Cash on Delivery
+                    <br />
+                    <span style={{ fontSize: 10, fontWeight: 400 }}>
+                      Dhaka only
+                    </span>
                   </button>
-                  <button onClick={()=>setPayMethod("online")} style={{ padding:"12px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${payMethod==="online"?PRIMARY:"rgba(173,20,87,0.2)"}`,background:payMethod==="online"?"rgba(173,20,87,0.08)":"rgba(255,255,255,0.6)",color:payMethod==="online"?PRIMARY:MED }}>
-                    📱 Mobile Payment<br/><span style={{ fontSize:10,fontWeight:400 }}>bKash · Nagad · Rocket</span>
+                  <button
+                    onClick={() => setPayMethod("online")}
+                    style={{
+                      padding: "12px",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      border: `2px solid ${payMethod === "online" ? PRIMARY : "rgba(173,20,87,0.2)"}`,
+                      background:
+                        payMethod === "online"
+                          ? "rgba(173,20,87,0.08)"
+                          : "rgba(255,255,255,0.6)",
+                      color: payMethod === "online" ? PRIMARY : MED,
+                    }}
+                  >
+                    📱 Mobile Payment
+                    <br />
+                    <span style={{ fontSize: 10, fontWeight: 400 }}>
+                      bKash · Nagad · Rocket
+                    </span>
                   </button>
                 </div>
-                {payMethod==="cod"&&deliveryCharge()===150&&<div style={{ fontSize:11,color:DANGER,fontWeight:600,padding:"6px 10px",background:"rgba(255,235,238,0.85)",borderRadius:8,marginBottom:8 }}>⚠ Outside Dhaka — Please use Mobile Payment</div>}
-                {payMethod==="online"&&(
-                  <div style={{ background:"rgba(255,248,255,0.95)",border:"1.5px solid rgba(173,20,87,0.2)",borderRadius:14,padding:16 }}>
-                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:10 }}>Step 1 — Choose payment:</div>
-                    <div style={{ display:"flex",gap:8,marginBottom:14 }}>
-                      {[{name:"bKash",color:"#E2136E"},{name:"Nagad",color:"#E8222E"},{name:"Rocket",color:"#8B1A8B"}].map(({name,color})=>(
-                        <button key={name} onClick={()=>setSelectedGateway(name)} style={{ flex:1,padding:"10px 6px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:13,border:`2px solid ${selectedGateway===name?color:"rgba(0,0,0,0.08)"}`,background:selectedGateway===name?color+"18":"#FFF",color:selectedGateway===name?color:"#666",transition:"all 0.2s" }}>{name}</button>
+                {payMethod === "cod" && deliveryCharge() === 150 && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: DANGER,
+                      fontWeight: 600,
+                      padding: "6px 10px",
+                      background: "rgba(255,235,238,0.85)",
+                      borderRadius: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    ⚠ Outside Dhaka — Please use Mobile Payment
+                  </div>
+                )}
+                {payMethod === "online" && (
+                  <div
+                    style={{
+                      background: "rgba(255,248,255,0.95)",
+                      border: "1.5px solid rgba(173,20,87,0.2)",
+                      borderRadius: 14,
+                      padding: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: DARK,
+                        marginBottom: 10,
+                      }}
+                    >
+                      Step 1 — Choose payment:
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                      {[
+                        { name: "bKash", color: "#E2136E" },
+                        { name: "Nagad", color: "#E8222E" },
+                        { name: "Rocket", color: "#8B1A8B" },
+                      ].map(({ name, color }) => (
+                        <button
+                          key={name}
+                          onClick={() => setSelectedGateway(name)}
+                          style={{
+                            flex: 1,
+                            padding: "10px 6px",
+                            borderRadius: 10,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            fontWeight: 700,
+                            fontSize: 13,
+                            border: `2px solid ${selectedGateway === name ? color : "rgba(0,0,0,0.08)"}`,
+                            background:
+                              selectedGateway === name ? color + "18" : "#FFF",
+                            color: selectedGateway === name ? color : "#666",
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          {name}
+                        </button>
                       ))}
                     </div>
-                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 2 — Send ৳{finalTotal().toLocaleString()} to:</div>
-                    <div style={{ background:"#FFF",borderRadius:10,padding:"12px 16px",marginBottom:14,border:"1px solid rgba(173,20,87,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                      <div><div style={{ fontSize:10,color:MED,fontWeight:600 }}>{selectedGateway} — Send Money (Personal)</div><div style={{ fontSize:22,fontWeight:900,color:DARK,letterSpacing:2 }}>01920-895985</div></div>
-                      <div style={{ width:40,height:40,borderRadius:10,background:selectedGateway==="bKash"?"#E2136E":selectedGateway==="Nagad"?"#E8222E":"#8B1A8B",display:"flex",alignItems:"center",justifyContent:"center" }}><span style={{ color:"#FFF",fontSize:18,fontWeight:900 }}>{selectedGateway[0]}</span></div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: DARK,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Step 2 — Send ৳{finalTotal().toLocaleString()} to:
                     </div>
-                    <div style={{ fontSize:12,fontWeight:800,color:DARK,marginBottom:8 }}>Step 3 — Enter Transaction ID:</div>
-                    <input style={{ width:"100%",padding:"10px 14px",border:`2px solid ${transactionId.length>5?"#2E7D32":"rgba(173,20,87,0.25)"}`,borderRadius:10,fontSize:14,fontFamily:"monospace",background:"#FFF",boxSizing:"border-box",letterSpacing:1,color:DARK,fontWeight:700 }} type="text" placeholder="e.g. 8FB3A2D1K9" value={transactionId} onChange={e=>setTransactionId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))} />
-                    {transactionId.length>5&&<div style={{ fontSize:11,color:SUCCESS,fontWeight:600,marginTop:4 }}>✓ Transaction ID entered</div>}
-                    <div style={{ fontSize:10,color:LIGHT,marginTop:8,padding:"6px 10px",background:"rgba(173,20,87,0.04)",borderRadius:6 }}>📌 Find TX ID in {selectedGateway} app → Transaction History. We verify within 1 hour.</div>
+                    <div
+                      style={{
+                        background: "#FFF",
+                        borderRadius: 10,
+                        padding: "12px 16px",
+                        marginBottom: 14,
+                        border: "1px solid rgba(173,20,87,0.1)",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{ fontSize: 10, color: MED, fontWeight: 600 }}
+                        >
+                          {selectedGateway} — Send Money (Personal)
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 22,
+                            fontWeight: 900,
+                            color: DARK,
+                            letterSpacing: 2,
+                          }}
+                        >
+                          01920-895985
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 10,
+                          background:
+                            selectedGateway === "bKash"
+                              ? "#E2136E"
+                              : selectedGateway === "Nagad"
+                                ? "#E8222E"
+                                : "#8B1A8B",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "#FFF",
+                            fontSize: 18,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {selectedGateway[0]}
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: DARK,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Step 3 — Enter Transaction ID:
+                    </div>
+                    <input
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        border: `2px solid ${transactionId.length > 5 ? "#2E7D32" : "rgba(173,20,87,0.25)"}`,
+                        borderRadius: 10,
+                        fontSize: 14,
+                        fontFamily: "monospace",
+                        background: "#FFF",
+                        boxSizing: "border-box",
+                        letterSpacing: 1,
+                        color: DARK,
+                        fontWeight: 700,
+                      }}
+                      type="text"
+                      placeholder="e.g. 8FB3A2D1K9"
+                      value={transactionId}
+                      onChange={(e) =>
+                        setTransactionId(
+                          e.target.value
+                            .toUpperCase()
+                            .replace(/[^A-Z0-9]/g, ""),
+                        )
+                      }
+                    />
+                    {transactionId.length > 5 && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: SUCCESS,
+                          fontWeight: 600,
+                          marginTop: 4,
+                        }}
+                      >
+                        ✓ Transaction ID entered
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: LIGHT,
+                        marginTop: 8,
+                        padding: "6px 10px",
+                        background: "rgba(173,20,87,0.04)",
+                        borderRadius: 6,
+                      }}
+                    >
+                      📌 Find TX ID in {selectedGateway} app → Transaction
+                      History. We verify within 1 hour.
+                    </div>
                   </div>
                 )}
               </div>
@@ -9979,7 +11309,9 @@ export default function App() {
                     }}
                   >
                     {customer.city
-                      ? (deliveryCharge()===null ? "(select district)" : `৳${deliveryCharge()}`)
+                      ? deliveryCharge() === null
+                        ? "(select district)"
+                        : `৳${deliveryCharge()}`
                       : "Select district"}
                   </span>
                 </div>
@@ -10568,352 +11900,1528 @@ export default function App() {
         </>
       )}
 
-      
       {/* ══ CUSTOMER PROFILE MODAL ══ */}
-      {showProfile&&(
+      {showProfile && (
         <>
-          <div onClick={()=>setShowProfile(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"rgba(255,255,255,0.97)",borderRadius:24,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
-            <div style={{ background:GRAD,padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"24px 24px 0 0",position:"sticky",top:0,zIndex:2 }}>
-              <div><div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>👤 My Account</div><div style={{ color:"rgba(255,255,255,0.8)",fontSize:11,marginTop:2 }}>{user?.email}</div></div>
-              <button onClick={()=>setShowProfile(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
-            </div>
-            <div style={{ padding:24 }}>
-              <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:14 }}>📋 Personal Details</div>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
-                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Full Name</label><input style={inp} type="text" placeholder="Your name" value={profileData.name||""} onChange={e=>setProfileData(p=>({...p,name:e.target.value}))}/></div>
-                <div>
-                  <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Phone</label>
-                  <input style={{ ...inp,borderColor:profileData.phone&&!validatePhone(profileData.phone)?DANGER:profileData.phone&&validatePhone(profileData.phone)?SUCCESS:"rgba(173,20,87,0.25)" }} type="tel" placeholder="01XXXXXXXXX" value={profileData.phone||""} onChange={e=>setProfileData(p=>({...p,phone:formatPhone(e.target.value)}))} maxLength={14}/>
-                  {profileData.phone&&!validatePhone(profileData.phone)&&<div style={{ fontSize:10,color:DANGER,marginTop:2,fontWeight:600 }}>⚠ Invalid BD number</div>}
-                  {profileData.phone&&validatePhone(profileData.phone)&&<div style={{ fontSize:10,color:SUCCESS,marginTop:2,fontWeight:600 }}>✓ Valid</div>}
+          <div
+            onClick={() => setShowProfile(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(45,10,63,0.6)",
+              zIndex: 200,
+              backdropFilter: "blur(4px)",
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%,-50%)",
+              width: "min(500px,95vw)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "rgba(255,255,255,0.97)",
+              borderRadius: 24,
+              zIndex: 201,
+              boxShadow: "0 24px 80px rgba(173,20,87,0.3)",
+            }}
+          >
+            <div
+              style={{
+                background: GRAD,
+                padding: "20px 28px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderRadius: "24px 24px 0 0",
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
+              }}
+            >
+              <div>
+                <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>
+                  👤 My Account
                 </div>
-                <div style={{ gridColumn:"span 2" }}><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Email</label><input style={inp} type="email" placeholder="your@email.com" value={profileData.email||""} onChange={e=>setProfileData(p=>({...p,email:e.target.value}))}/></div>
+                <div
+                  style={{
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: 11,
+                    marginTop: 2,
+                  }}
+                >
+                  {user?.email}
+                </div>
               </div>
-              <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:12 }}>📍 Saved Address</div>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16 }}>
-                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>District</label><select style={inp} value={profileData.district||""} onChange={e=>setProfileData(p=>({...p,district:e.target.value,area:"",thana:"",postOffice:""}))}><option value="">-- Select --</option>{BD_DISTRICTS.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
-                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Area</label><select style={inp} value={profileData.area||""} onChange={e=>setProfileData(p=>({...p,area:e.target.value,thana:"",postOffice:""}))}><option value="">-- Select --</option>{getAreas(profileData.district).map(a=><option key={a} value={a}>{a}</option>)}</select></div>
-                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Thana</label><select style={inp} value={profileData.thana||""} onChange={e=>setProfileData(p=>({...p,thana:e.target.value,postOffice:""}))}><option value="">-- Select --</option>{getThanas(profileData.district,profileData.area).map(t2=><option key={t2} value={t2}>{t2}</option>)}</select></div>
-                <div><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Post Office</label><select style={inp} value={profileData.postOffice||""} onChange={e=>setProfileData(p=>({...p,postOffice:e.target.value}))}><option value="">-- Select --</option>{getPostOffices(profileData.district,profileData.area,profileData.thana).map(po=><option key={po} value={po}>{po}</option>)}</select></div>
-                <div style={{ gridColumn:"span 2" }}><label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>House No, Road No</label><input style={inp} type="text" placeholder="House 12, Road 5" value={profileData.houseRoad||""} onChange={e=>setProfileData(p=>({...p,houseRoad:e.target.value}))}/></div>
+              <button
+                onClick={() => setShowProfile(false)}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  border: "none",
+                  color: "#FFF",
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  fontSize: 18,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: 24 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: DARK,
+                  marginBottom: 14,
+                }}
+              >
+                📋 Personal Details
               </div>
-              <button onClick={async()=>{
-                if(!user?.uid){notify("⚠ Please login first");return;}
-                if(profileData.phone&&!validatePhone(profileData.phone)){notify("⚠ Enter valid phone number");return;}
-                try{
-                  await setDoc(doc(db,"customers",user.uid),{...profileData,updatedAt:serverTimestamp()},{merge:true});
-                  setCustomer(c=>({...c,...profileData,city:profileData.district||c.city}));
-                  notify("✓ Profile saved!");setShowProfile(false);
-                }catch(e){notify("⚠ "+e.message);}
-              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15,marginBottom:20 }}>💾 Save Profile</button>
-              <div style={{ borderTop:"1px solid rgba(173,20,87,0.12)",paddingTop:18 }}>
-                <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:4 }}>📦 My Orders</div>
-                <button onClick={async()=>{
-                  setMyOrdersLoading(true);
-                  try{
-                    // Fetch by userId
-                    const q1=query(collection(db,"orders"),where("userId","==",user.uid));
-                    const s1=await getDocs(q1);
-                    const byUid=s1.docs.map(d=>({id:d.id,...d.data()}));
-                    // Fetch by email (for older orders without userId)
-                    const q2=query(collection(db,"orders"),where("customerEmail","==",user.email));
-                    const s2=await getDocs(q2);
-                    const byEmail=s2.docs.map(d=>({id:d.id,...d.data()}));
-                    // Merge, remove duplicates by id
-                    const allIds=new Set();
-                    const merged=[...byUid,...byEmail].filter(o=>{
-                      if(allIds.has(o.id))return false;
-                      allIds.add(o.id);return true;
-                    });
-                    setMyOrders(merged.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)));
-                  }catch(e){console.warn(e.message);}
-                  setMyOrdersLoading(false);
-                }} style={{ fontSize:11,color:PRIMARY,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",textDecoration:"underline",marginBottom:12 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      color: MED,
+                      fontWeight: 700,
+                      display: "block",
+                      marginBottom: 3,
+                    }}
+                  >
+                    Full Name
+                  </label>
+                  <input
+                    style={inp}
+                    type="text"
+                    placeholder="Your name"
+                    value={profileData.name || ""}
+                    onChange={(e) =>
+                      setProfileData((p) => ({ ...p, name: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      color: MED,
+                      fontWeight: 700,
+                      display: "block",
+                      marginBottom: 3,
+                    }}
+                  >
+                    Phone
+                  </label>
+                  <input
+                    style={{
+                      ...inp,
+                      borderColor:
+                        profileData.phone && !validatePhone(profileData.phone)
+                          ? DANGER
+                          : profileData.phone &&
+                              validatePhone(profileData.phone)
+                            ? SUCCESS
+                            : "rgba(173,20,87,0.25)",
+                    }}
+                    type="tel"
+                    placeholder="01XXXXXXXXX"
+                    value={profileData.phone || ""}
+                    onChange={(e) =>
+                      setProfileData((p) => ({
+                        ...p,
+                        phone: formatPhone(e.target.value),
+                      }))
+                    }
+                    maxLength={14}
+                  />
+                  {profileData.phone && !validatePhone(profileData.phone) && (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: DANGER,
+                        marginTop: 2,
+                        fontWeight: 600,
+                      }}
+                    >
+                      ⚠ Invalid BD number
+                    </div>
+                  )}
+                  {profileData.phone && validatePhone(profileData.phone) && (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: SUCCESS,
+                        marginTop: 2,
+                        fontWeight: 600,
+                      }}
+                    >
+                      ✓ Valid
+                    </div>
+                  )}
+                </div>
+                <div style={{ gridColumn: "span 2" }}>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      color: MED,
+                      fontWeight: 700,
+                      display: "block",
+                      marginBottom: 3,
+                    }}
+                  >
+                    Email
+                  </label>
+                  <input
+                    style={inp}
+                    type="email"
+                    placeholder="your@email.com"
+                    value={profileData.email || ""}
+                    onChange={(e) =>
+                      setProfileData((p) => ({ ...p, email: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: DARK,
+                  marginBottom: 12,
+                }}
+              >
+                📍 Saved Address
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                  marginBottom: 16,
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      color: MED,
+                      fontWeight: 700,
+                      display: "block",
+                      marginBottom: 3,
+                    }}
+                  >
+                    District
+                  </label>
+                  <select
+                    style={inp}
+                    value={profileData.district || ""}
+                    onChange={(e) =>
+                      setProfileData((p) => ({
+                        ...p,
+                        district: e.target.value,
+                        area: "",
+                        thana: "",
+                        postOffice: "",
+                      }))
+                    }
+                  >
+                    <option value="">-- Select --</option>
+                    {BD_DISTRICTS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      color: MED,
+                      fontWeight: 700,
+                      display: "block",
+                      marginBottom: 3,
+                    }}
+                  >
+                    Area
+                  </label>
+                  <select
+                    style={inp}
+                    value={profileData.area || ""}
+                    onChange={(e) =>
+                      setProfileData((p) => ({
+                        ...p,
+                        area: e.target.value,
+                        thana: "",
+                        postOffice: "",
+                      }))
+                    }
+                  >
+                    <option value="">-- Select --</option>
+                    {getAreas(profileData.district).map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      color: MED,
+                      fontWeight: 700,
+                      display: "block",
+                      marginBottom: 3,
+                    }}
+                  >
+                    Thana
+                  </label>
+                  <select
+                    style={inp}
+                    value={profileData.thana || ""}
+                    onChange={(e) =>
+                      setProfileData((p) => ({
+                        ...p,
+                        thana: e.target.value,
+                        postOffice: "",
+                      }))
+                    }
+                  >
+                    <option value="">-- Select --</option>
+                    {getThanas(profileData.district, profileData.area).map(
+                      (t2) => (
+                        <option key={t2} value={t2}>
+                          {t2}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      color: MED,
+                      fontWeight: 700,
+                      display: "block",
+                      marginBottom: 3,
+                    }}
+                  >
+                    Post Office
+                  </label>
+                  <select
+                    style={inp}
+                    value={profileData.postOffice || ""}
+                    onChange={(e) =>
+                      setProfileData((p) => ({
+                        ...p,
+                        postOffice: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">-- Select --</option>
+                    {getPostOffices(
+                      profileData.district,
+                      profileData.area,
+                      profileData.thana,
+                    ).map((po) => (
+                      <option key={po} value={po}>
+                        {po}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ gridColumn: "span 2" }}>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      color: MED,
+                      fontWeight: 700,
+                      display: "block",
+                      marginBottom: 3,
+                    }}
+                  >
+                    House No, Road No
+                  </label>
+                  <input
+                    style={inp}
+                    type="text"
+                    placeholder="House 12, Road 5"
+                    value={profileData.houseRoad || ""}
+                    onChange={(e) =>
+                      setProfileData((p) => ({
+                        ...p,
+                        houseRoad: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  if (!user?.uid) {
+                    notify("⚠ Please login first");
+                    return;
+                  }
+                  if (profileData.phone && !validatePhone(profileData.phone)) {
+                    notify("⚠ Enter valid phone number");
+                    return;
+                  }
+                  try {
+                    await setDoc(
+                      doc(db, "customers", user.uid),
+                      { ...profileData, updatedAt: serverTimestamp() },
+                      { merge: true },
+                    );
+                    setCustomer((c) => ({
+                      ...c,
+                      ...profileData,
+                      city: profileData.district || c.city,
+                    }));
+                    notify("✓ Profile saved!");
+                    setShowProfile(false);
+                  } catch (e) {
+                    notify("⚠ " + e.message);
+                  }
+                }}
+                style={{
+                  ...btn,
+                  width: "100%",
+                  padding: "13px",
+                  fontSize: 15,
+                  marginBottom: 20,
+                }}
+              >
+                💾 Save Profile
+              </button>
+              <div
+                style={{
+                  borderTop: "1px solid rgba(173,20,87,0.12)",
+                  paddingTop: 18,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 800,
+                    color: DARK,
+                    marginBottom: 4,
+                  }}
+                >
+                  📦 My Orders
+                </div>
+                <button
+                  onClick={async () => {
+                    setMyOrdersLoading(true);
+                    try {
+                      // Fetch by userId
+                      const q1 = query(
+                        collection(db, "orders"),
+                        where("userId", "==", user.uid),
+                      );
+                      const s1 = await getDocs(q1);
+                      const byUid = s1.docs.map((d) => ({
+                        id: d.id,
+                        ...d.data(),
+                      }));
+                      // Fetch by email (for older orders without userId)
+                      const q2 = query(
+                        collection(db, "orders"),
+                        where("customerEmail", "==", user.email),
+                      );
+                      const s2 = await getDocs(q2);
+                      const byEmail = s2.docs.map((d) => ({
+                        id: d.id,
+                        ...d.data(),
+                      }));
+                      // Merge, remove duplicates by id
+                      const allIds = new Set();
+                      const merged = [...byUid, ...byEmail].filter((o) => {
+                        if (allIds.has(o.id)) return false;
+                        allIds.add(o.id);
+                        return true;
+                      });
+                      setMyOrders(
+                        merged.sort(
+                          (a, b) =>
+                            (b.createdAt?.seconds || 0) -
+                            (a.createdAt?.seconds || 0),
+                        ),
+                      );
+                    } catch (e) {
+                      console.warn(e.message);
+                    }
+                    setMyOrdersLoading(false);
+                  }}
+                  style={{
+                    fontSize: 11,
+                    color: PRIMARY,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    textDecoration: "underline",
+                    marginBottom: 12,
+                  }}
+                >
                   🔄 Refresh Orders
                 </button>
-                {myOrdersLoading&&<div style={{ fontSize:12,color:MED,textAlign:"center",padding:12 }}>Loading...</div>}
-                {!myOrdersLoading&&myOrders.length===0&&<div style={{ fontSize:13,color:LIGHT,textAlign:"center",padding:"16px 0" }}>No orders yet. Place an order to see it here!</div>}
-                {!myOrdersLoading&&myOrders.map(o=>(
-                  <div key={o.id} style={{ background:"rgba(255,255,255,0.8)",borderRadius:12,marginBottom:12,border:"1px solid rgba(173,20,87,0.1)",overflow:"hidden" }}>
-                    {/* Order header */}
-                    <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid rgba(173,20,87,0.06)" }}>
-                      <div>
-                        <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{(o.items||[]).slice(0,2).map(i=>i.name).join(", ")||"Order"}</div>
-                        <div style={{ fontSize:10,color:MED }}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString("en-BD"):""} · ৳{(o.total||0).toLocaleString()}</div>
-                      </div>
-                      {o.status==="cancelled"
-                        ?<span style={{ fontSize:10,padding:"3px 10px",borderRadius:8,fontWeight:700,background:"rgba(198,40,40,0.1)",color:DANGER }}>❌ Cancelled</span>
-                        :<span style={{ fontSize:10,padding:"3px 10px",borderRadius:8,fontWeight:700,background:"rgba(46,125,50,0.1)",color:SUCCESS }}>{ORDER_TIMELINE[getTrackingStep(o.status)]?.icon} {ORDER_TIMELINE[getTrackingStep(o.status)]?.label||o.status}</span>
-                      }
-                    </div>
-                    {/* Tracking timeline */}
-                    {o.status!=="cancelled"&&(
-                      <div style={{ padding:"12px 14px" }}>
-                        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",position:"relative" }}>
-                          {/* Progress line */}
-                          <div style={{ position:"absolute",top:14,left:"10%",right:"10%",height:3,background:"#EEE",borderRadius:2,zIndex:0 }}>
-                            <div style={{ width:(getTrackingStep(o.status)/(ORDER_TIMELINE.length-1)*100)+"%",height:"100%",background:GRAD,borderRadius:2,transition:"width 0.5s" }}/>
-                          </div>
-                          {ORDER_TIMELINE.map((step,si)=>{
-                            const done = si<=getTrackingStep(o.status);
-                            return (
-                              <div key={si} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:4,zIndex:1,flex:1 }}>
-                                <div style={{ width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,
-                                  background:done?step.color:"#EEE",
-                                  boxShadow:done?`0 0 0 3px ${step.color}33`:"none",
-                                  transition:"all 0.3s" }}>
-                                  {done?<span style={{ fontSize:12 }}>{step.icon}</span>:<span style={{ fontSize:10,color:"#AAA" }}>○</span>}
-                                </div>
-                                <span style={{ fontSize:9,color:done?step.color:"#AAA",fontWeight:done?700:400,textAlign:"center",lineHeight:1.2,maxWidth:50 }}>{step.label}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                {myOrdersLoading && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: MED,
+                      textAlign: "center",
+                      padding: 12,
+                    }}
+                  >
+                    Loading...
                   </div>
-                ))}
+                )}
+                {!myOrdersLoading && myOrders.length === 0 && (
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: LIGHT,
+                      textAlign: "center",
+                      padding: "16px 0",
+                    }}
+                  >
+                    No orders yet. Place an order to see it here!
+                  </div>
+                )}
+                {!myOrdersLoading &&
+                  myOrders.map((o) => (
+                    <div
+                      key={o.id}
+                      style={{
+                        background: "rgba(255,255,255,0.8)",
+                        borderRadius: 12,
+                        marginBottom: 12,
+                        border: "1px solid rgba(173,20,87,0.1)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {/* Order header */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 14px",
+                          borderBottom: "1px solid rgba(173,20,87,0.06)",
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: DARK,
+                            }}
+                          >
+                            {(o.items || [])
+                              .slice(0, 2)
+                              .map((i) => i.name)
+                              .join(", ") || "Order"}
+                          </div>
+                          <div style={{ fontSize: 10, color: MED }}>
+                            {o.createdAt?.seconds
+                              ? new Date(
+                                  o.createdAt.seconds * 1000,
+                                ).toLocaleDateString("en-BD")
+                              : ""}{" "}
+                            · ৳{(o.total || 0).toLocaleString()}
+                          </div>
+                        </div>
+                        {o.status === "cancelled" ? (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              padding: "3px 10px",
+                              borderRadius: 8,
+                              fontWeight: 700,
+                              background: "rgba(198,40,40,0.1)",
+                              color: DANGER,
+                            }}
+                          >
+                            ❌ Cancelled
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              padding: "3px 10px",
+                              borderRadius: 8,
+                              fontWeight: 700,
+                              background: "rgba(46,125,50,0.1)",
+                              color: SUCCESS,
+                            }}
+                          >
+                            {ORDER_TIMELINE[getTrackingStep(o.status)]?.icon}{" "}
+                            {ORDER_TIMELINE[getTrackingStep(o.status)]?.label ||
+                              o.status}
+                          </span>
+                        )}
+                      </div>
+                      {/* Tracking timeline */}
+                      {o.status !== "cancelled" && (
+                        <div style={{ padding: "12px 14px" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              position: "relative",
+                            }}
+                          >
+                            {/* Progress line */}
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 14,
+                                left: "10%",
+                                right: "10%",
+                                height: 3,
+                                background: "#EEE",
+                                borderRadius: 2,
+                                zIndex: 0,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width:
+                                    (getTrackingStep(o.status) /
+                                      (ORDER_TIMELINE.length - 1)) *
+                                      100 +
+                                    "%",
+                                  height: "100%",
+                                  background: GRAD,
+                                  borderRadius: 2,
+                                  transition: "width 0.5s",
+                                }}
+                              />
+                            </div>
+                            {ORDER_TIMELINE.map((step, si) => {
+                              const done = si <= getTrackingStep(o.status);
+                              return (
+                                <div
+                                  key={si}
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    zIndex: 1,
+                                    flex: 1,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: "50%",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: 14,
+                                      background: done ? step.color : "#EEE",
+                                      boxShadow: done
+                                        ? `0 0 0 3px ${step.color}33`
+                                        : "none",
+                                      transition: "all 0.3s",
+                                    }}
+                                  >
+                                    {done ? (
+                                      <span style={{ fontSize: 12 }}>
+                                        {step.icon}
+                                      </span>
+                                    ) : (
+                                      <span
+                                        style={{ fontSize: 10, color: "#AAA" }}
+                                      >
+                                        ○
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span
+                                    style={{
+                                      fontSize: 9,
+                                      color: done ? step.color : "#AAA",
+                                      fontWeight: done ? 700 : 400,
+                                      textAlign: "center",
+                                      lineHeight: 1.2,
+                                      maxWidth: 50,
+                                    }}
+                                  >
+                                    {step.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           </div>
         </>
       )}
-
 
       {/* ══ BANNER MANAGER MODAL ══ */}
       {showBannerMgr && (
         <>
-          <div onClick={()=>setShowBannerMgr(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(520px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"#FFF",borderRadius:20,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
-            <div style={{ background:GRAD,padding:"20px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"20px 20px 0 0",position:"sticky",top:0,zIndex:2 }}>
-              <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>🖼 Hero Banner Images</div>
-              <button onClick={()=>setShowBannerMgr(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18 }}>✕</button>
+          <div
+            onClick={() => setShowBannerMgr(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(45,10,63,0.6)",
+              zIndex: 200,
+              backdropFilter: "blur(4px)",
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%,-50%)",
+              width: "min(520px,95vw)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#FFF",
+              borderRadius: 20,
+              zIndex: 201,
+              boxShadow: "0 24px 80px rgba(173,20,87,0.3)",
+            }}
+          >
+            <div
+              style={{
+                background: GRAD,
+                padding: "20px 24px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderRadius: "20px 20px 0 0",
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
+              }}
+            >
+              <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>
+                🖼 Hero Banner Images
+              </div>
+              <button
+                onClick={() => setShowBannerMgr(false)}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  border: "none",
+                  color: "#FFF",
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  fontSize: 18,
+                }}
+              >
+                ✕
+              </button>
             </div>
-            <div style={{ padding:24 }}>
-              <p style={{ fontSize:13,color:MED,marginBottom:20 }}>Paste ImgBB image URLs for each slide. Leave blank to use default (product images).</p>
-              {["Slide 1 — Main Banner","Slide 2 — Jewelry","Slide 3 — Crafts","Slide 4 — Clothing"].map((label,i)=>(
-                <div key={i} style={{ marginBottom:16 }}>
-                  <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>{label}</label>
-                  <div style={{ display:"flex",gap:10,alignItems:"center" }}>
-                    <input style={{ ...inp,flex:1,fontSize:12 }} type="url" placeholder="https://i.ibb.co/..."
-                      value={bannerImages[i]||""} onChange={e=>{const n=[...bannerImages];n[i]=e.target.value;setBannerImages(n);}}/>
-                    {bannerImages[i]&&<img src={bannerImages[i]} alt="" style={{ width:64,height:48,objectFit:"cover",borderRadius:8,border:"1px solid rgba(173,20,87,0.2)",flexShrink:0 }} onError={e=>{e.target.style.display="none";}}/>}
+            <div style={{ padding: 24 }}>
+              <p style={{ fontSize: 13, color: MED, marginBottom: 20 }}>
+                Paste ImgBB image URLs for each slide. Leave blank to use
+                default (product images).
+              </p>
+              {[
+                "Slide 1 — Main Banner",
+                "Slide 2 — Jewelry",
+                "Slide 3 — Crafts",
+                "Slide 4 — Clothing",
+              ].map((label, i) => (
+                <div key={i} style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: DARK,
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {label}
+                  </label>
+                  <div
+                    style={{ display: "flex", gap: 10, alignItems: "center" }}
+                  >
+                    <input
+                      style={{ ...inp, flex: 1, fontSize: 12 }}
+                      type="url"
+                      placeholder="https://i.ibb.co/..."
+                      value={bannerImages[i] || ""}
+                      onChange={(e) => {
+                        const n = [...bannerImages];
+                        n[i] = e.target.value;
+                        setBannerImages(n);
+                      }}
+                    />
+                    {bannerImages[i] && (
+                      <img
+                        src={bannerImages[i]}
+                        alt=""
+                        style={{
+                          width: 64,
+                          height: 48,
+                          objectFit: "cover",
+                          borderRadius: 8,
+                          border: "1px solid rgba(173,20,87,0.2)",
+                          flexShrink: 0,
+                        }}
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
+                      />
+                    )}
                   </div>
-                  {bannerImages[i]&&<div style={{ fontSize:10,color:SUCCESS,marginTop:3,fontWeight:600 }}>✓ Image URL set</div>}
+                  {bannerImages[i] && (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: SUCCESS,
+                        marginTop: 3,
+                        fontWeight: 600,
+                      }}
+                    >
+                      ✓ Image URL set
+                    </div>
+                  )}
                 </div>
               ))}
-              <button onClick={async()=>{
-                try{
-                  await setDoc(doc(db,"settings","banners"),{images:bannerImages,updatedAt:serverTimestamp()});
-                  notify("✓ Banner images saved!");
-                  setShowBannerMgr(false);
-                }catch(e){notify("⚠ "+e.message);}
-              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>💾 Save Banner Images</button>
-              <button onClick={()=>{setBannerImages(["","","",""]);}} style={{ width:"100%",padding:"10px",marginTop:10,background:"transparent",border:`1px solid ${DANGER}`,color:DANGER,borderRadius:12,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:600 }}>🗑 Reset to Defaults</button>
+              <button
+                onClick={async () => {
+                  try {
+                    await setDoc(doc(db, "settings", "banners"), {
+                      images: bannerImages,
+                      updatedAt: serverTimestamp(),
+                    });
+                    notify("✓ Banner images saved!");
+                    setShowBannerMgr(false);
+                  } catch (e) {
+                    notify("⚠ " + e.message);
+                  }
+                }}
+                style={{ ...btn, width: "100%", padding: "13px", fontSize: 15 }}
+              >
+                💾 Save Banner Images
+              </button>
+              <button
+                onClick={() => {
+                  setBannerImages(["", "", "", ""]);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginTop: 10,
+                  background: "transparent",
+                  border: `1px solid ${DANGER}`,
+                  color: DANGER,
+                  borderRadius: 12,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  fontWeight: 600,
+                }}
+              >
+                🗑 Reset to Defaults
+              </button>
             </div>
           </div>
         </>
       )}
-
 
       {/* ══ REVIEW MODAL ══ */}
       {showReviewModal && reviewProduct && (
         <>
-          <div onClick={()=>setShowReviewModal(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:300,backdropFilter:"blur(4px)" }}/>
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(460px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"#FFF",borderRadius:20,zIndex:301,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
-            <div style={{ background:GRAD,padding:"18px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"20px 20px 0 0" }}>
-              <div style={{ color:"#FFF",fontSize:16,fontWeight:800 }}>✍️ Write a Review</div>
-              <button onClick={()=>setShowReviewModal(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16 }}>✕</button>
+          <div
+            onClick={() => setShowReviewModal(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(45,10,63,0.65)",
+              zIndex: 300,
+              backdropFilter: "blur(4px)",
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%,-50%)",
+              width: "min(460px,95vw)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#FFF",
+              borderRadius: 20,
+              zIndex: 301,
+              boxShadow: "0 24px 80px rgba(173,20,87,0.3)",
+            }}
+          >
+            <div
+              style={{
+                background: GRAD,
+                padding: "18px 24px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderRadius: "20px 20px 0 0",
+              }}
+            >
+              <div style={{ color: "#FFF", fontSize: 16, fontWeight: 800 }}>
+                ✍️ Write a Review
+              </div>
+              <button
+                onClick={() => setShowReviewModal(false)}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  border: "none",
+                  color: "#FFF",
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  fontSize: 16,
+                }}
+              >
+                ✕
+              </button>
             </div>
-            <div style={{ padding:22 }}>
+            <div style={{ padding: 22 }}>
               {/* Product name */}
-              <div style={{ fontSize:13,fontWeight:700,color:DARK,marginBottom:16,padding:"8px 12px",background:"rgba(173,20,87,0.05)",borderRadius:10 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: DARK,
+                  marginBottom: 16,
+                  padding: "8px 12px",
+                  background: "rgba(173,20,87,0.05)",
+                  borderRadius: 10,
+                }}
+              >
                 📦 {reviewProduct.name}
               </div>
 
               {/* Star rating */}
-              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:8 }}>Your Rating *</label>
-              <div style={{ display:"flex",gap:6,marginBottom:16 }}>
-                {[1,2,3,4,5].map(star=>(
-                  <button key={star} onClick={()=>setReviewRating(star)}
-                    style={{ fontSize:32,background:"none",border:"none",cursor:"pointer",color:star<=reviewRating?"#F59E0B":"#DDD",transition:"color 0.15s" }}>★</button>
+              <label
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: DARK,
+                  display: "block",
+                  marginBottom: 8,
+                }}
+              >
+                Your Rating *
+              </label>
+              <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setReviewRating(star)}
+                    style={{
+                      fontSize: 32,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: star <= reviewRating ? "#F59E0B" : "#DDD",
+                      transition: "color 0.15s",
+                    }}
+                  >
+                    ★
+                  </button>
                 ))}
-                <span style={{ fontSize:12,color:MED,alignSelf:"center",marginLeft:4 }}>
-                  {["","Terrible","Poor","Average","Good","Excellent"][reviewRating]}
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: MED,
+                    alignSelf: "center",
+                    marginLeft: 4,
+                  }}
+                >
+                  {
+                    ["", "Terrible", "Poor", "Average", "Good", "Excellent"][
+                      reviewRating
+                    ]
+                  }
                 </span>
               </div>
 
               {/* Review text */}
-              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>Your Review *</label>
-              <textarea value={reviewText} onChange={e=>setReviewText(e.target.value)}
+              <label
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: DARK,
+                  display: "block",
+                  marginBottom: 6,
+                }}
+              >
+                Your Review *
+              </label>
+              <textarea
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
                 placeholder="Share your experience with this product..."
-                style={{ width:"100%",padding:"10px 14px",border:`1.5px solid rgba(173,20,87,0.25)`,borderRadius:10,fontSize:13,fontFamily:"inherit",resize:"vertical",minHeight:90,boxSizing:"border-box",outline:"none",color:DARK }} />
-              <div style={{ fontSize:10,color:LIGHT,marginTop:3,marginBottom:14 }}>{reviewText.length}/500 characters</div>
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  border: `1.5px solid rgba(173,20,87,0.25)`,
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                  minHeight: 90,
+                  boxSizing: "border-box",
+                  outline: "none",
+                  color: DARK,
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 10,
+                  color: LIGHT,
+                  marginTop: 3,
+                  marginBottom: 14,
+                }}
+              >
+                {reviewText.length}/500 characters
+              </div>
 
               {/* Image URL */}
-              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>Add Photo (optional)</label>
-              <div style={{ fontSize:11,color:MED,marginBottom:6 }}>Upload your photo to <a href="https://imgbb.com" target="_blank" rel="noreferrer" style={{ color:PRIMARY }}>imgbb.com</a> and paste the link below:</div>
-              <input style={{ ...inp,fontSize:12,marginBottom:reviewImage?8:16 }} type="url" placeholder="https://i.ibb.co/..." value={reviewImage} onChange={e=>setReviewImage(e.target.value)}/>
-              {reviewImage&&(
-                <div style={{ marginBottom:14 }}>
-                  <img src={reviewImage} alt="preview" style={{ height:80,borderRadius:8,objectFit:"cover",border:"1px solid rgba(173,20,87,0.2)" }} onError={e=>{e.target.style.display="none";}}/>
-                  <div style={{ fontSize:10,color:SUCCESS,marginTop:3,fontWeight:600 }}>✓ Photo added</div>
+              <label
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: DARK,
+                  display: "block",
+                  marginBottom: 6,
+                }}
+              >
+                Add Photo (optional)
+              </label>
+              <div style={{ fontSize: 11, color: MED, marginBottom: 6 }}>
+                Upload your photo to{" "}
+                <a
+                  href="https://imgbb.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: PRIMARY }}
+                >
+                  imgbb.com
+                </a>{" "}
+                and paste the link below:
+              </div>
+              <input
+                style={{
+                  ...inp,
+                  fontSize: 12,
+                  marginBottom: reviewImage ? 8 : 16,
+                }}
+                type="url"
+                placeholder="https://i.ibb.co/..."
+                value={reviewImage}
+                onChange={(e) => setReviewImage(e.target.value)}
+              />
+              {reviewImage && (
+                <div style={{ marginBottom: 14 }}>
+                  <img
+                    src={reviewImage}
+                    alt="preview"
+                    style={{
+                      height: 80,
+                      borderRadius: 8,
+                      objectFit: "cover",
+                      border: "1px solid rgba(173,20,87,0.2)",
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                    }}
+                  />
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: SUCCESS,
+                      marginTop: 3,
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✓ Photo added
+                  </div>
                 </div>
               )}
 
-              <button onClick={async()=>{
-                if(!reviewText.trim()){notify("⚠ Please write your review");return;}
-                if(reviewRating<1){notify("⚠ Please select a rating");return;}
-                setReviewLoading(true);
-                try{
-                  await addDoc(collection(db,"reviews"),{
-                    productId: reviewProduct.id,
-                    productName: reviewProduct.name,
-                    userId: user.uid,
-                    userName: user.displayName || profileData.name || user.email.split("@")[0],
-                    rating: reviewRating,
-                    text: reviewText.trim(),
-                    imageUrl: reviewImage.trim()||"",
-                    status: "pending",
-                    createdAt: serverTimestamp()
-                  });
-                  notify("✓ Review submitted! It will appear after admin approval.");
-                  setShowReviewModal(false);
-                  setReviewText(""); setReviewImage(""); setReviewRating(5);
-                }catch(e){notify("⚠ "+e.message);}
-                setReviewLoading(false);
-              }} disabled={reviewLoading}
-                style={{ ...btn,width:"100%",padding:"13px",fontSize:14,opacity:reviewLoading?0.7:1 }}>
-                {reviewLoading?"Submitting...":"Submit Review 🌸"}
+              <button
+                onClick={async () => {
+                  if (!reviewText.trim()) {
+                    notify("⚠ Please write your review");
+                    return;
+                  }
+                  if (reviewRating < 1) {
+                    notify("⚠ Please select a rating");
+                    return;
+                  }
+                  setReviewLoading(true);
+                  try {
+                    await addDoc(collection(db, "reviews"), {
+                      productId: reviewProduct.id,
+                      productName: reviewProduct.name,
+                      userId: user.uid,
+                      userName:
+                        user.displayName ||
+                        profileData.name ||
+                        user.email.split("@")[0],
+                      rating: reviewRating,
+                      text: reviewText.trim(),
+                      imageUrl: reviewImage.trim() || "",
+                      status: "pending",
+                      createdAt: serverTimestamp(),
+                    });
+                    notify(
+                      "✓ Review submitted! It will appear after admin approval.",
+                    );
+                    setShowReviewModal(false);
+                    setReviewText("");
+                    setReviewImage("");
+                    setReviewRating(5);
+                  } catch (e) {
+                    notify("⚠ " + e.message);
+                  }
+                  setReviewLoading(false);
+                }}
+                disabled={reviewLoading}
+                style={{
+                  ...btn,
+                  width: "100%",
+                  padding: "13px",
+                  fontSize: 14,
+                  opacity: reviewLoading ? 0.7 : 1,
+                }}
+              >
+                {reviewLoading ? "Submitting..." : "Submit Review 🌸"}
               </button>
-              <div style={{ fontSize:10,color:LIGHT,textAlign:"center",marginTop:8 }}>Your review will be visible after admin approval</div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: LIGHT,
+                  textAlign: "center",
+                  marginTop: 8,
+                }}
+              >
+                Your review will be visible after admin approval
+              </div>
             </div>
           </div>
         </>
       )}
 
+      {tab === "reviews" && isAdmin && (
+        <div>
+          <h2
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              color: DARK,
+              marginBottom: 6,
+            }}
+          >
+            🌟 Customer Reviews
+          </h2>
+          <p style={{ color: MED, marginBottom: 20 }}>
+            Approve or reject customer reviews before they appear on products.
+          </p>
 
-        {tab === "reviews" && isAdmin && (
-          <div>
-            <h2 style={{ fontSize:22,fontWeight:800,color:DARK,marginBottom:6 }}>🌟 Customer Reviews</h2>
-            <p style={{ color:MED,marginBottom:20 }}>Approve or reject customer reviews before they appear on products.</p>
+          {/* Filter tabs */}
+          {[
+            ["pending", "⏳ Pending"],
+            ["published", "✅ Published"],
+            ["rejected", "❌ Rejected"],
+          ].map(([s, l]) => (
+            <button
+              key={s}
+              onClick={() => setReviewFilter(s)}
+              style={{
+                marginRight: 8,
+                marginBottom: 16,
+                padding: "6px 18px",
+                borderRadius: 20,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontWeight: 700,
+                fontSize: 12,
+                border: `1.5px solid ${reviewFilter === s ? PRIMARY : "rgba(173,20,87,0.2)"}`,
+                background:
+                  reviewFilter === s
+                    ? "rgba(173,20,87,0.1)"
+                    : "rgba(255,255,255,0.6)",
+                color: reviewFilter === s ? PRIMARY : MED,
+              }}
+            >
+              {l} ({allReviews.filter((r) => r.status === s).length})
+            </button>
+          ))}
 
-            {/* Filter tabs */}
-            {[["pending","⏳ Pending"],["published","✅ Published"],["rejected","❌ Rejected"]].map(([s,l])=>(
-              <button key={s} onClick={()=>setReviewFilter(s)}
-                style={{ marginRight:8,marginBottom:16,padding:"6px 18px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:12,
-                  border:`1.5px solid ${reviewFilter===s?PRIMARY:"rgba(173,20,87,0.2)"}`,
-                  background:reviewFilter===s?"rgba(173,20,87,0.1)":"rgba(255,255,255,0.6)",
-                  color:reviewFilter===s?PRIMARY:MED }}>
-                {l} ({allReviews.filter(r=>r.status===s).length})
-              </button>
-            ))}
-
-            {allReviews.filter(r=>r.status===reviewFilter).length===0
-              ?<div style={{ ...glass,padding:32,textAlign:"center",color:LIGHT }}>No {reviewFilter} reviews</div>
-              :allReviews.filter(r=>r.status===reviewFilter).map(r=>(
-                <div key={r.id} style={{ ...glass,padding:18,marginBottom:14 }}>
-                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10 }}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ display:"flex",gap:6,alignItems:"center",marginBottom:6 }}>
-                        <div style={{ display:"flex",gap:1 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:14,color:j<=r.rating?"#F59E0B":"#DDD" }}>★</span>)}</div>
-                        <span style={{ fontSize:12,fontWeight:800,color:DARK }}>{r.userName}</span>
-                        <span style={{ fontSize:10,color:LIGHT }}>{r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString("en-BD"):""}</span>
+          {allReviews.filter((r) => r.status === reviewFilter).length === 0 ? (
+            <div
+              style={{
+                ...glass,
+                padding: 32,
+                textAlign: "center",
+                color: LIGHT,
+              }}
+            >
+              No {reviewFilter} reviews
+            </div>
+          ) : (
+            allReviews
+              .filter((r) => r.status === reviewFilter)
+              .map((r) => (
+                <div
+                  key={r.id}
+                  style={{ ...glass, padding: 18, marginBottom: 14 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      flexWrap: "wrap",
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center",
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 1 }}>
+                          {[1, 2, 3, 4, 5].map((j) => (
+                            <span
+                              key={j}
+                              style={{
+                                fontSize: 14,
+                                color: j <= r.rating ? "#F59E0B" : "#DDD",
+                              }}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                        <span
+                          style={{ fontSize: 12, fontWeight: 800, color: DARK }}
+                        >
+                          {r.userName}
+                        </span>
+                        <span style={{ fontSize: 10, color: LIGHT }}>
+                          {r.createdAt?.seconds
+                            ? new Date(
+                                r.createdAt.seconds * 1000,
+                              ).toLocaleDateString("en-BD")
+                            : ""}
+                        </span>
                       </div>
-                      <div style={{ fontSize:11,color:PRIMARY,fontWeight:600,marginBottom:4 }}>📦 {r.productName}</div>
-                      <p style={{ fontSize:13,color:MED,lineHeight:1.6,margin:"0 0 8px" }}>{r.text}</p>
-                      {r.imageUrl&&<img src={r.imageUrl} alt="review" style={{ height:70,borderRadius:8,objectFit:"cover",border:"1px solid rgba(173,20,87,0.15)" }}/>}
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: PRIMARY,
+                          fontWeight: 600,
+                          marginBottom: 4,
+                        }}
+                      >
+                        📦 {r.productName}
+                      </div>
+                      <p
+                        style={{
+                          fontSize: 13,
+                          color: MED,
+                          lineHeight: 1.6,
+                          margin: "0 0 8px",
+                        }}
+                      >
+                        {r.text}
+                      </p>
+                      {r.imageUrl && (
+                        <img
+                          src={r.imageUrl}
+                          alt="review"
+                          style={{
+                            height: 70,
+                            borderRadius: 8,
+                            objectFit: "cover",
+                            border: "1px solid rgba(173,20,87,0.15)",
+                          }}
+                        />
+                      )}
                     </div>
-                    <div style={{ display:"flex",flexDirection:"column",gap:8,flexShrink:0 }}>
-                      {r.status!=="published"&&(
-                        <button onClick={async()=>{
-                          await updateDoc(doc(db,"reviews",r.id),{status:"published"});
-                          notify("✓ Review published!");
-                        }} style={{ padding:"7px 16px",background:"rgba(46,125,50,0.1)",border:"1.5px solid #2E7D32",color:"#2E7D32",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:12 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {r.status !== "published" && (
+                        <button
+                          onClick={async () => {
+                            await updateDoc(doc(db, "reviews", r.id), {
+                              status: "published",
+                            });
+                            notify("✓ Review published!");
+                          }}
+                          style={{
+                            padding: "7px 16px",
+                            background: "rgba(46,125,50,0.1)",
+                            border: "1.5px solid #2E7D32",
+                            color: "#2E7D32",
+                            borderRadius: 10,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            fontWeight: 700,
+                            fontSize: 12,
+                          }}
+                        >
                           ✅ Approve
                         </button>
                       )}
-                      {r.status!=="rejected"&&(
-                        <button onClick={async()=>{
-                          await updateDoc(doc(db,"reviews",r.id),{status:"rejected"});
-                          notify("Review rejected.");
-                        }} style={{ padding:"7px 16px",background:"rgba(198,40,40,0.08)",border:"1.5px solid #C62828",color:"#C62828",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:12 }}>
+                      {r.status !== "rejected" && (
+                        <button
+                          onClick={async () => {
+                            await updateDoc(doc(db, "reviews", r.id), {
+                              status: "rejected",
+                            });
+                            notify("Review rejected.");
+                          }}
+                          style={{
+                            padding: "7px 16px",
+                            background: "rgba(198,40,40,0.08)",
+                            border: "1.5px solid #C62828",
+                            color: "#C62828",
+                            borderRadius: 10,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            fontWeight: 700,
+                            fontSize: 12,
+                          }}
+                        >
                           ❌ Reject
                         </button>
                       )}
-                      <button onClick={async()=>{
-                        if(window.confirm("Delete this review permanently?")){
-                          await deleteDoc(doc(db,"reviews",r.id));
-                          notify("Review deleted.");
-                        }
-                      }} style={{ padding:"7px 16px",background:"transparent",border:"1px solid rgba(173,20,87,0.2)",color:MED,borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontSize:12 }}>
+                      <button
+                        onClick={async () => {
+                          if (
+                            window.confirm("Delete this review permanently?")
+                          ) {
+                            await deleteDoc(doc(db, "reviews", r.id));
+                            notify("Review deleted.");
+                          }
+                        }}
+                        style={{
+                          padding: "7px 16px",
+                          background: "transparent",
+                          border: "1px solid rgba(173,20,87,0.2)",
+                          color: MED,
+                          borderRadius: 10,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          fontSize: 12,
+                        }}
+                      >
                         🗑 Delete
                       </button>
                     </div>
                   </div>
                 </div>
               ))
-            }
-          </div>
-        )}
-
+          )}
+        </div>
+      )}
 
       {/* ══ ORDER SUCCESS POPUP ══ */}
       {orderSuccessMsg && (
         <>
-          <div style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.65)",zIndex:400,backdropFilter:"blur(6px)" }}/>
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",
-            width:"min(420px,92vw)",background:"#FFF",borderRadius:24,zIndex:401,
-            boxShadow:"0 24px 80px rgba(173,20,87,0.35)",overflow:"hidden",textAlign:"center" }}>
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(45,10,63,0.65)",
+              zIndex: 400,
+              backdropFilter: "blur(6px)",
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%,-50%)",
+              width: "min(420px,92vw)",
+              background: "#FFF",
+              borderRadius: 24,
+              zIndex: 401,
+              boxShadow: "0 24px 80px rgba(173,20,87,0.35)",
+              overflow: "hidden",
+              textAlign: "center",
+            }}
+          >
             {/* Header */}
-            <div style={{ background:orderSuccessMsg.type==="cod"?GRAD:"linear-gradient(135deg,#1565C0,#283593)",padding:"28px 24px 20px" }}>
-              <div style={{ fontSize:52,marginBottom:8 }}>
-                {orderSuccessMsg.type==="cod" ? "🎉" : "📱"}
+            <div
+              style={{
+                background:
+                  orderSuccessMsg.type === "cod"
+                    ? GRAD
+                    : "linear-gradient(135deg,#1565C0,#283593)",
+                padding: "28px 24px 20px",
+              }}
+            >
+              <div style={{ fontSize: 52, marginBottom: 8 }}>
+                {orderSuccessMsg.type === "cod" ? "🎉" : "📱"}
               </div>
-              <div style={{ color:"#FFF",fontSize:20,fontWeight:900,lineHeight:1.3 }}>
-                {orderSuccessMsg.type==="cod" ? "Order Confirmed!" : "Order Placed!"}
+              <div
+                style={{
+                  color: "#FFF",
+                  fontSize: 20,
+                  fontWeight: 900,
+                  lineHeight: 1.3,
+                }}
+              >
+                {orderSuccessMsg.type === "cod"
+                  ? "Order Confirmed!"
+                  : "Order Placed!"}
               </div>
             </div>
             {/* Body */}
-            <div style={{ padding:"24px 28px 28px" }}>
-              {orderSuccessMsg.type==="cod" ? (
+            <div style={{ padding: "24px 28px 28px" }}>
+              {orderSuccessMsg.type === "cod" ? (
                 <>
-                  <div style={{ fontSize:15,color:DARK,fontWeight:700,marginBottom:10 }}>
+                  <div
+                    style={{
+                      fontSize: 15,
+                      color: DARK,
+                      fontWeight: 700,
+                      marginBottom: 10,
+                    }}
+                  >
                     ✅ Your order is confirmed!
                   </div>
-                  <p style={{ fontSize:13,color:MED,lineHeight:1.8,marginBottom:20 }}>
-                    Your cash on delivery order has been placed successfully. Our team will contact you before delivery. Thank you for shopping with কাঁকনবালা! 🌸
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: MED,
+                      lineHeight: 1.8,
+                      marginBottom: 20,
+                    }}
+                  >
+                    Your cash on delivery order has been placed successfully.
+                    Our team will contact you before delivery. Thank you for
+                    shopping with কাঁকনবালা! 🌸
                   </p>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize:15,color:DARK,fontWeight:700,marginBottom:10 }}>
+                  <div
+                    style={{
+                      fontSize: 15,
+                      color: DARK,
+                      fontWeight: 700,
+                      marginBottom: 10,
+                    }}
+                  >
                     ⏳ Your order is placed!
                   </div>
-                  <p style={{ fontSize:13,color:MED,lineHeight:1.8,marginBottom:14 }}>
-                    Our admin will confirm your order after matching your <strong>{orderSuccessMsg.gateway}</strong> Transaction ID.
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: MED,
+                      lineHeight: 1.8,
+                      marginBottom: 14,
+                    }}
+                  >
+                    Our admin will confirm your order after matching your{" "}
+                    <strong>{orderSuccessMsg.gateway}</strong> Transaction ID.
                   </p>
-                  <div style={{ background:"rgba(21,101,192,0.06)",border:"1.5px solid rgba(21,101,192,0.2)",borderRadius:12,padding:"12px 16px",marginBottom:20 }}>
-                    <div style={{ fontSize:11,color:"#1565C0",fontWeight:700,marginBottom:4 }}>📌 What happens next?</div>
-                    <div style={{ fontSize:12,color:MED,lineHeight:1.7,textAlign:"left" }}>
-                      1. Admin checks your Transaction ID<br/>
-                      2. Order is confirmed within 1–2 hours<br/>
+                  <div
+                    style={{
+                      background: "rgba(21,101,192,0.06)",
+                      border: "1.5px solid rgba(21,101,192,0.2)",
+                      borderRadius: 12,
+                      padding: "12px 16px",
+                      marginBottom: 20,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#1565C0",
+                        fontWeight: 700,
+                        marginBottom: 4,
+                      }}
+                    >
+                      📌 What happens next?
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: MED,
+                        lineHeight: 1.7,
+                        textAlign: "left",
+                      }}
+                    >
+                      1. Admin checks your Transaction ID
+                      <br />
+                      2. Order is confirmed within 1–2 hours
+                      <br />
                       3. You'll receive a confirmation message
                     </div>
                   </div>
                 </>
               )}
-              <button onClick={()=>setOrderSuccessMsg(null)}
-                style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>
-                {orderSuccessMsg.type==="cod" ? "Great, Thank You! 🌸" : "OK, Got It!"}
+              <button
+                onClick={() => setOrderSuccessMsg(null)}
+                style={{ ...btn, width: "100%", padding: "13px", fontSize: 15 }}
+              >
+                {orderSuccessMsg.type === "cod"
+                  ? "Great, Thank You! 🌸"
+                  : "OK, Got It!"}
               </button>
             </div>
           </div>
         </>
       )}
 
-{/* FOOTER */}
+      {/* FOOTER */}
       <footer
         style={{
           marginTop: 48,
