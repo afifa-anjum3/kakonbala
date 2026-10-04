@@ -2018,6 +2018,7 @@ export default function App() {
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(null);
   const [payMethod, setPayMethod] = useState("cod");
+  const [useCustomAddress, setUseCustomAddress] = useState(false);
   const [transactionId, setTransactionId] = useState("");
   const [selectedGateway, setSelectedGateway] = useState("bKash");
   const [showProfile, setShowProfile] = useState(false);
@@ -2616,11 +2617,26 @@ export default function App() {
   ];
 
   async function updateOrderStatus(orderId, newStatus) {
-    await updateDoc(doc(db, "orders", orderId), {
-      status: newStatus,
-      updatedAt: serverTimestamp(),
-    });
-    notify("✓ Order status updated to: " + newStatus.replace("_", " "));
+    try {
+      if (newStatus === "cancelled") {
+        const oSnap = await getDoc(doc(db, "orders", orderId));
+        if (oSnap.exists() && oSnap.data().status !== "cancelled") {
+          const ob = writeBatch(db);
+          (oSnap.data().items || []).forEach(item => {
+            if (item.id) ob.update(doc(db,"products",item.id),{stock:increment(item.qty||1)});
+          });
+          ob.update(doc(db,"orders",orderId),{status:"cancelled",updatedAt:serverTimestamp(),stockRestored:true});
+          await ob.commit();
+          notify("✓ Order cancelled — stock restored automatically.");
+          return;
+        }
+      }
+      await updateDoc(doc(db, "orders", orderId), {
+        status: newStatus,
+        updatedAt: serverTimestamp(),
+      });
+      notify("✓ Order status updated to: " + newStatus.replace("_", " "));
+    } catch(e) { notify("⚠ " + e.message); }
   }
 
   async function clearDashboard() {
@@ -10349,6 +10365,31 @@ export default function App() {
                     ))}
                   </select>
                 </div>
+
+                {/* ✏️ Custom address toggle */}
+                <div style={{ marginBottom:12 }}>
+                  <button type="button" onClick={()=>setUseCustomAddress(v=>!v)}
+                    style={{ fontSize:11,color:PRIMARY,background:"rgba(173,20,87,0.04)",border:`1px dashed ${PRIMARY}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontFamily:"inherit",fontWeight:600,width:"100%",textAlign:"center" }}>
+                    {useCustomAddress?"✕ Hide custom fields":"✏️ Can't find your area? Type it manually"}
+                  </button>
+                </div>
+                {useCustomAddress&&(
+                  <div style={{ background:"rgba(255,248,255,0.85)",border:`1.5px solid rgba(173,20,87,0.2)`,borderRadius:12,padding:14,marginBottom:12 }}>
+                    <div style={{ fontSize:11,color:PRIMARY,fontWeight:700,marginBottom:10 }}>✏️ Enter address manually:</div>
+                    <div style={{ marginBottom:8 }}>
+                      <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Police Station / Thana</label>
+                      <input style={inp} type="text" placeholder="e.g. Maniknagar, Basabo..."
+                        value={customer.customArea||""}
+                        onChange={e=>setCustomer({...customer,customArea:e.target.value,thana:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:11,color:MED,fontWeight:700,display:"block",marginBottom:3 }}>Post Office & Postal Code</label>
+                      <input style={inp} type="text" placeholder="e.g. Maniknagar - 1203"
+                        value={useCustomAddress&&customer.customArea?customer.postOffice:""}
+                        onChange={e=>setCustomer({...customer,postOffice:e.target.value})}/>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label
                     style={{
