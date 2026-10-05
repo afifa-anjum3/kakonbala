@@ -3512,8 +3512,9 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
             whiteSpace: "nowrap",
           }}
         >
-          {announcementText || "🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available  •  ✨ New Arrivals Every Week  •  💎 100% Authentic Handmade"}>{item} &nbsp;•&nbsp; </span>
-            ))}
+          {(announcementText || "🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available  •  ✨ New Arrivals Every Week  •  💎 100% Authentic Handmade").split("  •  ").concat((announcementText || "🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available  •  ✨ New Arrivals Every Week  •  💎 100% Authentic Handmade").split("  •  ")).map((item,i)=>(
+            <span key={i} style={{ marginRight:40 }}>{item}</span>
+          ))}
         </div>
         <style>{`@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}`}</style>
       </div>
