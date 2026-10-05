@@ -2026,6 +2026,9 @@ export default function App() {
   const [heroSlide, setHeroSlide] = useState(0);
   const [bannerImages, setBannerImages] = useState(["","","",""]);
   const [showBannerMgr, setShowBannerMgr] = useState(false);
+  const [announcementText, setAnnouncementText] = useState("");
+  const [showAnnounceMgr, setShowAnnounceMgr] = useState(false);
+  const [editAnnounce, setEditAnnounce] = useState("");
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState(null); // {type:"cod"|"online", gateway?}
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -2107,8 +2110,9 @@ export default function App() {
 
   useEffect(() => {
     // Load banner images from Firestore
-    getDoc(doc(db,"settings","banners")).then(snap=>{
+getDoc(doc(db,"settings","banners")).then(snap=>{
       if(snap.exists()&&snap.data().images){setBannerImages(snap.data().images);}
+      if(snap.exists()&&snap.data().announcement){setAnnouncementText(snap.data().announcement);}
     }).catch(()=>{});
   }, []);
 
@@ -3508,10 +3512,7 @@ export default function App() {
             whiteSpace: "nowrap",
           }}
         >
-          {"🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available  •  ✨ New Arrivals Every Week  •  💎 100% Authentic Handmade  •  🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available"
-            .split("  •  ")
-            .map((item, i) => (
-              <span key={i}>{item} &nbsp;•&nbsp; </span>
+          {announcementText || "🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available  •  ✨ New Arrivals Every Week  •  💎 100% Authentic Handmade"}>{item} &nbsp;•&nbsp; </span>
             ))}
         </div>
         <style>{`@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}`}</style>
@@ -6546,6 +6547,12 @@ export default function App() {
                 </div>
               </div>
             )}
+
+                {/* Announcement Manager Button */}
+                <button onClick={()=>{setEditAnnounce(announcementText);setShowAnnounceMgr(true);}}
+                  style={{ ...btn,marginBottom:12,background:"rgba(173,20,87,0.08)",color:PRIMARY,border:`1.5px solid ${PRIMARY}`,boxShadow:"none" }}>
+                  📢 Edit Announcement Ticker
+                </button>
 
                 {/* Banner Manager Button */}
                 <button onClick={()=>setShowBannerMgr(true)}
@@ -10994,6 +11001,53 @@ export default function App() {
                 style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>
                 {orderSuccessMsg.type==="cod" ? "Great, Thank You! 🌸" : "OK, Got It!"}
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+
+      {/* ══ ANNOUNCEMENT MANAGER ══ */}
+      {showAnnounceMgr && (
+        <>
+          <div onClick={()=>setShowAnnounceMgr(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(500px,95vw)",background:"#FFF",borderRadius:20,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)",overflow:"hidden" }}>
+            <div style={{ background:GRAD,padding:"18px 24px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+              <div style={{ color:"#FFF",fontSize:16,fontWeight:800 }}>📢 Announcement Ticker</div>
+              <button onClick={()=>setShowAnnounceMgr(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:24 }}>
+              <p style={{ fontSize:13,color:MED,marginBottom:14 }}>Edit the scrolling text shown at the top of the website. Use <b> • </b> to separate items.</p>
+              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>Announcement Text</label>
+              <textarea value={editAnnounce} onChange={e=>setEditAnnounce(e.target.value)}
+                placeholder="🌸 Handmade with Love  •  🚚 Free Delivery in Dhaka over ৳1500  •  🎁 Gift Wrapping Available"
+                style={{ width:"100%",padding:"10px 14px",border:`1.5px solid rgba(173,20,87,0.25)`,borderRadius:10,fontSize:13,fontFamily:"inherit",resize:"vertical",minHeight:100,boxSizing:"border-box",outline:"none",color:DARK,lineHeight:1.7 }}/>
+              <div style={{ fontSize:10,color:LIGHT,marginTop:6,marginBottom:16 }}>Preview: <span style={{ color:PRIMARY,fontWeight:600 }}>{editAnnounce.slice(0,60)}{editAnnounce.length>60?"...":""}</span></div>
+
+              {/* Quick add buttons */}
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11,color:MED,fontWeight:700,marginBottom:8 }}>Quick add:</div>
+                <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+                  {["🌸 Handmade with Love","🚚 Free Delivery in Dhaka over ৳1500","🎁 Gift Wrapping Available","✨ New Arrivals Every Week","💎 100% Authentic","🔥 Sale On Now","📦 Free Delivery on orders above ৳2000"].map(t=>(
+                    <button key={t} onClick={()=>setEditAnnounce(a=>a?(a+"  •  "+t):t)}
+                      style={{ fontSize:10,padding:"4px 10px",borderRadius:16,cursor:"pointer",background:"rgba(173,20,87,0.06)",border:"1px solid rgba(173,20,87,0.2)",color:PRIMARY,fontFamily:"inherit" }}>
+                      + {t.slice(0,20)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display:"flex",gap:10 }}>
+                <button onClick={async()=>{
+                  try{
+                    await setDoc(doc(db,"settings","banners"),{announcement:editAnnounce,updatedAt:serverTimestamp()},{merge:true});
+                    setAnnouncementText(editAnnounce);
+                    notify("✓ Announcement updated!");
+                    setShowAnnounceMgr(false);
+                  }catch(e){notify("⚠ "+e.message);}
+                }} style={{ ...btn,flex:1,padding:"12px",fontSize:14 }}>💾 Save & Publish</button>
+                <button onClick={()=>{setEditAnnounce("");}} style={{ padding:"12px 16px",background:"transparent",border:`1px solid ${DANGER}`,color:DANGER,borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>Reset</button>
+              </div>
             </div>
           </div>
         </>
