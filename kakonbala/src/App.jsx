@@ -2029,6 +2029,11 @@ export default function App() {
   const [announcementText, setAnnouncementText] = useState("");
   const [showAnnounceMgr, setShowAnnounceMgr] = useState(false);
   const [editAnnounce, setEditAnnounce] = useState("");
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [showSendNotif, setShowSendNotif] = useState(false);
+  const [notifMsg, setNotifMsg] = useState("");
+  const [notifTarget, setNotifTarget] = useState("all");
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState(null); // {type:"cod"|"online", gateway?}
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -2152,6 +2157,16 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     return () => clearInterval(t);
   }, []);
 
+  // Load notifications for current user
+  useEffect(() => {
+    if (!user) { setNotifications([]); return; }
+    const q = isAdmin
+      ? query(collection(db,"notifications"), where("target","in",["admin","all"]), orderBy("createdAt","desc"))
+      : query(collection(db,"notifications"), where("userId","==",user.uid), orderBy("createdAt","desc"));
+    const unsub = onSnapshot(q, snap => setNotifications(snap.docs.map(d=>({id:d.id,...d.data()}))));
+    return unsub;
+  }, [user, isAdmin]);
+
   useEffect(() => { try { localStorage.setItem("kk_tab", tab); } catch{} }, [tab]);
   useEffect(() => { try { localStorage.setItem("kk_cart", JSON.stringify(cart)); } catch{} }, [cart]);
 
@@ -2244,6 +2259,20 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         })
       });
     } catch(e) { console.warn("Email send failed:", e.message); }
+  };
+
+  const createNotification = async (target, userId, type, title, message, link="") => {
+    try {
+      await addDoc(collection(db,"notifications"), {
+        target, userId: userId||"", type, title, message, link,
+        read: false, createdAt: serverTimestamp()
+      });
+    } catch(e) { console.warn("Notif:", e.message); }
+  };
+
+  const markAllRead = async () => {
+    const unread = notifications.filter(n => !n.read);
+    await Promise.all(unread.map(n => updateDoc(doc(db,"notifications",n.id),{read:true})));
   };
   const getProductRating = (productId) => {
     const reviews = publishedReviews.filter(r => r.productId === productId);
@@ -2635,10 +2664,23 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           return;
         }
       }
+      const oRef = await getDoc(doc(db,"orders",orderId));
       await updateDoc(doc(db, "orders", orderId), {
         status: newStatus,
         updatedAt: serverTimestamp(),
       });
+      // Notify customer
+      if (oRef.exists() && oRef.data().userId) {
+        const STATUS_MSGS = {
+          processing: "✅ Your order has been confirmed!",
+          in_packaging: "📦 Your order is being packaged.",
+          shipped: "🚚 Your order is on the way!",
+          delivered: "🎉 Your order has been delivered!",
+          cancelled: "❌ Your order has been cancelled.",
+        };
+        const msg = STATUS_MSGS[newStatus];
+        if (msg) await createNotification("user", oRef.data().userId, "order_update", "Order Update", msg, "profile");
+      }
       notify("✓ Order status updated to: " + newStatus.replace("_", " "));
     } catch(e) { notify("⚠ " + e.message); }
   }
@@ -2730,6 +2772,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {}
       sendOrderEmail("cod",{email:customer.email,name:customer.name,total,items:(cart.map(i=>i.product.name+"×"+i.qty).join(", ")),paymentMethod:"Cash on Delivery"});
+      createNotification("admin","","order","🛒 New Order!","COD order from "+customer.name+" — ৳"+total,"orders");
       setOrderSuccessMsg({type:"cod"});
       return;
     }
@@ -11049,6 +11092,87 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                 }} style={{ ...btn,flex:1,padding:"12px",fontSize:14 }}>💾 Save & Publish</button>
                 <button onClick={()=>{setEditAnnounce("");}} style={{ padding:"12px 16px",background:"transparent",border:`1px solid ${DANGER}`,color:DANGER,borderRadius:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>Reset</button>
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+
+      {/* ══ NOTIFICATION PANEL ══ */}
+      {showNotifPanel && user && (
+        <>
+          <div onClick={()=>setShowNotifPanel(false)} style={{ position:"fixed",inset:0,zIndex:199 }}/>
+          <div style={{ position:"fixed",top:100,right:20,width:"min(360px,95vw)",maxHeight:"70vh",overflowY:"auto",
+            background:"rgba(255,255,255,0.97)",backdropFilter:"blur(20px)",borderRadius:16,zIndex:200,
+            boxShadow:"0 8px 40px rgba(173,20,87,0.2)",border:"1px solid rgba(173,20,87,0.1)" }}>
+            <div style={{ padding:"14px 16px",borderBottom:"1px solid rgba(173,20,87,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:"rgba(255,255,255,0.97)",borderRadius:"16px 16px 0 0" }}>
+              <div style={{ fontSize:14,fontWeight:800,color:DARK }}>🔔 Notifications</div>
+              <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+                {isAdmin&&<button onClick={()=>{setShowSendNotif(true);setShowNotifPanel(false);}} style={{ fontSize:11,color:PRIMARY,background:"rgba(173,20,87,0.08)",border:`1px solid rgba(173,20,87,0.2)`,borderRadius:8,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>📤 Send</button>}
+                <button onClick={()=>setShowNotifPanel(false)} style={{ background:"none",border:"none",fontSize:16,cursor:"pointer",color:MED }}>✕</button>
+              </div>
+            </div>
+            {notifications.length===0
+              ?<div style={{ padding:28,textAlign:"center",color:LIGHT,fontSize:13 }}>No notifications yet</div>
+              :notifications.slice(0,20).map(n=>(
+                <div key={n.id} onClick={()=>{if(n.link==="orders")setTab("orders");if(n.link==="profile")setShowProfile(true);setShowNotifPanel(false);}}
+                  style={{ padding:"12px 16px",borderBottom:"1px solid rgba(173,20,87,0.06)",cursor:"pointer",
+                    background:n.read?"transparent":"rgba(173,20,87,0.04)",
+                    transition:"background 0.15s" }}
+                  onMouseEnter={e=>e.currentTarget.style.background="rgba(173,20,87,0.06)"}
+                  onMouseLeave={e=>e.currentTarget.style.background=n.read?"transparent":"rgba(173,20,87,0.04)"}>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
+                    <div style={{ fontWeight:n.read?500:700,fontSize:13,color:DARK,marginBottom:3 }}>{n.title}</div>
+                    {!n.read&&<div style={{ width:8,height:8,borderRadius:"50%",background:PRIMARY,flexShrink:0,marginTop:4 }}/>}
+                  </div>
+                  <div style={{ fontSize:12,color:MED,lineHeight:1.5 }}>{n.message}</div>
+                  <div style={{ fontSize:10,color:LIGHT,marginTop:4 }}>{n.createdAt?.seconds?new Date(n.createdAt.seconds*1000).toLocaleString("en-BD"):""}</div>
+                </div>
+              ))
+            }
+          </div>
+        </>
+      )}
+
+      {/* ══ SEND NOTIFICATION MODAL (Admin) ══ */}
+      {showSendNotif && isAdmin && (
+        <>
+          <div onClick={()=>setShowSendNotif(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
+          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(440px,95vw)",background:"#FFF",borderRadius:20,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)",overflow:"hidden" }}>
+            <div style={{ background:GRAD,padding:"18px 24px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+              <div style={{ color:"#FFF",fontSize:16,fontWeight:800 }}>📤 Send Notification</div>
+              <button onClick={()=>setShowSendNotif(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:22 }}>
+              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>Send To</label>
+              <div style={{ display:"flex",gap:8,marginBottom:16 }}>
+                {[["all","👥 All Customers"],["promo","🎟 Promo Alert"],["update","📦 Order Update"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setNotifTarget(v)}
+                    style={{ flex:1,padding:"8px 6px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:11,
+                      border:`1.5px solid ${notifTarget===v?PRIMARY:"rgba(173,20,87,0.2)"}`,
+                      background:notifTarget===v?"rgba(173,20,87,0.08)":"#FFF",
+                      color:notifTarget===v?PRIMARY:MED }}>{l}</button>
+                ))}
+              </div>
+              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>Title</label>
+              <input style={{ ...inp,marginBottom:12 }} placeholder="e.g. 🎟 Special Offer!" value={notifMsg.split("||")[0]||""} onChange={e=>setNotifMsg(e.target.value+"||"+(notifMsg.split("||")[1]||""))}/>
+              <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>Message</label>
+              <textarea value={notifMsg.split("||")[1]||""} onChange={e=>setNotifMsg((notifMsg.split("||")[0]||"")+"||"+e.target.value)}
+                placeholder="e.g. Use code SAVE20 for 20% off your next order!"
+                style={{ width:"100%",padding:"10px 14px",border:`1.5px solid rgba(173,20,87,0.25)`,borderRadius:10,fontSize:13,fontFamily:"inherit",resize:"vertical",minHeight:80,boxSizing:"border-box",outline:"none" }}/>
+              <div style={{ display:"flex",gap:8,marginTop:14 }}>
+                {[["🎟 Promo Code Ready","Use your promo code now for special discounts!"],["🆕 New Arrivals","Check out our latest handmade products!"],["🚚 Free Delivery","Free delivery on orders above ৳1500 today!"]].map(([t,m])=>(
+                  <button key={t} onClick={()=>setNotifMsg(t+"||"+m)}
+                    style={{ flex:1,padding:"5px 4px",borderRadius:8,cursor:"pointer",fontSize:9,background:"rgba(173,20,87,0.06)",border:"1px solid rgba(173,20,87,0.15)",color:PRIMARY,fontFamily:"inherit" }}>{t.slice(0,12)}</button>
+                ))}
+              </div>
+              <button onClick={async()=>{
+                const [title,message] = notifMsg.split("||");
+                if(!title?.trim()||!message?.trim()){notify("⚠ Enter title and message");return;}
+                await createNotification("all","","broadcast",title.trim(),message.trim(),"");
+                notify("✓ Notification sent to all customers!");
+                setShowSendNotif(false); setNotifMsg("");
+              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:14,marginTop:14 }}>📤 Send to All Customers</button>
             </div>
           </div>
         </>
