@@ -3718,6 +3718,18 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
 
         {/* Right icons */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {/* 🔔 Notification Bell */}
+          {user && (
+            <button onClick={()=>{setShowNotifPanel(p=>!p);if(!showNotifPanel)markAllRead();}}
+              style={{ position:"relative",background:"none",border:"none",cursor:"pointer",fontSize:20,padding:"4px 6px",display:"flex",alignItems:"center" }}>
+              🔔
+              {notifications.filter(n=>!n.read).length>0&&(
+                <span style={{ position:"absolute",top:-2,right:-2,background:DANGER,color:"#FFF",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                  {notifications.filter(n=>!n.read).length>9?"9+":notifications.filter(n=>!n.read).length}
+                </span>
+              )}
+            </button>
+          )}
           {/* Search */}
           {searchOpen ? (
             <div
