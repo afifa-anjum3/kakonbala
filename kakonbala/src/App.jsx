@@ -2157,15 +2157,28 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     return () => clearInterval(t);
   }, []);
 
-  // Load notifications for current user
+  // Load notifications
   useEffect(() => {
     if (!user) { setNotifications([]); return; }
-    const q = isAdmin
-      ? query(collection(db,"notifications"), where("target","in",["admin","all"]), orderBy("createdAt","desc"))
-      : query(collection(db,"notifications"), where("userId","==",user.uid), orderBy("createdAt","desc"));
-    const unsub = onSnapshot(q, snap => setNotifications(snap.docs.map(d=>({id:d.id,...d.data()}))));
+    const adminEmail = "afifa.anjum3@gmail.com";
+    const userIsAdmin = user.email === adminEmail;
+    // Simple query - no index needed
+    const q = collection(db, "notifications");
+    const unsub = onSnapshot(q,
+      snap => {
+        const all = snap.docs.map(d=>({id:d.id,...d.data()}))
+          .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+        const filtered = all.filter(n =>
+          n.target === "all" ||
+          (n.target === "admin" && userIsAdmin) ||
+          (n.userId === user.uid)
+        );
+        setNotifications(filtered.slice(0,30));
+      },
+      err => console.warn("Notif:", err.message)
+    );
     return unsub;
-  }, [user, isAdmin]);
+  }, [user]);
 
   useEffect(() => { try { localStorage.setItem("kk_tab", tab); } catch{} }, [tab]);
   useEffect(() => { try { localStorage.setItem("kk_cart", JSON.stringify(cart)); } catch{} }, [cart]);
@@ -6603,6 +6616,25 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                 </div>
               </div>
             )}
+
+                {/* Test Notification Button */}
+                <button onClick={async()=>{
+                  try{
+                    const ref = await addDoc(collection(db,"notifications"),{
+                      target:"admin", userId:"", type:"test",
+                      title:"🔔 Test Notification",
+                      message:"Notification system is working!",
+                      link:"", read:false, createdAt:serverTimestamp()
+                    });
+                    notify("✓ Test notification created! Check the bell icon.");
+                    console.log("Created notif:", ref.id);
+                  }catch(e){
+                    notify("❌ Failed: "+e.message);
+                    console.error("Notif error:", e);
+                  }
+                }} style={{ ...btn,marginBottom:8,background:"rgba(46,125,50,0.1)",color:"#2E7D32",border:"1.5px solid #2E7D32",boxShadow:"none",fontSize:12 }}>
+                  🔔 Test Notification System
+                </button>
 
                 {/* Announcement Manager Button */}
                 <button onClick={()=>{setEditAnnounce(announcementText);setShowAnnounceMgr(true);}}
