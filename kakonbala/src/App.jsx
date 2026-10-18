@@ -2157,12 +2157,12 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     return () => clearInterval(t);
   }, []);
 
-  // Load notifications
+  // Load notifications + auto-toast on new ones
+  const prevNotifCount = React.useRef(0);
   useEffect(() => {
     if (!user) { setNotifications([]); return; }
     const adminEmail = "afifa.anjum3@gmail.com";
     const userIsAdmin = user.email === adminEmail;
-    // Simple query - no index needed
     const q = collection(db, "notifications");
     const unsub = onSnapshot(q,
       snap => {
@@ -2174,6 +2174,13 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           (n.userId === user.uid)
         );
         setNotifications(filtered.slice(0,30));
+        // Auto-toast for new unread notifications
+        const newUnread = filtered.filter(n => !n.read);
+        if (prevNotifCount.current > 0 && newUnread.length > prevNotifCount.current) {
+          const newest = newUnread[0];
+          if (newest) notify("🔔 " + newest.title + ": " + newest.message);
+        }
+        prevNotifCount.current = newUnread.length;
       },
       err => console.warn("Notif:", err.message)
     );
