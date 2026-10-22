@@ -2036,6 +2036,7 @@ export default function App() {
   const [notifTarget, setNotifTarget] = useState("all");
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [notifToast, setNotifToast] = useState(null);
+  const [popupNotifs, setPopupNotifs] = useState([]); // customer "what's new" modal
   const notifToastTimer = React.useRef(null);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState(null); // {type:"cod"|"online", gateway?}
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -2179,19 +2180,34 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         );
         setNotifications(filtered.slice(0,30));
         console.log("[kakonbala] snapshot:", snap.size, "docs,", filtered.length, "for me, firstLoad =", isFirstLoad.current);
+        // IDs this customer already closed (remembered on this device)
+        let dismissed = new Set();
+        try { dismissed = new Set(JSON.parse(localStorage.getItem("kk_dismissed_" + user.uid)) || []); } catch (e) {}
+        const ts = (n) => (n.createdAt && n.createdAt.seconds) ? n.createdAt.seconds : Date.now() / 1000;
+
         if (isFirstLoad.current) {
-          // On first load, mark all as "seen" so we don't toast old ones
           filtered.forEach(n => seenNotifIds.current.add(n.id));
           isFirstLoad.current = false;
+          if (!userIsAdmin) {
+            // Customer opens the site / logs in: show anything recent they haven't closed yet
+            const cutoff = Date.now() / 1000 - 14 * 86400;
+            const pending = filtered.filter(n => !dismissed.has(n.id) && ts(n) >= cutoff).slice(0, 5);
+            console.log("[kakonbala] customer popup on load:", pending.length, "item(s)");
+            setPopupNotifs(pending);
+          }
         } else {
-          // Toast any genuinely new notifications
           filtered.forEach(n => {
-            if (!seenNotifIds.current.has(n.id)) {
-              seenNotifIds.current.add(n.id);
-              console.log("[kakonbala] NEW notification -> popup:", n.title);
+            if (seenNotifIds.current.has(n.id)) return;
+            seenNotifIds.current.add(n.id);
+            console.log("[kakonbala] NEW notification:", n.title);
+            if (userIsAdmin) {
+              // Admin: small popup for new order alerts
               setNotifToast({ title: n.title, message: n.message, link: n.link });
               clearTimeout(notifToastTimer.current);
               notifToastTimer.current = setTimeout(() => setNotifToast(null), 7000);
+            } else if (!dismissed.has(n.id)) {
+              // Customer: stays on screen until they close it
+              setPopupNotifs(prev => prev.some(p => p.id === n.id) ? prev : [n, ...prev]);
             }
           });
         }
@@ -2365,6 +2381,16 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         return (a.name || "").localeCompare(b.name || "");
       return 0;
     });
+
+  function closePopupNotifs() {
+    try {
+      const key = "kk_dismissed_" + (user ? user.uid : "guest");
+      const old = JSON.parse(localStorage.getItem(key)) || [];
+      const merged = Array.from(new Set([...old, ...popupNotifs.map(n => n.id)])).slice(-200);
+      localStorage.setItem(key, JSON.stringify(merged));
+    } catch (e) {}
+    setPopupNotifs([]);
+  }
 
   function notify(msg) {
     setNotif(msg);
@@ -3990,6 +4016,46 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         >
           {notif}
         </div>
+      )}
+
+      {/* 🔔 CUSTOMER "WHAT'S NEW" MODAL - stays until closed with the cross */}
+      {popupNotifs.length > 0 && user && !isAdmin && (
+        <>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(45,10,63,0.65)", zIndex: 450, backdropFilter: "blur(4px)" }} />
+          <div style={{
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+            width: "min(460px, 94vw)", maxHeight: "85vh", overflowY: "auto",
+            background: "#FFF", borderRadius: 22, zIndex: 451,
+            boxShadow: "0 24px 80px rgba(173,20,87,0.4)",
+          }}>
+            <div style={{
+              background: GRAD, padding: "18px 22px", display: "flex",
+              justifyContent: "space-between", alignItems: "center",
+              borderRadius: "22px 22px 0 0", position: "sticky", top: 0,
+            }}>
+              <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>🔔 What's new for you</div>
+              <button onClick={closePopupNotifs} aria-label="Close"
+                style={{ background: "rgba(255,255,255,0.25)", border: "none", color: "#FFF", width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 18, fontWeight: 700 }}>✕</button>
+            </div>
+            <div style={{ padding: 18 }}>
+              {popupNotifs.map(n => (
+                <div key={n.id} style={{
+                  padding: "14px 16px", marginBottom: 12, borderRadius: 14,
+                  background: "rgba(255,248,255,0.9)", border: "1px solid rgba(173,20,87,0.12)",
+                  borderLeft: `5px solid ${n.type === "order_update" ? "#1565C0" : PRIMARY}`,
+                }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: DARK, marginBottom: 4 }}>
+                    {n.type === "order_update" ? "📦 " : "🎟 "}{n.title}
+                  </div>
+                  <div style={{ fontSize: 13, color: MED, lineHeight: 1.6 }}>{n.message}</div>
+                  <div style={{ fontSize: 10, color: LIGHT, marginTop: 6 }}>
+                    {n.createdAt && n.createdAt.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleString("en-BD") : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {/* 🔔 NOTIFICATION POPUP */}
