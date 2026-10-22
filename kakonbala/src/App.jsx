@@ -2035,6 +2035,8 @@ export default function App() {
   const [notifMsg, setNotifMsg] = useState("");
   const [notifTarget, setNotifTarget] = useState("all");
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [notifToast, setNotifToast] = useState(null);
+  const notifToastTimer = React.useRef(null);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState(null); // {type:"cod"|"online", gateway?}
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewFilter, setReviewFilter] = useState("pending");
@@ -2165,6 +2167,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     const adminEmail = "afifa.anjum3@gmail.com";
     const userIsAdmin = user.email === adminEmail;
     const q = collection(db, "notifications");
+    console.log("[kakonbala] notification listener v3 started for", user.email);
     const unsub = onSnapshot(q,
       snap => {
         const all = snap.docs.map(d=>({id:d.id,...d.data()}))
@@ -2175,6 +2178,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           (n.userId === user.uid)
         );
         setNotifications(filtered.slice(0,30));
+        console.log("[kakonbala] snapshot:", snap.size, "docs,", filtered.length, "for me, firstLoad =", isFirstLoad.current);
         if (isFirstLoad.current) {
           // On first load, mark all as "seen" so we don't toast old ones
           filtered.forEach(n => seenNotifIds.current.add(n.id));
@@ -2184,12 +2188,15 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           filtered.forEach(n => {
             if (!seenNotifIds.current.has(n.id)) {
               seenNotifIds.current.add(n.id);
-              notify("🔔 " + n.title + " — " + n.message);
+              console.log("[kakonbala] NEW notification -> popup:", n.title);
+              setNotifToast({ title: n.title, message: n.message, link: n.link });
+              clearTimeout(notifToastTimer.current);
+              notifToastTimer.current = setTimeout(() => setNotifToast(null), 7000);
             }
           });
         }
       },
-      err => console.warn("Notif:", err.message)
+      err => console.error("[kakonbala] notification listener ERROR:", err.code, err.message)
     );
     return unsub;
   }, [user]);
@@ -3982,6 +3989,26 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           }}
         >
           {notif}
+        </div>
+      )}
+
+      {/* 🔔 NOTIFICATION POPUP */}
+      {notifToast && (
+        <div
+          onClick={() => { setShowNotifPanel(true); setNotifToast(null); }}
+          style={{
+            position: "fixed", top: 80, right: 16, width: "min(340px, calc(100vw - 32px))",
+            background: "#FFF", borderRadius: 14, zIndex: 350, cursor: "pointer",
+            padding: "14px 16px", borderLeft: `5px solid ${PRIMARY}`,
+            boxShadow: "0 8px 32px rgba(173,20,87,0.35)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: DARK }}>🔔 {notifToast.title}</div>
+            <button onClick={(e) => { e.stopPropagation(); setNotifToast(null); }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: MED, fontSize: 14 }}>✕</button>
+          </div>
+          <div style={{ fontSize: 12, color: MED, marginTop: 4, lineHeight: 1.5 }}>{notifToast.message}</div>
         </div>
       )}
 
