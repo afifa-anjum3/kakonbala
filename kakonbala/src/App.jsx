@@ -15,6 +15,7 @@ import {
   writeBatch,
   setDoc,
   getDoc,
+  arrayUnion,
 } from "firebase/firestore";
 import { db, auth } from "./firebase.js";
 import {
@@ -2037,6 +2038,9 @@ export default function App() {
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [notifToast, setNotifToast] = useState(null);
   const [popupNotifs, setPopupNotifs] = useState([]); // customer "what's new" modal
+  const [readIds, setReadIds] = useState(new Set()); // notifications THIS person has read
+  const readIdsRef = React.useRef(new Set());
+  const [panelNewIds, setPanelNewIds] = useState(new Set()); // highlighted while the bell panel is open
   const notifToastTimer = React.useRef(null);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState(null); // {type:"cod"|"online", gateway?}
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -2087,7 +2091,8 @@ export default function App() {
             const snap = await getDoc(doc(db, "customers", u.uid));
             if (snap.exists()) {
               const d = snap.data();
-              setProfileData(d);
+              const { readNotifIds: _skip, ...profileOnly } = d;
+              setProfileData(profileOnly);
               setCustomer((c) => ({
                 ...c,
                 name: d.name || c.name,
@@ -2164,12 +2169,22 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   const seenNotifIds = React.useRef(new Set());
   const isFirstLoad = React.useRef(true);
   useEffect(() => {
-    if (!user) { setNotifications([]); seenNotifIds.current = new Set(); isFirstLoad.current = true; return; }
+    if (!user) { setNotifications([]); seenNotifIds.current = new Set(); isFirstLoad.current = true; readIdsRef.current = new Set(); setReadIds(new Set()); return; }
     const adminEmail = "afifa.anjum3@gmail.com";
     const userIsAdmin = user.email === adminEmail;
+    let unsub = () => {};
+    let cancelled = false;
+    (async () => {
+    // Which notifications has THIS person already read? (stored on their own account)
+    try {
+      const mine = await getDoc(doc(db, "customers", user.uid));
+      const ids = new Set((mine.exists() && mine.data().readNotifIds) || []);
+      readIdsRef.current = ids; setReadIds(ids);
+    } catch (e) { console.warn("[kakonbala] could not load read state:", e.message); }
+    if (cancelled) return;
     const q = collection(db, "notifications");
-    console.log("[kakonbala] notification listener v3 started for", user.email);
-    const unsub = onSnapshot(q,
+    console.log("[kakonbala] notification listener v4 (per-customer read) started for", user.email);
+    unsub = onSnapshot(q,
       snap => {
         const all = snap.docs.map(d=>({id:d.id,...d.data()}))
           .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
@@ -2191,7 +2206,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           if (!userIsAdmin) {
             // Customer opens the site / logs in: show anything recent they haven't closed yet
             const cutoff = Date.now() / 1000 - 14 * 86400;
-            const pending = filtered.filter(n => !dismissed.has(n.id) && ts(n) >= cutoff).slice(0, 5);
+            const pending = filtered.filter(n => !dismissed.has(n.id) && n.read !== true && !readIdsRef.current.has(n.id) && ts(n) >= cutoff).slice(0, 5);
             console.log("[kakonbala] customer popup on load:", pending.length, "item(s)");
             setPopupNotifs(pending);
           }
@@ -2205,7 +2220,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               setNotifToast({ title: n.title, message: n.message, link: n.link });
               clearTimeout(notifToastTimer.current);
               notifToastTimer.current = setTimeout(() => setNotifToast(null), 7000);
-            } else if (!dismissed.has(n.id)) {
+            } else if (!dismissed.has(n.id) && !readIdsRef.current.has(n.id)) {
               // Customer: stays on screen until they close it
               setPopupNotifs(prev => prev.some(p => p.id === n.id) ? prev : [n, ...prev]);
             }
@@ -2214,7 +2229,8 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       },
       err => console.error("[kakonbala] notification listener ERROR:", err.code, err.message)
     );
-    return unsub;
+    })();
+    return () => { cancelled = true; unsub(); };
   }, [user]);
 
   useEffect(() => { try { localStorage.setItem("kk_tab", tab); } catch{} }, [tab]);
@@ -2320,9 +2336,21 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     } catch(e) { console.warn("Notif:", e.message); }
   };
 
-  const markAllRead = async () => {
-    const unread = notifications.filter(n => !n.read);
-    await Promise.all(unread.map(n => updateDoc(doc(db,"notifications",n.id),{read:true})));
+  // Unread = this person has not read it. (Old docs already marked read:true stay read.)
+  const isUnread = (n) => n.read !== true && !readIds.has(n.id);
+  const markIdsRead = async (ids) => {
+    if (!user || !ids.length) return;
+    const next = new Set(readIdsRef.current); ids.forEach(id => next.add(id));
+    readIdsRef.current = next; setReadIds(next);            // update the screen instantly
+    try {
+      await setDoc(doc(db, "customers", user.uid), { readNotifIds: arrayUnion(...ids) }, { merge: true });
+    } catch (e) { console.warn("[kakonbala] could not save read state:", e.message); }
+  };
+  const markAllRead = () => markIdsRead(notifications.filter(isUnread).map(n => n.id));
+  const openNotifPanel = () => {
+    setPanelNewIds(new Set(notifications.filter(isUnread).map(n => n.id)));
+    markAllRead();
+    setShowNotifPanel(true);
   };
   const getProductRating = (productId) => {
     const reviews = publishedReviews.filter(r => r.productId === productId);
@@ -2389,6 +2417,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       const merged = Array.from(new Set([...old, ...popupNotifs.map(n => n.id)])).slice(-200);
       localStorage.setItem(key, JSON.stringify(merged));
     } catch (e) {}
+    markIdsRead(popupNotifs.map(n => n.id));
     setPopupNotifs([]);
   }
 
@@ -3779,12 +3808,12 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {/* 🔔 Notification Bell */}
           {user && (
-            <button onClick={()=>{setShowNotifPanel(p=>!p);if(!showNotifPanel)markAllRead();}}
+            <button onClick={()=>{ if (showNotifPanel) setShowNotifPanel(false); else openNotifPanel(); }}
               style={{ position:"relative",background:"none",border:"none",cursor:"pointer",fontSize:20,padding:"4px 6px",display:"flex",alignItems:"center" }}>
               🔔
-              {notifications.filter(n=>!n.read).length>0&&(
+              {notifications.filter(isUnread).length>0&&(
                 <span style={{ position:"absolute",top:-2,right:-2,background:DANGER,color:"#FFF",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                  {notifications.filter(n=>!n.read).length>9?"9+":notifications.filter(n=>!n.read).length}
+                  {notifications.filter(isUnread).length>9?"9+":notifications.filter(isUnread).length}
                 </span>
               )}
             </button>
@@ -4061,7 +4090,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       {/* 🔔 NOTIFICATION POPUP */}
       {notifToast && (
         <div
-          onClick={() => { setShowNotifPanel(true); setNotifToast(null); }}
+          onClick={() => { openNotifPanel(); setNotifToast(null); }}
           style={{
             position: "fixed", top: 80, right: 16, width: "min(340px, calc(100vw - 32px))",
             background: "#FFF", borderRadius: 14, zIndex: 350, cursor: "pointer",
@@ -11267,13 +11296,13 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               :notifications.slice(0,20).map(n=>(
                 <div key={n.id} onClick={()=>{if(n.link==="orders")setTab("orders");if(n.link==="profile")setShowProfile(true);setShowNotifPanel(false);}}
                   style={{ padding:"12px 16px",borderBottom:"1px solid rgba(173,20,87,0.06)",cursor:"pointer",
-                    background:n.read?"transparent":"rgba(173,20,87,0.04)",
+                    background:panelNewIds.has(n.id)?"rgba(173,20,87,0.04)":"transparent",
                     transition:"background 0.15s" }}
                   onMouseEnter={e=>e.currentTarget.style.background="rgba(173,20,87,0.06)"}
-                  onMouseLeave={e=>e.currentTarget.style.background=n.read?"transparent":"rgba(173,20,87,0.04)"}>
+                  onMouseLeave={e=>e.currentTarget.style.background=panelNewIds.has(n.id)?"rgba(173,20,87,0.04)":"transparent"}>
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
-                    <div style={{ fontWeight:n.read?500:700,fontSize:13,color:DARK,marginBottom:3 }}>{n.title}</div>
-                    {!n.read&&<div style={{ width:8,height:8,borderRadius:"50%",background:PRIMARY,flexShrink:0,marginTop:4 }}/>}
+                    <div style={{ fontWeight:panelNewIds.has(n.id)?700:500,fontSize:13,color:DARK,marginBottom:3 }}>{n.title}</div>
+                    {panelNewIds.has(n.id)&&<div style={{ width:8,height:8,borderRadius:"50%",background:PRIMARY,flexShrink:0,marginTop:4 }}/>}
                   </div>
                   <div style={{ fontSize:12,color:MED,lineHeight:1.5 }}>{n.message}</div>
                   <div style={{ fontSize:10,color:LIGHT,marginTop:4 }}>{n.createdAt?.seconds?new Date(n.createdAt.seconds*1000).toLocaleString("en-BD"):""}</div>
