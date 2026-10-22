@@ -2158,9 +2158,10 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   }, []);
 
   // Load notifications + auto-toast on new ones
-  const prevNotifCount = React.useRef(0);
+  const seenNotifIds = React.useRef(new Set());
+  const isFirstLoad = React.useRef(true);
   useEffect(() => {
-    if (!user) { setNotifications([]); return; }
+    if (!user) { setNotifications([]); seenNotifIds.current = new Set(); isFirstLoad.current = true; return; }
     const adminEmail = "afifa.anjum3@gmail.com";
     const userIsAdmin = user.email === adminEmail;
     const q = collection(db, "notifications");
@@ -2174,13 +2175,19 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           (n.userId === user.uid)
         );
         setNotifications(filtered.slice(0,30));
-        // Auto-toast for new unread notifications
-        const newUnread = filtered.filter(n => !n.read);
-        if (prevNotifCount.current > 0 && newUnread.length > prevNotifCount.current) {
-          const newest = newUnread[0];
-          if (newest) notify("🔔 " + newest.title + ": " + newest.message);
+        if (isFirstLoad.current) {
+          // On first load, mark all as "seen" so we don't toast old ones
+          filtered.forEach(n => seenNotifIds.current.add(n.id));
+          isFirstLoad.current = false;
+        } else {
+          // Toast any genuinely new notifications
+          filtered.forEach(n => {
+            if (!seenNotifIds.current.has(n.id)) {
+              seenNotifIds.current.add(n.id);
+              notify("🔔 " + n.title + " — " + n.message);
+            }
+          });
         }
-        prevNotifCount.current = newUnread.length;
       },
       err => console.warn("Notif:", err.message)
     );
@@ -2792,7 +2799,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {}
       sendOrderEmail("cod",{email:customer.email,name:customer.name,total,items:(cart.map(i=>i.product.name+"×"+i.qty).join(", ")),paymentMethod:"Cash on Delivery"});
-      createNotification("admin","","order","🛒 New Order!","COD order from "+customer.name+" — ৳"+total,"orders");
+      await createNotification("admin","","order","🛒 New Order!","COD order from "+customer.name+" — ৳"+total,"orders");
       setOrderSuccessMsg({type:"cod"});
       return;
     }
@@ -2836,6 +2843,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       setCheckoutModal(false);
       setPromoApplied(null);
       setPromoCode("");
+      const usedTxId = transactionId.trim();
       setTransactionId("");
       // Refresh customer orders
       try {
@@ -2846,11 +2854,9 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         const ordSnap = await getDocs(ordQ);
         setMyOrders(ordSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {}
-      notify(
-        "✓ Order placed! We will confirm after verifying your " +
-          selectedGateway +
-          " payment.",
-      );
+      sendOrderEmail("online",{email:customer.email,name:customer.name,total,items:(cart.map(i=>i.product.name+"×"+i.qty).join(", ")),paymentMethod:selectedGateway,gateway:selectedGateway});
+      await createNotification("admin","","order","📱 New Online Order!","Payment via "+selectedGateway+" from "+customer.name+" — ৳"+total+" (TX: "+usedTxId+")","orders");
+      setOrderSuccessMsg({type:"online", gateway:selectedGateway});
     } catch (e) {
       notify("⚠ " + e.message);
     }
