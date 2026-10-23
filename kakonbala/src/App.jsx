@@ -16,6 +16,7 @@ import {
   setDoc,
   getDoc,
   arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 import { db, auth } from "./firebase.js";
 import {
@@ -1948,6 +1949,158 @@ function ColorImageMapper({ colors, colorImages, onChange }) {
 }
 
 /* ── Main App ───────────────────────────────────────────────────── */
+
+/* ── Promotion popup: themes, helpers and the card customers (and the admin preview) see ── */
+const PROMO_THEMES = {
+  pink:  { label: "Rose",        a: "#AD1457", b: "#6A1B9A" },
+  gold:  { label: "Gold",        a: "#F9A825", b: "#E65100" },
+  green: { label: "Emerald",     a: "#2E7D32", b: "#00695C" },
+  red:   { label: "Festive Red", a: "#D32F2F", b: "#8E0000" },
+  blue:  { label: "Royal Blue",  a: "#1565C0", b: "#283593" },
+  dark:  { label: "Midnight",    a: "#2D0A3F", b: "#4A148C" },
+};
+const PROMO_TARGETS = [
+  { value: "shop",        label: "All products" },
+  { value: "jewelry",     label: "Jewelry" },
+  { value: "crafts",      label: "Crafts" },
+  { value: "clothing",    label: "Clothing" },
+  { value: "collections", label: "Collections" },
+  { value: "none",        label: "No button" },
+];
+const EMPTY_PROMO_DRAFT = {
+  title: "", message: "", image: "", tag: "", code: "",
+  ctaLabel: "Shop Now", ctaTarget: "shop", color: "pink", terms: "",
+};
+
+function promoCodeLabel(p) {
+  if (!p) return "";
+  return p.type === "percentage" ? p.value + "% OFF" : "৳" + p.value + " OFF";
+}
+function promoIsLive(p) {
+  return !!p && p.active !== false && !(p.expiresAt && p.expiresAt < Date.now());
+}
+function formatCountdown(ms) {
+  if (ms <= 0) return null;
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const pad = (x) => String(x).padStart(2, "0");
+  return (d > 0 ? d + "d " : "") + pad(h) + ":" + pad(m) + ":" + pad(sec);
+}
+
+function PromoCard({ title, message, promo, codeInfo, inWallet, onSave, onCta, preview }) {
+  const theme = PROMO_THEMES[promo.color] || PROMO_THEMES.pink;
+  const grad = "linear-gradient(135deg, " + theme.a + ", " + theme.b + ")";
+  const [imgOk, setImgOk] = useState(true);
+  useEffect(() => { setImgOk(true); }, [promo.image]);
+
+  const expiresAt = codeInfo && codeInfo.expiresAt ? codeInfo.expiresAt : null;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!expiresAt) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+
+  const expired = !!(expiresAt && expiresAt <= now);
+  const unavailable = !!promo.code && (!codeInfo || codeInfo.active === false || expired);
+  const countdown = expiresAt && !expired ? formatCountdown(expiresAt - now) : null;
+  const hasImage = !!promo.image && imgOk;
+
+  return (
+    <div style={{
+      borderRadius: 18, overflow: "hidden", background: "#FFF", marginBottom: 14,
+      border: "1px solid rgba(173,20,87,0.12)", boxShadow: "0 8px 28px rgba(45,10,63,0.12)",
+    }}>
+      {/* Hero: promotion image + discount tag */}
+      <div style={{ position: "relative", height: hasImage ? 190 : 140, background: grad, overflow: "hidden" }}>
+        {hasImage && (
+          <img src={promo.image} alt="" onError={() => setImgOk(false)}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        )}
+        {hasImage && (
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.35), transparent 55%)" }} />
+        )}
+        {promo.tag && hasImage && (
+          <div style={{
+            position: "absolute", top: 14, left: 14, background: grad, color: "#FFF",
+            fontWeight: 900, fontSize: 16, padding: "7px 14px", borderRadius: 10,
+            letterSpacing: 0.5, transform: "rotate(-3deg)", boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+          }}>{promo.tag}</div>
+        )}
+        {!hasImage && (
+          <div style={{
+            position: "absolute", inset: 0, display: "flex", alignItems: "center",
+            justifyContent: "center", color: "#FFF", textAlign: "center", padding: 12,
+          }}>
+            <div style={{ fontSize: promo.tag ? 42 : 56, fontWeight: 900, textShadow: "0 3px 14px rgba(0,0,0,0.3)", lineHeight: 1.1 }}>
+              {promo.tag || "🎁"}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding: "16px 18px 18px" }}>
+        <div style={{ fontSize: 19, fontWeight: 900, color: DARK, lineHeight: 1.25 }}>{title}</div>
+        {message ? (
+          <div style={{ fontSize: 13, color: MED, lineHeight: 1.65, marginTop: 6, whiteSpace: "pre-line" }}>{message}</div>
+        ) : null}
+
+        {/* Promo code "coupon" - tapping it saves the code to the customer's wallet */}
+        {promo.code ? (
+          <button type="button" disabled={unavailable || preview}
+            onClick={() => { if (!preview && onSave) onSave(); }}
+            style={{
+              width: "100%", marginTop: 14, display: "flex", alignItems: "center",
+              justifyContent: "space-between", gap: 10, padding: "11px 14px", borderRadius: 12,
+              textAlign: "left", fontFamily: "inherit",
+              border: "2px dashed " + (unavailable ? "#BDBDBD" : inWallet ? SUCCESS : theme.a),
+              background: unavailable ? "#F5F5F5" : inWallet ? "rgba(46,125,50,0.07)" : theme.a + "12",
+              cursor: unavailable || preview ? "default" : "pointer",
+            }}>
+            <div>
+              <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 1.5, color: unavailable ? "#9E9E9E" : theme.a }}>✂ PROMO CODE</div>
+              <div style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 900, letterSpacing: 3, color: unavailable ? "#9E9E9E" : DARK }}>{promo.code}</div>
+            </div>
+            <div style={{
+              fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 20, color: "#FFF", whiteSpace: "nowrap",
+              background: unavailable ? "#9E9E9E" : inWallet ? SUCCESS : grad,
+            }}>
+              {unavailable ? "Offer ended" : inWallet ? "✓ In wallet" : "Tap to save"}
+            </div>
+          </button>
+        ) : null}
+
+        {promo.code && codeInfo ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", marginTop: 8, fontSize: 11, color: MED }}>
+            <span>🛒 {codeInfo.minOrder ? "Min order ৳" + codeInfo.minOrder : "No minimum order"}</span>
+            {expiresAt ? (
+              <span>📅 Valid until {new Date(expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+            ) : null}
+          </div>
+        ) : null}
+        {countdown ? (
+          <div style={{ marginTop: 8, fontSize: 12, fontWeight: 800, color: theme.a }}>⏳ Ends in {countdown}</div>
+        ) : null}
+
+        {promo.ctaTarget && promo.ctaTarget !== "none" ? (
+          <button type="button" onClick={() => { if (!preview && onCta) onCta(promo.ctaTarget); }}
+            style={{
+              width: "100%", marginTop: 14, padding: "13px", border: "none", borderRadius: 12,
+              background: grad, color: "#FFF", fontWeight: 800, fontSize: 15, fontFamily: "inherit",
+              cursor: preview ? "default" : "pointer", boxShadow: "0 6px 18px " + theme.a + "55",
+            }}>
+            {promo.ctaLabel || "Shop Now"} →
+          </button>
+        ) : null}
+        {promo.terms ? (
+          <div style={{ marginTop: 10, fontSize: 10, color: LIGHT, lineHeight: 1.5 }}>{promo.terms}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [lang, setLang] = useState("bn");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -2055,12 +2208,19 @@ export default function App() {
   const [allReviews, setAllReviews] = useState([]); // admin
   const [publishedReviews, setPublishedReviews] = useState([]); // all published
   const [promoCodes, setPromoCodes] = useState([]);
+  const promoCodesRef = React.useRef([]);
+  promoCodesRef.current = promoCodes;
+  const [wallet, setWallet] = useState([]); // promo codes this customer saved
+  const [showPromoComposer, setShowPromoComposer] = useState(false);
+  const [promoDraft, setPromoDraft] = useState(EMPTY_PROMO_DRAFT);
+  const [sendingPromo, setSendingPromo] = useState(false);
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
     code: "",
     type: "percentage",
     value: "",
     minOrder: "",
+    expiresAt: "",
     active: true,
   });
 
@@ -2091,7 +2251,7 @@ export default function App() {
             const snap = await getDoc(doc(db, "customers", u.uid));
             if (snap.exists()) {
               const d = snap.data();
-              const { readNotifIds: _skip, ...profileOnly } = d;
+              const { readNotifIds: _skip, walletPromos: _skip2, ...profileOnly } = d;
               setProfileData(profileOnly);
               setCustomer((c) => ({
                 ...c,
@@ -2199,6 +2359,11 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         let dismissed = new Set();
         try { dismissed = new Set(JSON.parse(localStorage.getItem("kk_dismissed_" + user.uid)) || []); } catch (e) {}
         const ts = (n) => (n.createdAt && n.createdAt.seconds) ? n.createdAt.seconds : Date.now() / 1000;
+        const isDeadPromo = (n) => {
+          if (n.type !== "promo" || !n.promo || !n.promo.code) return false;
+          const p = promoCodesRef.current.find(x => x.code === n.promo.code);
+          return !!p && !promoIsLive(p);
+        };
 
         if (isFirstLoad.current) {
           filtered.forEach(n => seenNotifIds.current.add(n.id));
@@ -2206,7 +2371,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           if (!userIsAdmin) {
             // Customer opens the site / logs in: show anything recent they haven't closed yet
             const cutoff = Date.now() / 1000 - 14 * 86400;
-            const pending = filtered.filter(n => !dismissed.has(n.id) && n.read !== true && !readIdsRef.current.has(n.id) && ts(n) >= cutoff).slice(0, 5);
+            const pending = filtered.filter(n => !dismissed.has(n.id) && n.read !== true && !readIdsRef.current.has(n.id) && ts(n) >= cutoff && !isDeadPromo(n)).slice(0, 5);
             console.log("[kakonbala] customer popup on load:", pending.length, "item(s)");
             setPopupNotifs(pending);
           }
@@ -2220,7 +2385,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               setNotifToast({ title: n.title, message: n.message, link: n.link });
               clearTimeout(notifToastTimer.current);
               notifToastTimer.current = setTimeout(() => setNotifToast(null), 7000);
-            } else if (!dismissed.has(n.id) && !readIdsRef.current.has(n.id)) {
+            } else if (!dismissed.has(n.id) && !readIdsRef.current.has(n.id) && !isDeadPromo(n)) {
               // Customer: stays on screen until they close it
               setPopupNotifs(prev => prev.some(p => p.id === n.id) ? prev : [n, ...prev]);
             }
@@ -2231,6 +2396,17 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     );
     })();
     return () => { cancelled = true; unsub(); };
+  }, [user]);
+
+  // Saved promos ("wallet") live on this person's own account record
+  useEffect(() => {
+    if (!user) { setWallet([]); return; }
+    const unsub = onSnapshot(
+      doc(db, "customers", user.uid),
+      (s) => setWallet(s.exists() ? (s.data().walletPromos || []) : []),
+      (e) => console.warn("[kakonbala] wallet:", e.message)
+    );
+    return unsub;
   }, [user]);
 
   useEffect(() => { try { localStorage.setItem("kk_tab", tab); } catch{} }, [tab]);
@@ -2327,13 +2503,15 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     } catch(e) { console.warn("Email send failed:", e.message); }
   };
 
-  const createNotification = async (target, userId, type, title, message, link="") => {
+  const createNotification = async (target, userId, type, title, message, link="", promo=null) => {
     try {
       await addDoc(collection(db,"notifications"), {
         target, userId: userId||"", type, title, message, link,
+        ...(promo ? { promo } : {}),
         read: false, createdAt: serverTimestamp()
       });
-    } catch(e) { console.warn("Notif:", e.message); }
+      return true;
+    } catch(e) { console.warn("Notif:", e.message); return false; }
   };
 
   // Unread = this person has not read it. (Old docs already marked read:true stay read.)
@@ -2626,14 +2804,97 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     return Math.max(0, cartTotal + (deliveryCharge()||0) - disc);
   }
 
-  async function applyPromo() {
-    const code = promoCode.trim().toUpperCase();
+  /* ── Wallet: saved promos ── */
+  const walletAll = wallet.map((code) => {
+    const p = promoCodes.find((x) => (x.code || "").toUpperCase() === code.toUpperCase());
+    if (!p) return null; // code was deleted
+    let state = "ok";
+    let note = p.minOrder ? "Min order ৳" + p.minOrder : "No minimum order";
+    if (p.active === false) { state = "inactive"; note = "No longer available"; }
+    else if (p.expiresAt && p.expiresAt < Date.now()) { state = "expired"; note = "Expired"; }
+    else if (p.minOrder && cartTotal < Number(p.minOrder)) {
+      state = "min";
+      note = "Add ৳" + (Number(p.minOrder) - cartTotal) + " more to use this (min ৳" + p.minOrder + ")";
+    }
+    return { code: p.code, label: promoCodeLabel(p), state, note, expiresAt: p.expiresAt || null };
+  }).filter(Boolean);
+  const walletOffers = walletAll.filter((w) => w.state === "ok" || w.state === "min");
+
+  async function saveToWallet(code) {
+    if (!user) { notify("⚠ Please log in to save promos"); return false; }
+    const cc = (code || "").toUpperCase();
+    const p = promoCodes.find((x) => (x.code || "").toUpperCase() === cc);
+    if (!promoIsLive(p)) { notify("⚠ This offer is no longer available"); return false; }
+    if (wallet.includes(cc)) { notify("✓ Already in your wallet — use it at checkout"); return true; }
+    setWallet((prev) => [...prev, cc]); // show it instantly
+    try {
+      await setDoc(doc(db, "customers", user.uid), { walletPromos: arrayUnion(cc) }, { merge: true });
+      notify("✓ " + cc + " saved to your wallet! Use it at checkout 🎟");
+      return true;
+    } catch (e) {
+      setWallet((prev) => prev.filter((x) => x !== cc));
+      notify("⚠ Could not save: " + e.message);
+      return false;
+    }
+  }
+
+  async function removeFromWallet(code) {
+    if (!user) return;
+    setWallet((prev) => prev.filter((x) => x !== code));
+    try {
+      await setDoc(doc(db, "customers", user.uid), { walletPromos: arrayRemove(code) }, { merge: true });
+    } catch (e) { notify("⚠ " + e.message); }
+  }
+
+  function goPromoTarget(target) {
+    if (target === "collections") { setTab("collections"); return; }
+    setSubFilter("all");
+    setCatFilter(["jewelry", "crafts", "clothing"].includes(target) ? target : "all");
+    if (target === "clothing") setClothingGroup("all");
+    setTab("shop");
+  }
+
+  async function sendPromoPopup() {
+    const d = promoDraft;
+    if (!d.title.trim()) { notify("⚠ Add a headline"); return; }
+    if (d.image.trim() && !/^https?:\/\//i.test(d.image.trim())) {
+      notify("⚠ Image link must start with https://"); return;
+    }
+    if (d.code && !promoIsLive(promoCodes.find((x) => x.code === d.code))) {
+      notify("⚠ That promo code is not active any more"); return;
+    }
+    setSendingPromo(true);
+    const extra = {
+      image: d.image.trim(), tag: d.tag.trim(), code: d.code,
+      ctaLabel: d.ctaLabel.trim() || "Shop Now", ctaTarget: d.ctaTarget,
+      color: d.color, terms: d.terms.trim(),
+    };
+    const ok = await createNotification(
+      "all", "", "promo", d.title.trim(),
+      d.message.trim() || d.tag.trim() || "Tap to view this offer", "", extra
+    );
+    setSendingPromo(false);
+    if (ok) {
+      notify("✓ Promotion sent to all customers!");
+      setShowPromoComposer(false);
+      setPromoDraft(EMPTY_PROMO_DRAFT);
+    } else {
+      notify("⚠ Could not send. Check the Firestore rules for notifications.");
+    }
+  }
+
+  async function applyPromo(codeArg) {
+    const code = (typeof codeArg === "string" ? codeArg : promoCode).trim().toUpperCase();
     if (!code) return;
     const promo = promoCodes.find(
       (p) => p.code?.toUpperCase() === code && p.active,
     );
     if (!promo) {
       notify("⚠ Invalid or expired promo code");
+      return;
+    }
+    if (promo.expiresAt && promo.expiresAt < Date.now()) {
+      notify("⚠ This promo code has expired");
       return;
     }
     if (promo.minOrder && cartTotal < Number(promo.minOrder)) {
@@ -2663,6 +2924,9 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       type: newPromo.type,
       value: Number(newPromo.value),
       minOrder: Number(newPromo.minOrder) || 0,
+      expiresAt: newPromo.expiresAt
+        ? new Date(newPromo.expiresAt + "T23:59:59").getTime()
+        : null,
       active: true,
     });
     setNewPromo({
@@ -2670,6 +2934,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       type: "percentage",
       value: "",
       minOrder: "",
+      expiresAt: "",
       active: true,
     });
     notify("✓ Promo code created!");
@@ -4037,7 +4302,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
             color: "#FFF",
             padding: "12px 22px",
             borderRadius: 12,
-            zIndex: 300,
+            zIndex: 600,
             fontSize: 13,
             fontWeight: 600,
             boxShadow: "0 4px 20px rgba(173,20,87,0.4)",
@@ -4062,12 +4327,28 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               justifyContent: "space-between", alignItems: "center",
               borderRadius: "22px 22px 0 0", position: "sticky", top: 0,
             }}>
-              <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>🔔 What's new for you</div>
+              <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>
+                {popupNotifs.every(n => n.type === "promo" && n.promo)
+                  ? (popupNotifs.length > 1 ? "🎁 Special offers for you" : "🎁 Special offer for you")
+                  : "🔔 What's new for you"}
+              </div>
               <button onClick={closePopupNotifs} aria-label="Close"
                 style={{ background: "rgba(255,255,255,0.25)", border: "none", color: "#FFF", width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 18, fontWeight: 700 }}>✕</button>
             </div>
             <div style={{ padding: 18 }}>
               {popupNotifs.map(n => (
+                n.type === "promo" && n.promo ? (
+                  <PromoCard
+                    key={n.id}
+                    title={n.title}
+                    message={n.message}
+                    promo={n.promo}
+                    codeInfo={promoCodes.find(p => p.code === n.promo.code) || null}
+                    inWallet={wallet.includes((n.promo.code || "").toUpperCase())}
+                    onSave={() => saveToWallet(n.promo.code)}
+                    onCta={(target) => { closePopupNotifs(); goPromoTarget(target); }}
+                  />
+                ) : (
                 <div key={n.id} style={{
                   padding: "14px 16px", marginBottom: 12, borderRadius: 14,
                   background: "rgba(255,248,255,0.9)", border: "1px solid rgba(173,20,87,0.12)",
@@ -4081,6 +4362,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     {n.createdAt && n.createdAt.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleString("en-BD") : ""}
                   </div>
                 </div>
+                )
               ))}
             </div>
           </div>
@@ -6771,6 +7053,12 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   🔔 Test Notification System
                 </button>
 
+                {/* Promo popup composer */}
+                <button onClick={()=>setShowPromoComposer(true)}
+                  style={{ ...btn,marginBottom:12,marginRight:8 }}>
+                  🎁 Create Promo Popup
+                </button>
+
                 {/* Announcement Manager Button */}
                 <button onClick={()=>{setEditAnnounce(announcementText);setShowAnnounceMgr(true);}}
                   style={{ ...btn,marginBottom:12,background:"rgba(173,20,87,0.08)",color:PRIMARY,border:`1.5px solid ${PRIMARY}`,boxShadow:"none" }}>
@@ -6918,6 +7206,17 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         }
                       />
                     </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: MED, fontWeight: 700, display: "block", marginBottom: 2 }}>
+                        Valid until (optional)
+                      </label>
+                      <input
+                        style={inp}
+                        type="date"
+                        value={newPromo.expiresAt}
+                        onChange={(e) => setNewPromo((p) => ({ ...p, expiresAt: e.target.value }))}
+                      />
+                    </div>
                   </div>
                   <button onClick={savePromo} style={{ ...btn, fontSize: 13 }}>
                     ✓ Create Promo Code
@@ -6950,6 +7249,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         "Type",
                         "Value",
                         "Min Order",
+                        "Valid Until",
                         "Status",
                         "Action",
                       ].map((h) => (
@@ -6987,19 +7287,24 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                           {p.minOrder ? `৳${p.minOrder}` : "None"}
                         </td>
                         <td style={TD}>
+                          {p.expiresAt
+                            ? new Date(p.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                            : "No limit"}
+                        </td>
+                        <td style={TD}>
                           <span
                             style={{
                               fontSize: 11,
                               padding: "2px 10px",
                               borderRadius: 10,
                               fontWeight: 700,
-                              background: p.active
+                              background: promoIsLive(p)
                                 ? "rgba(232,245,233,0.85)"
                                 : "rgba(255,235,238,0.85)",
-                              color: p.active ? SUCCESS : DANGER,
+                              color: promoIsLive(p) ? SUCCESS : DANGER,
                             }}
                           >
-                            {p.active ? "Active" : "Inactive"}
+                            {p.expiresAt && p.expiresAt < Date.now() ? "Expired" : p.active ? "Active" : "Inactive"}
                           </span>
                         </td>
                         <td style={TD}>
@@ -10175,6 +10480,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     </button>
                   </div>
                 ) : (
+                  <>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
                       style={{ ...inp, marginTop: 0, flex: 1 }}
@@ -10198,6 +10504,33 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                       Apply
                     </button>
                   </div>
+                  {walletOffers.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: DARK, marginBottom: 6 }}>🎟 Your saved promos</div>
+                      {walletOffers.map((w) => (
+                        <div key={w.code} style={{
+                          display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", marginBottom: 6,
+                          borderRadius: 10, border: "1.5px dashed " + (w.state === "ok" ? PRIMARY : "rgba(0,0,0,0.18)"),
+                          background: w.state === "ok" ? "rgba(173,20,87,0.05)" : "rgba(0,0,0,0.03)",
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 13, color: w.state === "ok" ? PRIMARY : "#9E9E9E" }}>
+                              {w.code} <span style={{ fontFamily: "inherit", fontSize: 10, fontWeight: 700 }}>{w.label}</span>
+                            </div>
+                            <div style={{ fontSize: 10, color: w.state === "ok" ? MED : DANGER }}>{w.note}</div>
+                          </div>
+                          <button type="button" disabled={w.state !== "ok"} onClick={() => applyPromo(w.code)}
+                            style={{
+                              padding: "6px 14px", borderRadius: 16, border: "none", fontFamily: "inherit",
+                              fontWeight: 800, fontSize: 12, color: "#FFF", flexShrink: 0,
+                              background: w.state === "ok" ? GRAD : "#BDBDBD",
+                              cursor: w.state === "ok" ? "pointer" : "not-allowed",
+                            }}>Use</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
 
@@ -10923,6 +11256,23 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   notify("✓ Profile saved!");setShowProfile(false);
                 }catch(e){notify("⚠ "+e.message);}
               }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15,marginBottom:20 }}>💾 Save Profile</button>
+              <div style={{ borderTop:"1px solid rgba(173,20,87,0.12)",paddingTop:18,marginBottom:20 }}>
+                <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:10 }}>🎟 My Wallet</div>
+                {walletAll.length===0
+                  ?<div style={{ fontSize:12,color:LIGHT,textAlign:"center",padding:"10px 0" }}>No saved promos yet. Tap a promo code in an offer to save it here.</div>
+                  :walletAll.map(w=>(
+                    <div key={w.code} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 12px",marginBottom:8,borderRadius:12,border:"1.5px dashed "+(w.state==="ok"||w.state==="min"?PRIMARY:"rgba(0,0,0,0.18)"),background:w.state==="ok"||w.state==="min"?"rgba(173,20,87,0.04)":"rgba(0,0,0,0.03)" }}>
+                      <div style={{ flex:1,minWidth:0 }}>
+                        <div style={{ fontFamily:"monospace",fontWeight:800,fontSize:14,color:w.state==="ok"||w.state==="min"?PRIMARY:"#9E9E9E" }}>{w.code} <span style={{ fontFamily:"inherit",fontSize:11 }}>{w.label}</span></div>
+                        <div style={{ fontSize:11,color:w.state==="expired"||w.state==="inactive"?DANGER:MED }}>
+                          {w.state==="min"?"Min order applies · ":""}{w.note}{w.expiresAt?" · until "+new Date(w.expiresAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"}):""}
+                        </div>
+                      </div>
+                      <button onClick={()=>removeFromWallet(w.code)} style={{ background:"none",border:"1px solid rgba(198,40,40,0.3)",color:DANGER,borderRadius:8,padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Remove</button>
+                    </div>
+                  ))}
+                {walletAll.length>0&&<div style={{ fontSize:10,color:LIGHT }}>Saved promos appear at checkout with a Use button.</div>}
+              </div>
               <div style={{ borderTop:"1px solid rgba(173,20,87,0.12)",paddingTop:18 }}>
                 <div style={{ fontSize:14,fontWeight:800,color:DARK,marginBottom:4 }}>📦 My Orders</div>
                 <button onClick={async()=>{
@@ -11287,6 +11637,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
             <div style={{ padding:"14px 16px",borderBottom:"1px solid rgba(173,20,87,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:"rgba(255,255,255,0.97)",borderRadius:"16px 16px 0 0" }}>
               <div style={{ fontSize:14,fontWeight:800,color:DARK }}>🔔 Notifications</div>
               <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+                {isAdmin&&<button onClick={()=>{setShowPromoComposer(true);setShowNotifPanel(false);}} style={{ fontSize:11,color:"#FFF",background:GRAD,border:"none",borderRadius:8,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:700 }}>🎁 Promo</button>}
                 {isAdmin&&<button onClick={()=>{setShowSendNotif(true);setShowNotifPanel(false);}} style={{ fontSize:11,color:PRIMARY,background:"rgba(173,20,87,0.08)",border:`1px solid rgba(173,20,87,0.2)`,borderRadius:8,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>📤 Send</button>}
                 <button onClick={()=>setShowNotifPanel(false)} style={{ background:"none",border:"none",fontSize:16,cursor:"pointer",color:MED }}>✕</button>
               </div>
@@ -11294,7 +11645,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
             {notifications.length===0
               ?<div style={{ padding:28,textAlign:"center",color:LIGHT,fontSize:13 }}>No notifications yet</div>
               :notifications.slice(0,20).map(n=>(
-                <div key={n.id} onClick={()=>{if(n.link==="orders")setTab("orders");if(n.link==="profile")setShowProfile(true);setShowNotifPanel(false);}}
+                <div key={n.id} onClick={()=>{if(n.type==="promo"&&n.promo&&!isAdmin)setPopupNotifs([n]);if(n.link==="orders")setTab("orders");if(n.link==="profile")setShowProfile(true);setShowNotifPanel(false);}}
                   style={{ padding:"12px 16px",borderBottom:"1px solid rgba(173,20,87,0.06)",cursor:"pointer",
                     background:panelNewIds.has(n.id)?"rgba(173,20,87,0.04)":"transparent",
                     transition:"background 0.15s" }}
@@ -11356,6 +11707,122 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           </div>
         </>
       )}
+
+
+      {/* ══ PROMO POPUP COMPOSER (Admin) ══ */}
+      {showPromoComposer && isAdmin && (() => {
+        const d = promoDraft;
+        const setD = (patch) => setPromoDraft((prev) => ({ ...prev, ...patch }));
+        const liveCodes = promoCodes.filter((p) => promoIsLive(p));
+        const chosen = promoCodes.find((p) => p.code === d.code) || null;
+        const autoTag = (code) => promoCodeLabel(promoCodes.find((p) => p.code === code));
+        const lab = { fontSize: 11, fontWeight: 700, color: DARK, display: "block", marginBottom: 4 };
+        const previewPromo = {
+          image: d.image.trim(), tag: d.tag.trim(), code: d.code, ctaLabel: d.ctaLabel,
+          ctaTarget: d.ctaTarget, color: d.color, terms: d.terms.trim(),
+        };
+        return (
+          <>
+            <div onClick={() => setShowPromoComposer(false)} style={{ position: "fixed", inset: 0, background: "rgba(45,10,63,0.6)", zIndex: 200, backdropFilter: "blur(4px)" }} />
+            <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(960px,96vw)", maxHeight: "92vh", overflowY: "auto", background: "#FFF", borderRadius: 20, zIndex: 201, boxShadow: "0 24px 80px rgba(173,20,87,0.3)" }}>
+              <div style={{ background: GRAD, padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 2, borderRadius: "20px 20px 0 0" }}>
+                <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>🎁 Create Promo Popup</div>
+                <button onClick={() => setShowPromoComposer(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#FFF", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 18 }}>✕</button>
+              </div>
+
+              <div style={{ padding: 22, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
+                {/* ── Form ── */}
+                <div>
+                  <label style={lab}>Headline *</label>
+                  <input style={{ ...inp, marginBottom: 12 }} placeholder="e.g. Eid Mega Sale is here!" value={d.title} onChange={(e) => setD({ title: e.target.value })} />
+
+                  <label style={lab}>Message</label>
+                  <textarea style={{ ...inp, minHeight: 70, resize: "vertical", marginBottom: 12 }} placeholder="Tell customers about the offer..." value={d.message} onChange={(e) => setD({ message: e.target.value })} />
+
+                  <label style={lab}>Promotion image (link)</label>
+                  <input style={{ ...inp, marginBottom: 4, fontSize: 12 }} type="url" placeholder="https://i.ibb.co/..." value={d.image} onChange={(e) => setD({ image: e.target.value })} />
+                  <div style={{ fontSize: 10, color: LIGHT, marginBottom: 12 }}>Upload the picture to imgbb.com and paste the direct link. A wide picture looks best.</div>
+
+                  <label style={lab}>Promo code</label>
+                  <select style={{ ...inp, marginBottom: 4 }} value={d.code}
+                    onChange={(e) => {
+                      const code = e.target.value;
+                      setPromoDraft((prev) => ({
+                        ...prev, code,
+                        tag: !prev.tag || prev.tag === autoTag(prev.code) ? autoTag(code) : prev.tag,
+                      }));
+                    }}>
+                    <option value="">No code (announcement only)</option>
+                    {liveCodes.map((p) => (
+                      <option key={p.id} value={p.code}>
+                        {p.code} · {promoCodeLabel(p)}{p.minOrder ? " · min ৳" + p.minOrder : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: 10, color: LIGHT, marginBottom: 12 }}>
+                    {liveCodes.length === 0
+                      ? "No active promo codes yet. Create one in Dashboard → Promo Codes first."
+                      : chosen
+                        ? (chosen.expiresAt
+                            ? "Valid until " + new Date(chosen.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) + ". The popup shows a live countdown."
+                            : "This code has no end date, so no countdown is shown. Set one in Promo Codes if you want a countdown.")
+                        : "Customers tap the code to save it to their wallet and use it at checkout."}
+                  </div>
+
+                  <label style={lab}>Discount tag</label>
+                  <input style={{ ...inp, marginBottom: 12 }} placeholder="e.g. 20% OFF" value={d.tag} onChange={(e) => setD({ tag: e.target.value })} />
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                    <div>
+                      <label style={lab}>Button text</label>
+                      <input style={inp} value={d.ctaLabel} onChange={(e) => setD({ ctaLabel: e.target.value })} />
+                    </div>
+                    <div>
+                      <label style={lab}>Button opens</label>
+                      <select style={inp} value={d.ctaTarget} onChange={(e) => setD({ ctaTarget: e.target.value })}>
+                        {PROMO_TARGETS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <label style={lab}>Colour theme</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                    {Object.entries(PROMO_THEMES).map(([key, t]) => (
+                      <button key={key} type="button" title={t.label} onClick={() => setD({ color: key })}
+                        style={{ width: 34, height: 34, borderRadius: "50%", cursor: "pointer", background: "linear-gradient(135deg," + t.a + "," + t.b + ")", border: d.color === key ? "3px solid " + DARK : "3px solid transparent", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }} />
+                    ))}
+                  </div>
+
+                  <label style={lab}>Fine print (optional)</label>
+                  <input style={{ ...inp, marginBottom: 16, fontSize: 12 }} placeholder="e.g. Valid on orders above ৳500. One use per order." value={d.terms} onChange={(e) => setD({ terms: e.target.value })} />
+
+                  <button onClick={sendPromoPopup} disabled={sendingPromo} style={{ ...btn, width: "100%", padding: "13px", fontSize: 15, opacity: sendingPromo ? 0.7 : 1 }}>
+                    {sendingPromo ? "Sending..." : "📤 Send to all customers"}
+                  </button>
+                  <div style={{ fontSize: 10, color: LIGHT, marginTop: 8, textAlign: "center" }}>
+                    Customers see this window when they open the site. It stays until they close it.
+                  </div>
+                </div>
+
+                {/* ── Live preview ── */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: DARK, marginBottom: 8 }}>👁 Live preview — what customers will see</div>
+                  <div style={{ background: "rgba(45,10,63,0.07)", borderRadius: 16, padding: 14 }}>
+                    <PromoCard
+                      preview
+                      title={d.title || "Your headline appears here"}
+                      message={d.message}
+                      promo={previewPromo}
+                      codeInfo={chosen}
+                      inWallet={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
 {/* FOOTER */}
       <footer
