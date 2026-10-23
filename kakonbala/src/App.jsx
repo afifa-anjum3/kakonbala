@@ -1976,8 +1976,70 @@ function promoCodeLabel(p) {
   if (!p) return "";
   return p.type === "percentage" ? p.value + "% OFF" : "৳" + p.value + " OFF";
 }
-function promoIsLive(p) {
-  return !!p && p.active !== false && !(p.expiresAt && p.expiresAt < Date.now());
+// "live" | "scheduled" (not started yet) | "expired" | "inactive" | "missing"
+function promoStatus(p, nowMs) {
+  const t = nowMs || Date.now();
+  if (!p) return "missing";
+  if (p.active === false) return "inactive";
+  if (p.startsAt && p.startsAt > t) return "scheduled";
+  if (p.expiresAt && p.expiresAt < t) return "expired";
+  return "live";
+}
+function promoIsLive(p) { return promoStatus(p) === "live"; }
+// A code can be reserved for specific customers (audienceUids). Empty = open to everyone.
+function promoAudienceOk(p, uid) {
+  if (!p || !p.audienceUids || p.audienceUids.length === 0) return true;
+  return !!uid && p.audienceUids.includes(uid);
+}
+const fmtDate = (ms) => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+/* ── Customer segments (built from order history) ── */
+const AUDIENCE_KINDS = [
+  { value: "everyone",      label: "Everyone (customers and guests)" },
+  { value: "top_orders",    label: "Most orders",              nLabel: "How many customers", nDefault: 10 },
+  { value: "top_spend",     label: "Highest spenders",         nLabel: "How many customers", nDefault: 10 },
+  { value: "latest",        label: "Ordered most recently",    nLabel: "How many customers", nDefault: 10 },
+  { value: "last_days",     label: "Ordered in the last ... days", nLabel: "Days", nDefault: 7 },
+  { value: "inactive_days", label: "Haven't ordered for ... days", nLabel: "Days", nDefault: 30 },
+  { value: "one_time",      label: "One-time buyers" },
+  { value: "pick",          label: "Pick customers myself" },
+];
+
+function buildCustomerStats(orders, extraEmailToUid) {
+  const live = (orders || []).filter((o) => o.status !== "cancelled");
+  const emailToUid = { ...(extraEmailToUid || {}) };
+  live.forEach((o) => {
+    const e = (o.customerEmail || (o.customer && o.customer.email) || "").toLowerCase();
+    if (o.userId && e) emailToUid[e] = o.userId;
+  });
+  const map = {};
+  live.forEach((o) => {
+    const email = (o.customerEmail || (o.customer && o.customer.email) || "").toLowerCase();
+    const phone = (o.customer && o.customer.phone) || o.customerPhone || "";
+    const uid = o.userId || (email && emailToUid[email]) || "";
+    const key = uid || email || phone || o.id;
+    const t = ((o.createdAt && o.createdAt.seconds) || 0) * 1000;
+    const e = map[key] || (map[key] = { key, uid, name: "", email, phone, orders: 0, spent: 0, lastAt: 0 });
+    if (uid && !e.uid) e.uid = uid;
+    e.orders += 1;
+    e.spent += Number(o.total) || 0;
+    if (t >= e.lastAt) { e.lastAt = t; e.name = (o.customer && o.customer.name) || e.name; }
+  });
+  return Object.values(map);
+}
+
+function pickAudience(stats, kind, n, nowMs) {
+  const t = nowMs || Date.now();
+  const num = Math.max(0, Number(n) || 0);
+  const s = [...stats];
+  if (kind === "top_orders") return s.sort((a, b) => b.orders - a.orders || b.spent - a.spent).slice(0, num);
+  if (kind === "top_spend")  return s.sort((a, b) => b.spent - a.spent).slice(0, num);
+  if (kind === "latest")     return s.sort((a, b) => b.lastAt - a.lastAt).slice(0, num);
+  if (kind === "last_days")  return s.filter((x) => x.lastAt >= t - num * 86400000).sort((a, b) => b.lastAt - a.lastAt);
+  if (kind === "inactive_days") return s.filter((x) => x.lastAt < t - num * 86400000).sort((a, b) => a.lastAt - b.lastAt);
+  if (kind === "one_time")   return s.filter((x) => x.orders === 1).sort((a, b) => b.lastAt - a.lastAt);
+  if (kind === "pick")       return s.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  return s; // "everyone" is not segment-based
 }
 function formatCountdown(ms) {
   if (ms <= 0) return null;
@@ -1988,23 +2050,28 @@ function formatCountdown(ms) {
   return (d > 0 ? d + "d " : "") + pad(h) + ":" + pad(m) + ":" + pad(sec);
 }
 
-function PromoCard({ title, message, promo, codeInfo, inWallet, onSave, onCta, preview }) {
+function PromoCard({ title, message, promo, codeInfo, inWallet, onSave, onCta, preview, isGuest, eligible = true }) {
   const theme = PROMO_THEMES[promo.color] || PROMO_THEMES.pink;
   const grad = "linear-gradient(135deg, " + theme.a + ", " + theme.b + ")";
   const [imgOk, setImgOk] = useState(true);
   useEffect(() => { setImgOk(true); }, [promo.image]);
 
   const expiresAt = codeInfo && codeInfo.expiresAt ? codeInfo.expiresAt : null;
+  const startsAt = codeInfo && codeInfo.startsAt ? codeInfo.startsAt : null;
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    if (!expiresAt) return;
+    if (!expiresAt && !startsAt) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [expiresAt]);
+  }, [expiresAt, startsAt]);
 
-  const expired = !!(expiresAt && expiresAt <= now);
-  const unavailable = !!promo.code && (!codeInfo || codeInfo.active === false || expired);
-  const countdown = expiresAt && !expired ? formatCountdown(expiresAt - now) : null;
+  const status = promo.code ? promoStatus(codeInfo, now) : "live";
+  const unavailable = !!promo.code && status !== "live";
+  const countdown =
+    status === "live" && expiresAt ? formatCountdown(expiresAt - now)
+    : status === "scheduled" && startsAt ? formatCountdown(startsAt - now)
+    : null;
+  const blocked = unavailable || !eligible;
   const hasImage = !!promo.image && imgOk;
 
   return (
@@ -2048,25 +2115,30 @@ function PromoCard({ title, message, promo, codeInfo, inWallet, onSave, onCta, p
 
         {/* Promo code "coupon" - tapping it saves the code to the customer's wallet */}
         {promo.code ? (
-          <button type="button" disabled={unavailable || preview}
+          <button type="button" disabled={blocked || preview}
             onClick={() => { if (!preview && onSave) onSave(); }}
             style={{
               width: "100%", marginTop: 14, display: "flex", alignItems: "center",
               justifyContent: "space-between", gap: 10, padding: "11px 14px", borderRadius: 12,
               textAlign: "left", fontFamily: "inherit",
-              border: "2px dashed " + (unavailable ? "#BDBDBD" : inWallet ? SUCCESS : theme.a),
-              background: unavailable ? "#F5F5F5" : inWallet ? "rgba(46,125,50,0.07)" : theme.a + "12",
-              cursor: unavailable || preview ? "default" : "pointer",
+              border: "2px dashed " + (blocked ? "#BDBDBD" : inWallet ? SUCCESS : theme.a),
+              background: blocked ? "#F5F5F5" : inWallet ? "rgba(46,125,50,0.07)" : theme.a + "12",
+              cursor: blocked || preview ? "default" : "pointer",
             }}>
             <div>
-              <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 1.5, color: unavailable ? "#9E9E9E" : theme.a }}>✂ PROMO CODE</div>
-              <div style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 900, letterSpacing: 3, color: unavailable ? "#9E9E9E" : DARK }}>{promo.code}</div>
+              <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 1.5, color: blocked ? "#9E9E9E" : theme.a }}>✂ PROMO CODE</div>
+              <div style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 900, letterSpacing: 3, color: blocked ? "#9E9E9E" : DARK }}>{promo.code}</div>
             </div>
             <div style={{
               fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 20, color: "#FFF", whiteSpace: "nowrap",
-              background: unavailable ? "#9E9E9E" : inWallet ? SUCCESS : grad,
+              background: blocked ? "#9E9E9E" : inWallet ? SUCCESS : grad,
             }}>
-              {unavailable ? "Offer ended" : inWallet ? "✓ In wallet" : "Tap to save"}
+              {status === "scheduled" ? "Coming soon"
+                : unavailable ? "Offer ended"
+                : !eligible ? "Reserved offer"
+                : inWallet ? "✓ In wallet"
+                : isGuest ? "Sign up to use"
+                : "Tap to save"}
             </div>
           </button>
         ) : null}
@@ -2074,13 +2146,14 @@ function PromoCard({ title, message, promo, codeInfo, inWallet, onSave, onCta, p
         {promo.code && codeInfo ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", marginTop: 8, fontSize: 11, color: MED }}>
             <span>🛒 {codeInfo.minOrder ? "Min order ৳" + codeInfo.minOrder : "No minimum order"}</span>
-            {expiresAt ? (
-              <span>📅 Valid until {new Date(expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
-            ) : null}
+            {status === "scheduled" && startsAt ? <span>📅 Starts {fmtDate(startsAt)}</span> : null}
+            {expiresAt ? <span>📅 Valid until {fmtDate(expiresAt)}</span> : null}
           </div>
         ) : null}
         {countdown ? (
-          <div style={{ marginTop: 8, fontSize: 12, fontWeight: 800, color: theme.a }}>⏳ Ends in {countdown}</div>
+          <div style={{ marginTop: 8, fontSize: 12, fontWeight: 800, color: theme.a }}>
+            {status === "scheduled" ? "🗓 Starts in " : "⏳ Ends in "}{countdown}
+          </div>
         ) : null}
 
         {promo.ctaTarget && promo.ctaTarget !== "none" ? (
@@ -2180,6 +2253,9 @@ export default function App() {
   const [heroSlide, setHeroSlide] = useState(0);
   const [bannerImages, setBannerImages] = useState(["","","",""]);
   const [showBannerMgr, setShowBannerMgr] = useState(false);
+  const [heroCfg, setHeroCfg] = useState(null);   // admin-edited slides (null = defaults)
+  const [heroDraft, setHeroDraft] = useState([]);
+  const [savingHero, setSavingHero] = useState(false);
   const [announcementText, setAnnouncementText] = useState("");
   const [showAnnounceMgr, setShowAnnounceMgr] = useState(false);
   const [editAnnounce, setEditAnnounce] = useState("");
@@ -2214,12 +2290,20 @@ export default function App() {
   const [showPromoComposer, setShowPromoComposer] = useState(false);
   const [promoDraft, setPromoDraft] = useState(EMPTY_PROMO_DRAFT);
   const [sendingPromo, setSendingPromo] = useState(false);
+  const [audKind, setAudKind] = useState("everyone");
+  const [audN, setAudN] = useState(10);
+  const [audOverride, setAudOverride] = useState({}); // uid -> ticked / unticked by hand
+  const [audSearch, setAudSearch] = useState("");
+  const [audExclusive, setAudExclusive] = useState(false);
+  const [audAlsoHero, setAudAlsoHero] = useState(false);
+  const [adminCustomerMap, setAdminCustomerMap] = useState({}); // email -> account id (admin only)
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
     code: "",
     type: "percentage",
     value: "",
     minOrder: "",
+    startsAt: "",
     expiresAt: "",
     active: true,
   });
@@ -2286,6 +2370,7 @@ export default function App() {
 getDoc(doc(db,"settings","banners")).then(snap=>{
       if(snap.exists()&&snap.data().images){setBannerImages(snap.data().images);}
       if(snap.exists()&&snap.data().announcement){setAnnouncementText(snap.data().announcement);}
+      if(snap.exists()&&Array.isArray(snap.data().slides)&&snap.data().slides.length){setHeroCfg(snap.data().slides);}
     }).catch(()=>{});
   }, []);
 
@@ -2314,89 +2399,156 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   const jewelryImg = products.find(p=>p.category==="jewelry"&&p.imageUrl)?.imageUrl;
   const craftsImg  = products.find(p=>p.category==="crafts"&&p.imageUrl)?.imageUrl;
   const clothingImg= products.find(p=>p.category==="clothing"&&p.imageUrl)?.imageUrl;
-    const heroSlides = [
-    { imgUrl: bannerImages[0]||"/banner.png",   bg:"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Where Every Piece",    sub:"Tells a Story",          tagline:"🌸 Handmade with Love",          btn1:"Shop Now",     btn2:"Collections", cat:"all"      },
-    { imgUrl: bannerImages[1]||jewelryImg||null, bg:"linear-gradient(135deg,#880E4F,#E91E63)", headline:"Handcrafted Jewelry",  sub:"for Every Occasion",     tagline:"💍 Bangles · Rings · Earrings",  btn1:"Shop Jewelry", btn2:"View All",    cat:"jewelry"  },
-    { imgUrl: bannerImages[2]||craftsImg||null,  bg:"linear-gradient(135deg,#4A148C,#9C27B0)", headline:"Artisan Crafts",       sub:"Made with Passion",      tagline:"🏺 Mandala · Canvas · Clay",     btn1:"Shop Crafts",  btn2:"View All",    cat:"crafts"   },
-    { imgUrl: bannerImages[3]||clothingImg||null,bg:"linear-gradient(135deg,#B71C1C,#EF9A9A)", headline:"Elegant Clothing",     sub:"Tradition Meets Style",  tagline:"👗 Saree · Tops · Panjabi",     btn1:"Shop Clothing",btn2:"View All",    cat:"clothing" },
+  const defaultHeroSlides = [
+    { image: bannerImages[0] || "/banner.png", tagline: "🌸 Handmade with Love", headline: "Where Every Piece", sub: "Tells a Story", btn1Label: "Shop Now", btn1Target: "shop", btn2Label: "Collections", btn2Target: "collections", promoCode: "", theme: "pink" },
+    { image: bannerImages[1] || jewelryImg || "", tagline: "💍 Bangles · Rings · Earrings", headline: "Handcrafted Jewelry", sub: "for Every Occasion", btn1Label: "Shop Jewelry", btn1Target: "jewelry", btn2Label: "View All", btn2Target: "shop", promoCode: "", theme: "pink" },
+    { image: bannerImages[2] || craftsImg || "", tagline: "🏺 Mandala · Canvas · Clay", headline: "Artisan Crafts", sub: "Made with Passion", btn1Label: "Shop Crafts", btn1Target: "crafts", btn2Label: "View All", btn2Target: "shop", promoCode: "", theme: "dark" },
+    { image: bannerImages[3] || clothingImg || "", tagline: "👗 Saree · Tops · Panjabi", headline: "Elegant Clothing", sub: "Tradition Meets Style", btn1Label: "Shop Clothing", btn1Target: "clothing", btn2Label: "View All", btn2Target: "shop", promoCode: "", theme: "red" },
   ];
+  const heroSlidesRaw = heroCfg && heroCfg.length ? heroCfg : defaultHeroSlides;
+  // A slide that carries a promo code disappears by itself when that offer is over (or hasn't started)
+  const heroVisible = heroSlidesRaw.filter((sl) => {
+    if (!sl.promoCode || promoCodes.length === 0) return true;
+    return promoIsLive(promoCodes.find((p) => p.code === sl.promoCode));
+  });
+  const heroSlides = heroVisible.length ? heroVisible : defaultHeroSlides;
+  const heroLenRef = React.useRef(4);
+  heroLenRef.current = heroSlides.length;
   useEffect(() => {
-    const t = setInterval(() => setHeroSlide(s => (s+1) % 4), 4000);
+    const t = setInterval(() => setHeroSlide((s) => (s + 1) % (heroLenRef.current || 1)), 4000);
     return () => clearInterval(t);
   }, []);
-
-  // Load notifications + auto-toast on new ones
-  const seenNotifIds = React.useRef(new Set());
-  const isFirstLoad = React.useRef(true);
   useEffect(() => {
-    if (!user) { setNotifications([]); seenNotifIds.current = new Set(); isFirstLoad.current = true; readIdsRef.current = new Set(); setReadIds(new Set()); return; }
-    const adminEmail = "afifa.anjum3@gmail.com";
-    const userIsAdmin = user.email === adminEmail;
-    let unsub = () => {};
-    let cancelled = false;
-    (async () => {
-    // Which notifications has THIS person already read? (stored on their own account)
-    try {
-      const mine = await getDoc(doc(db, "customers", user.uid));
-      const ids = new Set((mine.exists() && mine.data().readNotifIds) || []);
-      readIdsRef.current = ids; setReadIds(ids);
-    } catch (e) { console.warn("[kakonbala] could not load read state:", e.message); }
-    if (cancelled) return;
-    const q = collection(db, "notifications");
-    console.log("[kakonbala] notification listener v4 (per-customer read) started for", user.email);
-    unsub = onSnapshot(q,
-      snap => {
-        const all = snap.docs.map(d=>({id:d.id,...d.data()}))
-          .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
-        const filtered = all.filter(n =>
-          n.target === "all" ||
-          (n.target === "admin" && userIsAdmin) ||
-          (n.userId === user.uid)
-        );
-        setNotifications(filtered.slice(0,30));
-        console.log("[kakonbala] snapshot:", snap.size, "docs,", filtered.length, "for me, firstLoad =", isFirstLoad.current);
-        // IDs this customer already closed (remembered on this device)
-        let dismissed = new Set();
-        try { dismissed = new Set(JSON.parse(localStorage.getItem("kk_dismissed_" + user.uid)) || []); } catch (e) {}
-        const ts = (n) => (n.createdAt && n.createdAt.seconds) ? n.createdAt.seconds : Date.now() / 1000;
-        const isDeadPromo = (n) => {
-          if (n.type !== "promo" || !n.promo || !n.promo.code) return false;
-          const p = promoCodesRef.current.find(x => x.code === n.promo.code);
-          return !!p && !promoIsLive(p);
-        };
+    if (heroSlide >= heroSlides.length) setHeroSlide(0);
+  }, [heroSlides.length]);
 
-        if (isFirstLoad.current) {
-          filtered.forEach(n => seenNotifIds.current.add(n.id));
-          isFirstLoad.current = false;
-          if (!userIsAdmin) {
-            // Customer opens the site / logs in: show anything recent they haven't closed yet
-            const cutoff = Date.now() / 1000 - 14 * 86400;
-            const pending = filtered.filter(n => !dismissed.has(n.id) && n.read !== true && !readIdsRef.current.has(n.id) && ts(n) >= cutoff && !isDeadPromo(n)).slice(0, 5);
-            console.log("[kakonbala] customer popup on load:", pending.length, "item(s)");
-            setPopupNotifs(pending);
-          }
-        } else {
-          filtered.forEach(n => {
-            if (seenNotifIds.current.has(n.id)) return;
-            seenNotifIds.current.add(n.id);
-            console.log("[kakonbala] NEW notification:", n.title);
-            if (userIsAdmin) {
-              // Admin: small popup for new order alerts
-              setNotifToast({ title: n.title, message: n.message, link: n.link });
-              clearTimeout(notifToastTimer.current);
-              notifToastTimer.current = setTimeout(() => setNotifToast(null), 7000);
-            } else if (!dismissed.has(n.id) && !readIdsRef.current.has(n.id) && !isDeadPromo(n)) {
-              // Customer: stays on screen until they close it
-              setPopupNotifs(prev => prev.some(p => p.id === n.id) ? prev : [n, ...prev]);
-            }
-          });
+  // Notifications: public offers (everyone, guests too) + this person's own + admin alerts.
+  // Three narrow queries, so nobody can read anything that isn't meant for them.
+  useEffect(() => {
+    const uid = user ? user.uid : null;
+    const userIsAdmin = !!user && user.email === "afifa.anjum3@gmail.com";
+    const dismissedKey = "kk_dismissed_" + (uid || "guest");
+    const col = collection(db, "notifications");
+    const sources = [{ key: "all", q: query(col, where("target", "==", "all")) }];
+    if (uid) sources.push({ key: "mine", q: query(col, where("userId", "==", uid)) });
+    if (userIsAdmin) sources.push({ key: "admin", q: query(col, where("target", "==", "admin")) });
+
+    let cancelled = false;
+    let ready = false;
+    const unsubs = [];
+    const bySource = {};
+    const gotFirst = {};
+    const seen = new Set();
+
+    setNotifications([]);
+    setPopupNotifs([]);
+
+    const ts = (n) => (n.createdAt && n.createdAt.seconds) ? n.createdAt.seconds : Date.now() / 1000;
+    const isDeadPromo = (n) => {
+      if (n.type !== "promo" || !n.promo || !n.promo.code) return false;
+      const p = promoCodesRef.current.find((x) => x.code === n.promo.code);
+      return !!p && ["expired", "inactive"].includes(promoStatus(p));
+    };
+
+    const handle = () => {
+      const ids = new Set();
+      const merged = [];
+      Object.keys(bySource).forEach((k) => bySource[k].forEach((n) => {
+        if (!ids.has(n.id)) { ids.add(n.id); merged.push(n); }
+      }));
+      merged.sort((a, b) => ts(b) - ts(a));
+      setNotifications(merged.slice(0, 30));
+
+      // IDs this person already closed (remembered on this device)
+      let dismissed = new Set();
+      try { dismissed = new Set(JSON.parse(localStorage.getItem(dismissedKey)) || []); } catch (e) {}
+
+      if (!ready) {
+        // wait until every source has answered once
+        if (!sources.every((s) => gotFirst[s.key])) return;
+        ready = true;
+        merged.forEach((n) => seen.add(n.id));
+        if (!userIsAdmin) {
+          const cutoff = Date.now() / 1000 - 14 * 86400;
+          const pending = merged
+            .filter((n) => !dismissed.has(n.id) && n.read !== true && !readIdsRef.current.has(n.id) && ts(n) >= cutoff && !isDeadPromo(n))
+            .slice(0, 5);
+          console.log("[kakonbala] popup on load:", pending.length, "item(s)", uid ? "(logged in)" : "(guest)");
+          setPopupNotifs(pending);
         }
-      },
-      err => console.error("[kakonbala] notification listener ERROR:", err.code, err.message)
-    );
+      } else {
+        merged.forEach((n) => {
+          if (seen.has(n.id)) return;
+          seen.add(n.id);
+          console.log("[kakonbala] NEW notification:", n.title);
+          if (userIsAdmin) {
+            setNotifToast({ title: n.title, message: n.message, link: n.link });
+            clearTimeout(notifToastTimer.current);
+            notifToastTimer.current = setTimeout(() => setNotifToast(null), 7000);
+          } else if (!dismissed.has(n.id) && !readIdsRef.current.has(n.id) && !isDeadPromo(n)) {
+            setPopupNotifs((prev) => prev.some((p) => p.id === n.id) ? prev : [n, ...prev]);
+          }
+        });
+      }
+    };
+
+    (async () => {
+      // What has THIS person already read? Logged in: stored on their account. Guest: on this device.
+      let ids = new Set();
+      try {
+        if (uid) {
+          const mine = await getDoc(doc(db, "customers", uid));
+          ids = new Set((mine.exists() && mine.data().readNotifIds) || []);
+        } else {
+          ids = new Set(JSON.parse(localStorage.getItem("kk_read_guest")) || []);
+        }
+      } catch (e) { console.warn("[kakonbala] could not load read state:", e.message); }
+      readIdsRef.current = ids;
+      setReadIds(ids);
+      if (cancelled) return;
+      console.log("[kakonbala] notification listener v5 started for", user ? user.email : "guest");
+      sources.forEach((s) => {
+        const un = onSnapshot(
+          s.q,
+          (snap) => {
+            bySource[s.key] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            gotFirst[s.key] = true;
+            handle();
+          },
+          (err) => {
+            console.error("[kakonbala] notifications (" + s.key + ") ERROR:", err.code, err.message);
+            bySource[s.key] = bySource[s.key] || [];
+            gotFirst[s.key] = true;
+            handle();
+          }
+        );
+        unsubs.push(un);
+      });
     })();
-    return () => { cancelled = true; unsub(); };
+    return () => { cancelled = true; unsubs.forEach((u) => u()); };
   }, [user]);
+
+  useEffect(() => {
+    if (!showPromoComposer || !isAdmin) return;
+    let cancelled = false;
+    getDocs(collection(db, "customers"))
+      .then((s) => {
+        if (cancelled) return;
+        const m = {};
+        s.docs.forEach((d) => { const e = ((d.data().email) || "").toLowerCase(); if (e) m[e] = d.id; });
+        setAdminCustomerMap(m);
+      })
+      .catch((e) => console.warn("[kakonbala] customers list:", e.message));
+    return () => { cancelled = true; };
+  }, [showPromoComposer, isAdmin]);
+
+  // A promo the person tapped as a guest is saved to their wallet once they are logged in
+  useEffect(() => {
+    if (!user || promoCodes.length === 0) return;
+    let pending = null;
+    try { pending = localStorage.getItem("kk_pending_promo"); localStorage.removeItem("kk_pending_promo"); } catch (e) {}
+    if (pending) saveToWallet(pending);
+  }, [user, promoCodes]);
 
   // Saved promos ("wallet") live on this person's own account record
   useEffect(() => {
@@ -2517,9 +2669,13 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   // Unread = this person has not read it. (Old docs already marked read:true stay read.)
   const isUnread = (n) => n.read !== true && !readIds.has(n.id);
   const markIdsRead = async (ids) => {
-    if (!user || !ids.length) return;
+    if (!ids.length) return;
     const next = new Set(readIdsRef.current); ids.forEach(id => next.add(id));
     readIdsRef.current = next; setReadIds(next);            // update the screen instantly
+    if (!user) {                                            // guest: remember on this device
+      try { localStorage.setItem("kk_read_guest", JSON.stringify(Array.from(next).slice(-200))); } catch (e) {}
+      return;
+    }
     try {
       await setDoc(doc(db, "customers", user.uid), { readNotifIds: arrayUnion(...ids) }, { merge: true });
     } catch (e) { console.warn("[kakonbala] could not save read state:", e.message); }
@@ -2804,6 +2960,37 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     return Math.max(0, cartTotal + (deliveryCharge()||0) - disc);
   }
 
+  /* ── Home banner editor ── */
+  function openHeroMgr() {
+    setHeroDraft(JSON.parse(JSON.stringify(heroSlidesRaw)));
+    setShowBannerMgr(true);
+  }
+  async function saveHeroSlides() {
+    if (heroDraft.length === 0) { notify("⚠ Keep at least one slide (or use Reset to defaults)"); return; }
+    for (const s of heroDraft) {
+      if (s.image && !/^(https?:\/\/|\/)/i.test(s.image.trim())) { notify("⚠ Image links must start with https://"); return; }
+    }
+    setSavingHero(true);
+    try {
+      await setDoc(doc(db, "settings", "banners"), { slides: heroDraft, updatedAt: serverTimestamp() }, { merge: true });
+      setHeroCfg(heroDraft);
+      setHeroSlide(0);
+      notify("✓ Home banner updated!");
+      setShowBannerMgr(false);
+    } catch (e) { notify("⚠ " + e.message); }
+    setSavingHero(false);
+  }
+  async function resetHeroSlides() {
+    if (!window.confirm("Go back to the original 4 banner slides?")) return;
+    try {
+      await setDoc(doc(db, "settings", "banners"), { slides: [], updatedAt: serverTimestamp() }, { merge: true });
+      setHeroCfg(null);
+      setHeroSlide(0);
+      notify("✓ Banner reset to the defaults");
+      setShowBannerMgr(false);
+    } catch (e) { notify("⚠ " + e.message); }
+  }
+
   /* ── Wallet: saved promos ── */
   const walletAll = wallet.map((code) => {
     const p = promoCodes.find((x) => (x.code || "").toUpperCase() === code.toUpperCase());
@@ -2811,7 +2998,9 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     let state = "ok";
     let note = p.minOrder ? "Min order ৳" + p.minOrder : "No minimum order";
     if (p.active === false) { state = "inactive"; note = "No longer available"; }
+    else if (p.startsAt && p.startsAt > Date.now()) { state = "scheduled"; note = "Starts " + fmtDate(p.startsAt); }
     else if (p.expiresAt && p.expiresAt < Date.now()) { state = "expired"; note = "Expired"; }
+    else if (!promoAudienceOk(p, user && user.uid)) { state = "inactive"; note = "Reserved for other customers"; }
     else if (p.minOrder && cartTotal < Number(p.minOrder)) {
       state = "min";
       note = "Add ৳" + (Number(p.minOrder) - cartTotal) + " more to use this (min ৳" + p.minOrder + ")";
@@ -2820,11 +3009,28 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   }).filter(Boolean);
   const walletOffers = walletAll.filter((w) => w.state === "ok" || w.state === "min");
 
+  // Guest taps a promo code: remember it, ask them to sign up, save it to the wallet after they log in
+  function rememberPendingPromo(code) {
+    try { localStorage.setItem("kk_pending_promo", (code || "").toUpperCase()); } catch (e) {}
+  }
+  function handlePromoCodeTap(code) {
+    if (!user) {
+      rememberPendingPromo(code);
+      setAuthTab("signup");
+      setShowAuth(true);
+      notify("🎟 Sign up to save " + (code || "").toUpperCase() + " and use it at checkout");
+      return;
+    }
+    saveToWallet(code);
+  }
+
   async function saveToWallet(code) {
     if (!user) { notify("⚠ Please log in to save promos"); return false; }
     const cc = (code || "").toUpperCase();
     const p = promoCodes.find((x) => (x.code || "").toUpperCase() === cc);
+    if (promoStatus(p) === "scheduled") { notify("⚠ This offer starts on " + fmtDate(p.startsAt)); return false; }
     if (!promoIsLive(p)) { notify("⚠ This offer is no longer available"); return false; }
+    if (!promoAudienceOk(p, user.uid)) { notify("⚠ This offer is reserved for selected customers"); return false; }
     if (wallet.includes(cc)) { notify("✓ Already in your wallet — use it at checkout"); return true; }
     setWallet((prev) => [...prev, cc]); // show it instantly
     try {
@@ -2854,14 +3060,29 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     setTab("shop");
   }
 
+  function getAudience() {
+    const stats = buildCustomerStats(orders, adminCustomerMap);
+    const matched = audKind === "everyone" ? [] : pickAudience(stats, audKind, audN);
+    const isOn = (m) => !!m.uid && (audOverride[m.uid] !== undefined ? audOverride[m.uid] : audKind !== "pick");
+    return { matched, recipients: matched.filter(isOn), unreachable: matched.filter((m) => !m.uid).length, isOn };
+  }
+
   async function sendPromoPopup() {
     const d = promoDraft;
     if (!d.title.trim()) { notify("⚠ Add a headline"); return; }
     if (d.image.trim() && !/^https?:\/\//i.test(d.image.trim())) {
       notify("⚠ Image link must start with https://"); return;
     }
-    if (d.code && !promoIsLive(promoCodes.find((x) => x.code === d.code))) {
+    if (d.code && !["live", "scheduled"].includes(promoStatus(promoCodes.find((x) => x.code === d.code)))) {
       notify("⚠ That promo code is not active any more"); return;
+    }
+    const everyone = audKind === "everyone";
+    let recipients = [];
+    if (!everyone) {
+      recipients = getAudience().recipients;
+      if (recipients.length === 0) {
+        notify("⚠ No customers selected. Only customers with an account can receive an offer."); return;
+      }
     }
     setSendingPromo(true);
     const extra = {
@@ -2869,15 +3090,58 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       ctaLabel: d.ctaLabel.trim() || "Shop Now", ctaTarget: d.ctaTarget,
       color: d.color, terms: d.terms.trim(),
     };
-    const ok = await createNotification(
-      "all", "", "promo", d.title.trim(),
-      d.message.trim() || d.tag.trim() || "Tap to view this offer", "", extra
-    );
+    const title = d.title.trim();
+    const message = d.message.trim() || d.tag.trim() || "Tap to view this offer";
+    let ok = false;
+    try {
+      if (everyone) {
+        ok = await createNotification("all", "", "promo", title, message, "", extra);
+      } else {
+        // one notification per chosen customer, written in batches
+        for (let i = 0; i < recipients.length; i += 400) {
+          const batch = writeBatch(db);
+          recipients.slice(i, i + 400).forEach((r) => {
+            batch.set(doc(collection(db, "notifications")), {
+              target: "user", userId: r.uid, type: "promo", title, message, link: "",
+              promo: extra, read: false, createdAt: serverTimestamp(),
+            });
+          });
+          await batch.commit();
+        }
+        ok = true;
+        if (audExclusive && d.code) {
+          const codeDoc = promoCodes.find((x) => x.code === d.code);
+          if (codeDoc) await updateDoc(doc(db, "promoCodes", codeDoc.id), { audienceUids: recipients.map((r) => r.uid) });
+        }
+      }
+    } catch (e) {
+      console.error("[kakonbala] send promo failed:", e.code, e.message);
+      ok = false;
+    }
+
+    let heroNote = "";
+    if (ok && everyone && audAlsoHero) {
+      try {
+        const slide = {
+          image: d.image.trim(), tagline: d.tag.trim(), headline: title, sub: d.message.trim().slice(0, 80),
+          btn1Label: d.ctaTarget !== "none" ? (d.ctaLabel.trim() || "Shop Now") : "", btn1Target: d.ctaTarget,
+          btn2Label: "", btn2Target: "none", promoCode: d.code, theme: d.color,
+        };
+        const base = heroCfg && heroCfg.length ? heroCfg : defaultHeroSlides;
+        const next = [slide, ...base].slice(0, 6);
+        await setDoc(doc(db, "settings", "banners"), { slides: next, updatedAt: serverTimestamp() }, { merge: true });
+        setHeroCfg(next);
+        setHeroSlide(0);
+        heroNote = " and added to the home banner";
+      } catch (e) { heroNote = " (but could not add it to the home banner: " + e.message + ")"; }
+    }
+
     setSendingPromo(false);
     if (ok) {
-      notify("✓ Promotion sent to all customers!");
+      notify("✓ Promotion sent to " + (everyone ? "everyone" : recipients.length + " customer(s)") + heroNote + "!");
       setShowPromoComposer(false);
       setPromoDraft(EMPTY_PROMO_DRAFT);
+      setAudKind("everyone"); setAudOverride({}); setAudSearch(""); setAudExclusive(false); setAudAlsoHero(false);
     } else {
       notify("⚠ Could not send. Check the Firestore rules for notifications.");
     }
@@ -2886,15 +3150,31 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   async function applyPromo(codeArg) {
     const code = (typeof codeArg === "string" ? codeArg : promoCode).trim().toUpperCase();
     if (!code) return;
-    const promo = promoCodes.find(
-      (p) => p.code?.toUpperCase() === code && p.active,
-    );
-    if (!promo) {
+    // Guests must sign up before they can use a promo code
+    if (!user) {
+      rememberPendingPromo(code);
+      setCheckoutModal(false);
+      setAuthTab("signup");
+      setShowAuth(true);
+      notify("🎟 Please sign up first to use promo codes. Your cart is saved!");
+      return;
+    }
+    const promo = promoCodes.find((p) => p.code?.toUpperCase() === code);
+    const st = promoStatus(promo);
+    if (st === "missing" || st === "inactive") {
       notify("⚠ Invalid or expired promo code");
       return;
     }
-    if (promo.expiresAt && promo.expiresAt < Date.now()) {
+    if (st === "scheduled") {
+      notify("⚠ This promo starts on " + fmtDate(promo.startsAt));
+      return;
+    }
+    if (st === "expired") {
       notify("⚠ This promo code has expired");
+      return;
+    }
+    if (!promoAudienceOk(promo, user.uid)) {
+      notify("⚠ This promo is reserved for selected customers");
       return;
     }
     if (promo.minOrder && cartTotal < Number(promo.minOrder)) {
@@ -2919,11 +3199,16 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   async function savePromo() {
     if (!newPromo.code || !newPromo.value)
       return notify("⚠ Fill code and value");
+    if (newPromo.startsAt && newPromo.expiresAt && newPromo.expiresAt < newPromo.startsAt)
+      return notify("⚠ The end date is before the start date");
     await addDoc(collection(db, "promoCodes"), {
       code: newPromo.code.toUpperCase().trim(),
       type: newPromo.type,
       value: Number(newPromo.value),
       minOrder: Number(newPromo.minOrder) || 0,
+      startsAt: newPromo.startsAt
+        ? new Date(newPromo.startsAt + "T00:00:00").getTime()
+        : null,
       expiresAt: newPromo.expiresAt
         ? new Date(newPromo.expiresAt + "T23:59:59").getTime()
         : null,
@@ -2934,6 +3219,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       type: "percentage",
       value: "",
       minOrder: "",
+      startsAt: "",
       expiresAt: "",
       active: true,
     });
@@ -2942,6 +3228,11 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
 
   async function togglePromo(id, current) {
     await updateDoc(doc(db, "promoCodes", id), { active: !current });
+  }
+
+  async function openPromoToAll(id) {
+    await updateDoc(doc(db, "promoCodes", id), { audienceUids: [] });
+    notify("✓ This code is now open to everyone");
   }
 
   async function deletePromo(id) {
@@ -4072,7 +4363,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         {/* Right icons */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {/* 🔔 Notification Bell */}
-          {user && (
+          {(
             <button onClick={()=>{ if (showNotifPanel) setShowNotifPanel(false); else openNotifPanel(); }}
               style={{ position:"relative",background:"none",border:"none",cursor:"pointer",fontSize:20,padding:"4px 6px",display:"flex",alignItems:"center" }}>
               🔔
@@ -4313,7 +4604,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       )}
 
       {/* 🔔 CUSTOMER "WHAT'S NEW" MODAL - stays until closed with the cross */}
-      {popupNotifs.length > 0 && user && !isAdmin && (
+      {popupNotifs.length > 0 && !isAdmin && (
         <>
           <div style={{ position: "fixed", inset: 0, background: "rgba(45,10,63,0.65)", zIndex: 450, backdropFilter: "blur(4px)" }} />
           <div style={{
@@ -4345,7 +4636,9 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     promo={n.promo}
                     codeInfo={promoCodes.find(p => p.code === n.promo.code) || null}
                     inWallet={wallet.includes((n.promo.code || "").toUpperCase())}
-                    onSave={() => saveToWallet(n.promo.code)}
+                    isGuest={!user}
+                    eligible={promoAudienceOk(promoCodes.find(p => p.code === n.promo.code), user && user.uid)}
+                    onSave={() => handlePromoCodeTap(n.promo.code)}
                     onCta={(target) => { closePopupNotifs(); goPromoTarget(target); }}
                   />
                 ) : (
@@ -4422,29 +4715,48 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                 </div>
               </div>
               <div className="kk-hero" style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
-                {heroSlides.map((slide,i)=>(
-                  <div key={i} style={{ position:"absolute",inset:0,zIndex:heroSlide===i?2:1,opacity:heroSlide===i?1:0,transition:"opacity 0.7s ease",pointerEvents:heroSlide===i?"auto":"none" }}>
-                    {slide.imgUrl
-                      ? <img src={slide.imgUrl} alt="" style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center" }}/>
-                      : <div style={{ position:"absolute",inset:0,background:slide.bg,backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat" }}/>
+                {heroSlides.map((slide,i)=>{
+                  const theme = PROMO_THEMES[slide.theme] || PROMO_THEMES.pink;
+                  const active = heroSlide === i;
+                  const code = slide.promoCode ? slide.promoCode.toUpperCase() : "";
+                  return (
+                  <div key={i} style={{ position:"absolute",inset:0,zIndex:active?2:1,opacity:active?1:0,transition:"opacity 0.7s ease",pointerEvents:active?"auto":"none" }}>
+                    {slide.image
+                      ? <img src={slide.image} alt="" style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center" }}/>
+                      : <div style={{ position:"absolute",inset:0,background:"linear-gradient(135deg,"+theme.a+","+theme.b+")" }}/>
                     }
                     <div style={{ position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(45,10,63,0.75) 0%,rgba(45,10,63,0.3) 55%,transparent 100%)" }}/>
-                    <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"55%" }}>
-                      <div style={{ fontSize:11,color:"rgba(255,255,255,0.8)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div>
-                      <h1 style={{ fontSize:"clamp(22px,4vw,44px)",fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1>
-                      <h2 style={{ fontSize:"clamp(20px,3.5vw,42px)",fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:"0 0 20px",lineHeight:1.15 }}>{slide.sub}</h2>
+                    <div style={{ position:"relative",zIndex:2,padding:"50px 56px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",maxWidth:"60%" }}>
+                      {slide.tagline ? <div style={{ fontSize:11,color:"rgba(255,255,255,0.85)",letterSpacing:3,textTransform:"uppercase",fontWeight:600,marginBottom:10 }}>{slide.tagline}</div> : null}
+                      {slide.headline ? <h1 style={{ fontSize:"clamp(22px,4vw,44px)",fontWeight:900,color:"#FFF",lineHeight:1.15,margin:"0 0 6px",textShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>{slide.headline}</h1> : null}
+                      {slide.sub ? <h2 style={{ fontSize:"clamp(20px,3.5vw,42px)",fontWeight:900,background:"linear-gradient(90deg,#FFB3D1,#FFD6EC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",margin:"0 0 20px",lineHeight:1.15 }}>{slide.sub}</h2> : null}
+                      {code ? (
+                        <button type="button" onClick={()=>handlePromoCodeTap(code)}
+                          style={{ alignSelf:"flex-start",marginBottom:18,display:"flex",alignItems:"center",gap:10,padding:"8px 14px",borderRadius:12,border:"2px dashed rgba(255,255,255,0.9)",background:"rgba(255,255,255,0.15)",backdropFilter:"blur(6px)",color:"#FFF",cursor:"pointer",fontFamily:"inherit" }}>
+                          <span style={{ fontSize:9,letterSpacing:1.5,fontWeight:800 }}>✂ CODE</span>
+                          <span style={{ fontFamily:"monospace",fontSize:18,fontWeight:900,letterSpacing:2 }}>{code}</span>
+                          <span style={{ fontSize:11,fontWeight:800,background:"#FFF",color:PRIMARY,borderRadius:12,padding:"3px 10px" }}>
+                            {wallet.includes(code) ? "✓ Saved" : !user ? "Sign up to use" : "Tap to save"}
+                          </span>
+                        </button>
+                      ) : null}
                       <div style={{ display:"flex",gap:12,flexWrap:"wrap" }}>
-                        <button onClick={()=>{setCatFilter(slide.cat||"all");setSubFilter("all");setTab("shop");}} style={{ ...btn,padding:"11px 24px",fontSize:13,background:"#FFF",color:PRIMARY,boxShadow:"0 4px 15px rgba(255,255,255,0.4)" }}>{slide.btn1}</button>
-                        <button onClick={()=>setTab("collections")} style={{ border:"2px solid rgba(255,255,255,0.7)",color:"#FFF",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(8px)",padding:"11px 24px",fontSize:13,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700 }}>{slide.btn2}</button>
+                        {slide.btn1Label && slide.btn1Target !== "none" ? (
+                          <button onClick={()=>goPromoTarget(slide.btn1Target)} style={{ ...btn,padding:"11px 24px",fontSize:13,background:"#FFF",color:PRIMARY,boxShadow:"0 4px 15px rgba(255,255,255,0.4)" }}>{slide.btn1Label}</button>
+                        ) : null}
+                        {slide.btn2Label && slide.btn2Target !== "none" ? (
+                          <button onClick={()=>goPromoTarget(slide.btn2Target)} style={{ border:"2px solid rgba(255,255,255,0.7)",color:"#FFF",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(8px)",padding:"11px 24px",fontSize:13,borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:700 }}>{slide.btn2Label}</button>
+                        ) : null}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 <div style={{ position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",display:"flex",gap:8,zIndex:5 }}>
                   {heroSlides.map((_,i)=>(<button key={i} onClick={()=>setHeroSlide(i)} style={{ width:i===heroSlide?28:8,height:8,borderRadius:4,border:"none",cursor:"pointer",background:i===heroSlide?"#FFF":"rgba(255,255,255,0.4)",transition:"all 0.3s" }}/>))}
                 </div>
-                <button onClick={()=>setHeroSlide(s=>(s+3)%4)} style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>‹</button>
-                <button onClick={()=>setHeroSlide(s=>(s+1)%4)} style={{ position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>›</button>
+                <button onClick={()=>setHeroSlide(s=>(s+heroSlides.length-1)%heroSlides.length)} style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>‹</button>
+                <button onClick={()=>setHeroSlide(s=>(s+1)%heroSlides.length)} style={{ position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",color:"#FFF",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",zIndex:5 }}>›</button>
               </div>
               <div className="kk-stats" style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",background:"rgba(255,255,255,0.92)",backdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",padding:"12px 0",marginBottom:40,boxShadow:"0 4px 20px rgba(173,20,87,0.08)" }}>
                 {[[products.length+"+","Products"],["500+","Customers"],["5★","Rating"],["Free","Dhaka Delivery"]].map(([val,label],i)=>(
@@ -7066,7 +7378,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                 </button>
 
                 {/* Banner Manager Button */}
-                <button onClick={()=>setShowBannerMgr(true)}
+                <button onClick={openHeroMgr}
                   style={{ ...btn,marginBottom:20,background:"rgba(173,20,87,0.08)",color:PRIMARY,border:`1.5px solid ${PRIMARY}`,boxShadow:"none" }}>
                   🖼 Manage Hero Banners
                 </button>
@@ -7208,6 +7520,17 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: MED, fontWeight: 700, display: "block", marginBottom: 2 }}>
+                        Starts on (optional)
+                      </label>
+                      <input
+                        style={inp}
+                        type="date"
+                        value={newPromo.startsAt}
+                        onChange={(e) => setNewPromo((p) => ({ ...p, startsAt: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: MED, fontWeight: 700, display: "block", marginBottom: 2 }}>
                         Valid until (optional)
                       </label>
                       <input
@@ -7249,7 +7572,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         "Type",
                         "Value",
                         "Min Order",
-                        "Valid Until",
+                        "Validity",
                         "Status",
                         "Action",
                       ].map((h) => (
@@ -7287,9 +7610,12 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                           {p.minOrder ? `৳${p.minOrder}` : "None"}
                         </td>
                         <td style={TD}>
-                          {p.expiresAt
-                            ? new Date(p.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
-                            : "No limit"}
+                          {p.startsAt || p.expiresAt
+                            ? (p.startsAt ? fmtDate(p.startsAt) : "Now") + " → " + (p.expiresAt ? fmtDate(p.expiresAt) : "No end")
+                            : "Always"}
+                          {p.audienceUids && p.audienceUids.length > 0 && (
+                            <div style={{ fontSize: 10, color: PRIMARY, fontWeight: 700 }}>🔒 {p.audienceUids.length} customer(s) only</div>
+                          )}
                         </td>
                         <td style={TD}>
                           <span
@@ -7300,11 +7626,11 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                               fontWeight: 700,
                               background: promoIsLive(p)
                                 ? "rgba(232,245,233,0.85)"
-                                : "rgba(255,235,238,0.85)",
-                              color: promoIsLive(p) ? SUCCESS : DANGER,
+                                : promoStatus(p) === "scheduled" ? "rgba(255,243,224,0.95)" : "rgba(255,235,238,0.85)",
+                              color: promoIsLive(p) ? SUCCESS : promoStatus(p) === "scheduled" ? "#E65100" : DANGER,
                             }}
                           >
-                            {p.expiresAt && p.expiresAt < Date.now() ? "Expired" : p.active ? "Active" : "Inactive"}
+                            {{ live: "Active", scheduled: "Scheduled", expired: "Expired" }[promoStatus(p)] || "Inactive"}
                           </span>
                         </td>
                         <td style={TD}>
@@ -7324,6 +7650,18 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                             >
                               {p.active ? "Disable" : "Enable"}
                             </button>
+                            {p.audienceUids && p.audienceUids.length > 0 && (
+                              <button
+                                onClick={() => openPromoToAll(p.id)}
+                                style={{
+                                  fontSize: 11, padding: "3px 10px", borderRadius: 8,
+                                  border: `1px solid rgba(173,20,87,0.3)`, background: "rgba(173,20,87,0.06)",
+                                  cursor: "pointer", fontWeight: 600, color: PRIMARY,
+                                }}
+                              >
+                                Open to all
+                              </button>
+                            )}
                             <button
                               onClick={() => deletePromo(p.id)}
                               style={{
@@ -9640,7 +9978,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               position: "fixed",
               inset: 0,
               background: "rgba(45,10,63,0.6)",
-              zIndex: 200,
+              zIndex: 500,
               backdropFilter: "blur(4px)",
             }}
           />
@@ -9655,7 +9993,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               backdropFilter: "blur(20px)",
               borderRadius: 24,
               overflow: "hidden",
-              zIndex: 201,
+              zIndex: 501,
               boxShadow: "0 24px 80px rgba(173,20,87,0.35)",
             }}
           >
@@ -11347,41 +11685,95 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       )}
 
 
-      {/* ══ BANNER MANAGER MODAL ══ */}
-      {showBannerMgr && (
-        <>
-          <div onClick={()=>setShowBannerMgr(false)} style={{ position:"fixed",inset:0,background:"rgba(45,10,63,0.6)",zIndex:200,backdropFilter:"blur(4px)" }}/>
-          <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"min(520px,95vw)",maxHeight:"90vh",overflowY:"auto",background:"#FFF",borderRadius:20,zIndex:201,boxShadow:"0 24px 80px rgba(173,20,87,0.3)" }}>
-            <div style={{ background:GRAD,padding:"20px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"20px 20px 0 0",position:"sticky",top:0,zIndex:2 }}>
-              <div style={{ color:"#FFF",fontSize:17,fontWeight:800 }}>🖼 Hero Banner Images</div>
-              <button onClick={()=>setShowBannerMgr(false)} style={{ background:"rgba(255,255,255,0.2)",border:"none",color:"#FFF",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18 }}>✕</button>
-            </div>
-            <div style={{ padding:24 }}>
-              <p style={{ fontSize:13,color:MED,marginBottom:20 }}>Paste ImgBB image URLs for each slide. Leave blank to use default (product images).</p>
-              {["Slide 1 — Main Banner","Slide 2 — Jewelry","Slide 3 — Crafts","Slide 4 — Clothing"].map((label,i)=>(
-                <div key={i} style={{ marginBottom:16 }}>
-                  <label style={{ fontSize:12,fontWeight:700,color:DARK,display:"block",marginBottom:6 }}>{label}</label>
-                  <div style={{ display:"flex",gap:10,alignItems:"center" }}>
-                    <input style={{ ...inp,flex:1,fontSize:12 }} type="url" placeholder="https://i.ibb.co/..."
-                      value={bannerImages[i]||""} onChange={e=>{const n=[...bannerImages];n[i]=e.target.value;setBannerImages(n);}}/>
-                    {bannerImages[i]&&<img src={bannerImages[i]} alt="" style={{ width:64,height:48,objectFit:"cover",borderRadius:8,border:"1px solid rgba(173,20,87,0.2)",flexShrink:0 }} onError={e=>{e.target.style.display="none";}}/>}
+      {/* ══ HOME BANNER EDITOR (Admin) ══ */}
+      {showBannerMgr && isAdmin && (() => {
+        const setSlide = (i, patch) => setHeroDraft((prev) => prev.map((s, k) => (k === i ? { ...s, ...patch } : s)));
+        const move = (i, dir) => setHeroDraft((prev) => {
+          const j = i + dir;
+          if (j < 0 || j >= prev.length) return prev;
+          const n = [...prev]; [n[i], n[j]] = [n[j], n[i]]; return n;
+        });
+        const lab = { fontSize: 11, fontWeight: 700, color: DARK, display: "block", marginBottom: 3 };
+        const codesForPicker = promoCodes.filter((p) => ["live", "scheduled"].includes(promoStatus(p)));
+        return (
+          <>
+            <div onClick={() => setShowBannerMgr(false)} style={{ position: "fixed", inset: 0, background: "rgba(45,10,63,0.6)", zIndex: 200, backdropFilter: "blur(4px)" }} />
+            <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(760px,96vw)", maxHeight: "92vh", overflowY: "auto", background: "#FFF", borderRadius: 20, zIndex: 201, boxShadow: "0 24px 80px rgba(173,20,87,0.3)" }}>
+              <div style={{ background: GRAD, padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 2, borderRadius: "20px 20px 0 0" }}>
+                <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>🖼 Home Banner Slides</div>
+                <button onClick={() => setShowBannerMgr(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#FFF", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 18 }}>✕</button>
+              </div>
+              <div style={{ padding: 22 }}>
+                <p style={{ fontSize: 12, color: MED, margin: "0 0 16px", lineHeight: 1.6 }}>
+                  Change the picture and the words on each slide of the big banner. Up to 6 slides. A slide with a promo code hides itself automatically when that offer ends.
+                </p>
+                {heroDraft.map((s, i) => (
+                  <div key={i} style={{ border: "1.5px solid rgba(173,20,87,0.18)", borderRadius: 14, padding: 14, marginBottom: 14, background: "rgba(255,248,255,0.6)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: PRIMARY }}>Slide {i + 1}</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => move(i, -1)} disabled={i === 0} style={{ padding: "3px 9px", borderRadius: 8, border: "1px solid rgba(173,20,87,0.25)", background: "#FFF", cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.4 : 1 }}>↑</button>
+                        <button onClick={() => move(i, 1)} disabled={i === heroDraft.length - 1} style={{ padding: "3px 9px", borderRadius: 8, border: "1px solid rgba(173,20,87,0.25)", background: "#FFF", cursor: i === heroDraft.length - 1 ? "default" : "pointer", opacity: i === heroDraft.length - 1 ? 0.4 : 1 }}>↓</button>
+                        <button onClick={() => setHeroDraft((prev) => prev.filter((_, k) => k !== i))} style={{ padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(198,40,40,0.3)", background: "rgba(255,235,238,0.85)", color: DANGER, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🗑 Remove</button>
+                      </div>
+                    </div>
+                    <label style={lab}>Picture (link)</label>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                      <input style={{ ...inp, flex: 1, fontSize: 12 }} placeholder="https://i.ibb.co/... (leave empty for a colour background)" value={s.image || ""} onChange={(e) => setSlide(i, { image: e.target.value })} />
+                      {s.image ? <img src={s.image} alt="" style={{ width: 64, height: 44, objectFit: "cover", borderRadius: 8, border: "1px solid rgba(173,20,87,0.2)" }} onError={(e) => { e.target.style.display = "none"; }} /> : null}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
+                      <div><label style={lab}>Small text above</label><input style={inp} value={s.tagline || ""} onChange={(e) => setSlide(i, { tagline: e.target.value })} /></div>
+                      <div><label style={lab}>Headline</label><input style={inp} value={s.headline || ""} onChange={(e) => setSlide(i, { headline: e.target.value })} /></div>
+                      <div><label style={lab}>Second line</label><input style={inp} value={s.sub || ""} onChange={(e) => setSlide(i, { sub: e.target.value })} /></div>
+                      <div>
+                        <label style={lab}>Promo code on this slide</label>
+                        <select style={inp} value={s.promoCode || ""} onChange={(e) => setSlide(i, { promoCode: e.target.value })}>
+                          <option value="">None</option>
+                          {s.promoCode && !codesForPicker.some((p) => p.code === s.promoCode) ? <option value={s.promoCode}>{s.promoCode} (ended)</option> : null}
+                          {codesForPicker.map((p) => <option key={p.id} value={p.code}>{p.code} · {promoCodeLabel(p)}</option>)}
+                        </select>
+                      </div>
+                      <div><label style={lab}>Button 1 text</label><input style={inp} value={s.btn1Label || ""} onChange={(e) => setSlide(i, { btn1Label: e.target.value })} /></div>
+                      <div>
+                        <label style={lab}>Button 1 opens</label>
+                        <select style={inp} value={s.btn1Target || "shop"} onChange={(e) => setSlide(i, { btn1Target: e.target.value })}>
+                          {PROMO_TARGETS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        </select>
+                      </div>
+                      <div><label style={lab}>Button 2 text</label><input style={inp} value={s.btn2Label || ""} onChange={(e) => setSlide(i, { btn2Label: e.target.value })} /></div>
+                      <div>
+                        <label style={lab}>Button 2 opens</label>
+                        <select style={inp} value={s.btn2Target || "none"} onChange={(e) => setSlide(i, { btn2Target: e.target.value })}>
+                          {PROMO_TARGETS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <label style={{ ...lab, marginTop: 10 }}>Colour (used when there is no picture)</label>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {Object.entries(PROMO_THEMES).map(([key, t]) => (
+                        <button key={key} type="button" title={t.label} onClick={() => setSlide(i, { theme: key })}
+                          style={{ width: 28, height: 28, borderRadius: "50%", cursor: "pointer", background: "linear-gradient(135deg," + t.a + "," + t.b + ")", border: (s.theme || "pink") === key ? "3px solid " + DARK : "3px solid transparent" }} />
+                      ))}
+                    </div>
                   </div>
-                  {bannerImages[i]&&<div style={{ fontSize:10,color:SUCCESS,marginTop:3,fontWeight:600 }}>✓ Image URL set</div>}
+                ))}
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                  <button disabled={heroDraft.length >= 6}
+                    onClick={() => setHeroDraft((prev) => [...prev, { image: "", tagline: "", headline: "New slide", sub: "", btn1Label: "Shop Now", btn1Target: "shop", btn2Label: "", btn2Target: "none", promoCode: "", theme: "pink" }])}
+                    style={{ padding: "9px 18px", borderRadius: 12, border: "1.5px dashed " + PRIMARY, background: "rgba(173,20,87,0.05)", color: PRIMARY, fontWeight: 700, cursor: heroDraft.length >= 6 ? "default" : "pointer", opacity: heroDraft.length >= 6 ? 0.5 : 1, fontFamily: "inherit" }}>
+                    ➕ Add slide {heroDraft.length >= 6 ? "(max 6)" : ""}
+                  </button>
+                  <button onClick={resetHeroSlides} style={{ padding: "9px 18px", borderRadius: 12, border: "1px solid " + DANGER, background: "transparent", color: DANGER, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>🗑 Reset to defaults</button>
                 </div>
-              ))}
-              <button onClick={async()=>{
-                try{
-                  await setDoc(doc(db,"settings","banners"),{images:bannerImages,updatedAt:serverTimestamp()});
-                  notify("✓ Banner images saved!");
-                  setShowBannerMgr(false);
-                }catch(e){notify("⚠ "+e.message);}
-              }} style={{ ...btn,width:"100%",padding:"13px",fontSize:15 }}>💾 Save Banner Images</button>
-              <button onClick={()=>{setBannerImages(["","","",""]);}} style={{ width:"100%",padding:"10px",marginTop:10,background:"transparent",border:`1px solid ${DANGER}`,color:DANGER,borderRadius:12,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:600 }}>🗑 Reset to Defaults</button>
+                <button onClick={saveHeroSlides} disabled={savingHero} style={{ ...btn, width: "100%", padding: "13px", fontSize: 15, opacity: savingHero ? 0.7 : 1 }}>
+                  {savingHero ? "Saving..." : "💾 Save banner"}
+                </button>
+              </div>
             </div>
-          </div>
-        </>
-      )}
-
+          </>
+        );
+      })()}
 
       {/* ══ REVIEW MODAL ══ */}
       {showReviewModal && reviewProduct && (
@@ -11628,7 +12020,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
 
 
       {/* ══ NOTIFICATION PANEL ══ */}
-      {showNotifPanel && user && (
+      {showNotifPanel && (
         <>
           <div onClick={()=>setShowNotifPanel(false)} style={{ position:"fixed",inset:0,zIndex:199 }}/>
           <div style={{ position:"fixed",top:100,right:20,width:"min(360px,95vw)",maxHeight:"70vh",overflowY:"auto",
@@ -11713,7 +12105,14 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       {showPromoComposer && isAdmin && (() => {
         const d = promoDraft;
         const setD = (patch) => setPromoDraft((prev) => ({ ...prev, ...patch }));
-        const liveCodes = promoCodes.filter((p) => promoIsLive(p));
+        const liveCodes = promoCodes.filter((p) => ["live", "scheduled"].includes(promoStatus(p)));
+        const aud = getAudience();
+        const kindDef = AUDIENCE_KINDS.find((k) => k.value === audKind) || AUDIENCE_KINDS[0];
+        const q = audSearch.trim().toLowerCase();
+        const rows = aud.matched
+          .filter((m) => audKind !== "pick" || !q || [m.name, m.email, m.phone].join(" ").toLowerCase().includes(q))
+          .slice(0, 200);
+        const ago = (t) => { const dd = Math.floor((Date.now() - t) / 86400000); return dd <= 0 ? "today" : dd === 1 ? "1 day ago" : dd + " days ago"; };
         const chosen = promoCodes.find((p) => p.code === d.code) || null;
         const autoTag = (code) => promoCodeLabel(promoCodes.find((p) => p.code === code));
         const lab = { fontSize: 11, fontWeight: 700, color: DARK, display: "block", marginBottom: 4 };
@@ -11755,7 +12154,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     <option value="">No code (announcement only)</option>
                     {liveCodes.map((p) => (
                       <option key={p.id} value={p.code}>
-                        {p.code} · {promoCodeLabel(p)}{p.minOrder ? " · min ৳" + p.minOrder : ""}
+                        {p.code} · {promoCodeLabel(p)}{p.minOrder ? " · min ৳" + p.minOrder : ""}{promoStatus(p) === "scheduled" ? " · starts " + fmtDate(p.startsAt) : ""}
                       </option>
                     ))}
                   </select>
@@ -11763,10 +12162,11 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     {liveCodes.length === 0
                       ? "No active promo codes yet. Create one in Dashboard → Promo Codes first."
                       : chosen
-                        ? (chosen.expiresAt
-                            ? "Valid until " + new Date(chosen.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) + ". The popup shows a live countdown."
-                            : "This code has no end date, so no countdown is shown. Set one in Promo Codes if you want a countdown.")
-                        : "Customers tap the code to save it to their wallet and use it at checkout."}
+                        ? ((chosen.startsAt && chosen.startsAt > Date.now() ? "Starts " + fmtDate(chosen.startsAt) + ". " : "")
+                          + (chosen.expiresAt
+                            ? "Valid until " + fmtDate(chosen.expiresAt) + ". The popup shows a live countdown."
+                            : "No end date, so no countdown is shown. Set one in Promo Codes if you want a countdown."))
+                        : "Customers tap the code to save it to their wallet. Guests who tap it are asked to sign up first."}
                   </div>
 
                   <label style={lab}>Discount tag</label>
@@ -11796,8 +12196,65 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   <label style={lab}>Fine print (optional)</label>
                   <input style={{ ...inp, marginBottom: 16, fontSize: 12 }} placeholder="e.g. Valid on orders above ৳500. One use per order." value={d.terms} onChange={(e) => setD({ terms: e.target.value })} />
 
+                  <label style={lab}>Who gets this?</label>
+                  <select style={{ ...inp, marginBottom: 8 }} value={audKind}
+                    onChange={(e) => {
+                      const k = e.target.value;
+                      const def = AUDIENCE_KINDS.find((x) => x.value === k);
+                      setAudKind(k); setAudOverride({}); setAudSearch("");
+                      if (def && def.nDefault) setAudN(def.nDefault);
+                      if (k === "everyone") setAudExclusive(false); else setAudAlsoHero(false);
+                    }}>
+                    {AUDIENCE_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+                  </select>
+                  {kindDef.nLabel ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, color: MED }}>{kindDef.nLabel}:</span>
+                      <input type="number" min="1" style={{ ...inp, width: 90 }} value={audN}
+                        onChange={(e) => { setAudN(e.target.value); setAudOverride({}); }} />
+                    </div>
+                  ) : null}
+                  {audKind === "everyone" ? (
+                    <div style={{ fontSize: 10, color: LIGHT, marginBottom: 12 }}>Shown to everyone who visits: logged-in customers and guests.</div>
+                  ) : (
+                    <div style={{ border: "1px solid rgba(173,20,87,0.15)", borderRadius: 12, padding: 10, marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: DARK, marginBottom: 6 }}>
+                        {aud.recipients.length} selected · {aud.matched.length} matched
+                        {aud.unreachable ? " · " + aud.unreachable + " have no account (can't receive offers)" : ""}
+                      </div>
+                      {audKind === "pick" ? (
+                        <input style={{ ...inp, fontSize: 12, marginBottom: 6 }} placeholder="Search name, email or phone" value={audSearch} onChange={(e) => setAudSearch(e.target.value)} />
+                      ) : null}
+                      <div style={{ maxHeight: 170, overflowY: "auto" }}>
+                        {rows.length === 0 ? <div style={{ fontSize: 11, color: LIGHT, padding: 6 }}>No customers match.</div> : null}
+                        {rows.map((m) => (
+                          <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", fontSize: 12, color: m.uid ? DARK : LIGHT, cursor: m.uid ? "pointer" : "default" }}>
+                            <input type="checkbox" disabled={!m.uid} checked={!!m.uid && aud.isOn(m)}
+                              onChange={(e) => setAudOverride((prev) => ({ ...prev, [m.uid]: e.target.checked }))} />
+                            <span style={{ fontWeight: 700 }}>{m.name || m.email || m.phone || "Customer"}</span>
+                            <span style={{ fontSize: 10, color: LIGHT }}>
+                              {m.orders} order{m.orders > 1 ? "s" : ""} · ৳{m.spent.toLocaleString()} · {ago(m.lastAt)}{!m.uid ? " · no account" : ""}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {audKind !== "everyone" && d.code ? (
+                    <label style={{ display: "flex", gap: 8, fontSize: 11, color: DARK, marginBottom: 10, cursor: "pointer", lineHeight: 1.5 }}>
+                      <input type="checkbox" checked={audExclusive} onChange={(e) => setAudExclusive(e.target.checked)} />
+                      <span>🔒 Only these customers can use the code <b>{d.code}</b> (replaces any earlier reservation of this code)</span>
+                    </label>
+                  ) : null}
+                  {audKind === "everyone" ? (
+                    <label style={{ display: "flex", gap: 8, fontSize: 11, color: DARK, marginBottom: 12, cursor: "pointer" }}>
+                      <input type="checkbox" checked={audAlsoHero} onChange={(e) => setAudAlsoHero(e.target.checked)} />
+                      <span>📌 Also show this as the first slide on the home banner</span>
+                    </label>
+                  ) : null}
+
                   <button onClick={sendPromoPopup} disabled={sendingPromo} style={{ ...btn, width: "100%", padding: "13px", fontSize: 15, opacity: sendingPromo ? 0.7 : 1 }}>
-                    {sendingPromo ? "Sending..." : "📤 Send to all customers"}
+                    {sendingPromo ? "Sending..." : audKind === "everyone" ? "📤 Send to everyone" : "📤 Send to " + aud.recipients.length + " customer" + (aud.recipients.length === 1 ? "" : "s")}
                   </button>
                   <div style={{ fontSize: 10, color: LIGHT, marginTop: 8, textAlign: "center" }}>
                     Customers see this window when they open the site. It stays until they close it.
