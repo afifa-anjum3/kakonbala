@@ -387,14 +387,19 @@ const qBtnS = {
 };
 
 function catBadge(cat) {
+  const builtin = cat === "jewelry" || cat === "crafts" || cat === "clothing";
+  let hue = 0;
+  for (const ch of String(cat)) hue = (hue * 31 + ch.charCodeAt(0)) % 360;
   const bg =
     cat === "jewelry"
       ? "rgba(252,228,236,0.9)"
       : cat === "crafts"
         ? "rgba(243,229,245,0.9)"
-        : "rgba(237,231,246,0.9)";
+        : builtin
+          ? "rgba(237,231,246,0.9)"
+          : "hsla(" + hue + ",70%,92%,0.95)";
   const color =
-    cat === "jewelry" ? PRIMARY : cat === "crafts" ? PURPLE : "#4527A0";
+    cat === "jewelry" ? PRIMARY : cat === "crafts" ? PURPLE : builtin ? "#4527A0" : "hsl(" + hue + ",55%,32%)";
   return {
     display: "inline-block",
     fontSize: 10,
@@ -1972,6 +1977,118 @@ const EMPTY_PROMO_DRAFT = {
   ctaLabel: "Shop Now", ctaTarget: "shop", color: "pink", terms: "",
 };
 
+
+/* ── Categories the admin can extend (saved in settings/categories) ── */
+const BUILTIN_CAT_KEYS = ["jewelry", "crafts", "clothing"];
+const uniqList = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
+
+function normalizeCatConfig(data) {
+  const cats = data && Array.isArray(data.categories) ? data.categories : [];
+  return {
+    categories: cats
+      .filter((c) => c && typeof c.name === "string" && c.name.trim())
+      .map((c) => ({ name: c.name.trim(), emoji: c.emoji || "🛍", subs: uniqList(c.subs) })),
+    extraSubs: data && data.extraSubs && typeof data.extraSubs === "object" ? data.extraSubs : {},
+  };
+}
+// Returns "" when the name is fine, otherwise a message for the admin
+function categoryNameProblem(name, cfg) {
+  const n = (name || "").trim();
+  if (!n) return "Type a category name";
+  if (n.length > 30) return "Keep the name under 30 letters";
+  const low = n.toLowerCase();
+  if (BUILTIN_CAT_KEYS.includes(low) || low === "all") return '"' + n + '" already exists';
+  if (cfg.categories.some((c) => c.name.toLowerCase() === low)) return '"' + n + '" already exists';
+  return "";
+}
+function subsForCategory(key, cfg) {
+  if (key === "jewelry" || key === "crafts") return uniqList([...CATS[key].subs, ...(cfg.extraSubs[key] || [])]);
+  const custom = cfg.categories.find((c) => c.name === key);
+  return custom ? custom.subs : [];
+}
+function clothingGroupsFor(cfg) {
+  const out = {};
+  Object.entries(CATS.clothing.groups).forEach(([g, subs]) => {
+    out[g] = uniqList([...subs, ...(cfg.extraSubs["clothing:" + g] || [])]);
+  });
+  return out;
+}
+function cfgAddCategory(cfg, cat) {
+  return { ...cfg, categories: [...cfg.categories, { name: cat.name.trim(), emoji: cat.emoji || "🛍", subs: uniqList(cat.subs) }] };
+}
+function cfgDeleteCategory(cfg, name) {
+  return { ...cfg, categories: cfg.categories.filter((c) => c.name !== name) };
+}
+// slot = "jewelry" | "crafts" | "clothing:Women" | "clothing:Men" | "clothing:Child" | <new category name>
+function cfgAddSubs(cfg, slot, subs) {
+  const parts = uniqList((subs || []).map((s) => String(s).trim()));
+  if (cfg.categories.some((c) => c.name === slot)) {
+    return { ...cfg, categories: cfg.categories.map((c) => (c.name === slot ? { ...c, subs: uniqList([...c.subs, ...parts]) } : c)) };
+  }
+  return { ...cfg, extraSubs: { ...cfg.extraSubs, [slot]: uniqList([...(cfg.extraSubs[slot] || []), ...parts]) } };
+}
+function cfgRemoveSub(cfg, slot, sub) {
+  if (cfg.categories.some((c) => c.name === slot)) {
+    return { ...cfg, categories: cfg.categories.map((c) => (c.name === slot ? { ...c, subs: c.subs.filter((s) => s !== sub) } : c)) };
+  }
+  return { ...cfg, extraSubs: { ...cfg.extraSubs, [slot]: (cfg.extraSubs[slot] || []).filter((s) => s !== sub) } };
+}
+function subInUse(products, slot, sub) {
+  if (slot.startsWith("clothing:")) {
+    const g = slot.slice("clothing:".length);
+    return (products || []).filter((p) => p.category === "clothing" && p.clothingGroup === g && p.subcategory === sub).length;
+  }
+  return (products || []).filter((p) => p.category === slot && p.subcategory === sub).length;
+}
+
+
+/* ── Finding one customer's orders (admin) and notification-page helpers ── */
+const orderEmail = (o) => String(o.customerEmail || (o.customer && o.customer.email) || "").toLowerCase();
+const orderPhone = (o) => String((o.customer && o.customer.phone) || o.customerPhone || "").replace(/\D/g, "").slice(-10);
+const orderSecs = (o) => (o.createdAt && o.createdAt.seconds) || 0;
+
+// Matches by account, email OR phone, so a person's guest orders and logged-in orders end up together
+function ordersOfCustomer(orders, ref) {
+  const email = String(ref.email || "").toLowerCase();
+  const phone = String(ref.phone || "").replace(/\D/g, "").slice(-10);
+  return (orders || [])
+    .filter((o) => (ref.uid && o.userId === ref.uid) || (email && orderEmail(o) === email) || (phone.length === 10 && orderPhone(o) === phone))
+    .sort((a, b) => orderSecs(b) - orderSecs(a));
+}
+function customerSummary(list) {
+  const active = list.filter((o) => o.status !== "cancelled");
+  const spent = active.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const times = list.map(orderSecs).filter(Boolean);
+  return {
+    orders: active.length,
+    cancelled: list.length - active.length,
+    delivered: list.filter((o) => o.status === "delivered").length,
+    spent,
+    avg: active.length ? Math.round(spent / active.length) : 0,
+    firstAt: times.length ? Math.min(...times) * 1000 : 0,
+    lastAt: times.length ? Math.max(...times) * 1000 : 0,
+  };
+}
+function notifKind(n) {
+  if (n.type === "promo") return "offers";
+  if (n.type === "order" || n.type === "order_update") return "orders";
+  return "news";
+}
+function notifIcon(n) {
+  return n.type === "promo" ? "🎁" : n.type === "order_update" ? "📦" : n.type === "order" ? "🛒" : n.type === "broadcast" ? "📢" : "🔔";
+}
+function relTime(secs, nowMs) {
+  if (!secs) return "";
+  const d = Math.max(0, (nowMs || Date.now()) / 1000 - secs);
+  if (d < 60) return "just now";
+  if (d < 3600) return Math.floor(d / 60) + " min ago";
+  if (d < 86400) return Math.floor(d / 3600) + " hr ago";
+  if (d < 172800) return "yesterday";
+  return Math.floor(d / 86400) + " days ago";
+}
+
+const APP_VERSION = "v8 · colour wheel · categories · customer details · notifications page";
+
 function promoCodeLabel(p) {
   if (!p) return "";
   return p.type === "percentage" ? p.value + "% OFF" : "৳" + p.value + " OFF";
@@ -2050,8 +2167,151 @@ function formatCountdown(ms) {
   return (d > 0 ? d + "d " : "") + pad(h) + ":" + pad(m) + ":" + pad(sec);
 }
 
+
+/* ── Colours: any shade the admin picks becomes a theme (main colour + a darker partner) ── */
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function rgbToHex(r, g, b) {
+  return "#" + [r, g, b].map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+}
+function hsvToRgb(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; } else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; } else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
+  return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
+}
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+  }
+  if (h < 0) h += 360;
+  return [h, max ? d / max : 0, max];
+}
+function shadeOf(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return "#6A1B9A";
+  const [h, s, v] = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+  const o = hsvToRgb((h + 18) % 360, Math.min(1, s * 1.05), Math.max(0.25, v * 0.62));
+  return rgbToHex(o[0], o[1], o[2]);
+}
+// key is either one of the named themes ("pink", "gold"...) or any "#rrggbb" colour
+function resolveTheme(key) {
+  if (PROMO_THEMES[key]) return PROMO_THEMES[key];
+  const rgb = typeof key === "string" && key[0] === "#" ? hexToRgb(key) : null;
+  if (rgb) {
+    const a = rgbToHex(rgb[0], rgb[1], rgb[2]);
+    return { label: "Custom", a, b: shadeOf(a) };
+  }
+  return PROMO_THEMES.pink;
+}
+
+// A colour circle: hue around the circle, saturation towards the middle, plus a brightness bar
+function ColorWheel({ value, onChange, size = 150 }) {
+  const canvasRef = React.useRef(null);
+  const dragging = React.useRef(false);
+  const barRef = React.useRef(null);
+  const barDrag = React.useRef(false);
+  const current = resolveTheme(value).a;
+  const [hsv, setHsv] = useState(() => rgbToHsv(...hexToRgb(current)));
+  const [hexText, setHexText] = useState(current);
+
+  // follow outside changes (like a preset click) without fighting a drag
+  useEffect(() => {
+    const mine = rgbToHex(...hsvToRgb(hsv[0], hsv[1], hsv[2]));
+    if (mine !== current) setHsv(rgbToHsv(...hexToRgb(current)));
+    setHexText(current);
+  }, [current]);
+
+  // paint the wheel at the current brightness
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d");
+    const img = ctx.createImageData(size, size);
+    const r0 = size / 2;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x + 0.5 - r0, dy = y + 0.5 - r0, dist = Math.hypot(dx, dy);
+        if (dist > r0) continue;
+        const hue = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+        const rgb = hsvToRgb(hue, Math.min(1, dist / r0), hsv[2]);
+        const i = (y * size + x) * 4;
+        img.data[i] = rgb[0]; img.data[i + 1] = rgb[1]; img.data[i + 2] = rgb[2]; img.data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }, [hsv[2], size]);
+
+  const commit = (next) => { setHsv(next); onChange(rgbToHex(...hsvToRgb(next[0], next[1], next[2]))); };
+  const pickWheel = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2, y = e.clientY - rect.top - rect.height / 2;
+    const r0 = rect.width / 2;
+    commit([((Math.atan2(y, x) * 180) / Math.PI + 360) % 360, Math.min(r0, Math.hypot(x, y)) / r0, hsv[2]]);
+  };
+  const pickBar = (e) => {
+    const rect = barRef.current.getBoundingClientRect();
+    const v = Math.max(0.08, Math.min(1, (e.clientX - rect.left) / rect.width));
+    commit([hsv[0], hsv[1], v]);
+  };
+  const r0 = size / 2;
+  const mx = r0 + Math.cos((hsv[0] * Math.PI) / 180) * hsv[1] * r0;
+  const my = r0 + Math.sin((hsv[0] * Math.PI) / 180) * hsv[1] * r0;
+  const full = rgbToHex(...hsvToRgb(hsv[0], hsv[1], 1));
+
+  return (
+    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+      <div style={{ position: "relative", width: size, height: size, flexShrink: 0, touchAction: "none" }}>
+        <canvas ref={canvasRef} width={size} height={size}
+          style={{ borderRadius: "50%", cursor: "crosshair", display: "block", boxShadow: "0 2px 10px rgba(0,0,0,0.25)" }}
+          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; pickWheel(e); }}
+          onPointerMove={(e) => { if (dragging.current) pickWheel(e); }}
+          onPointerUp={() => { dragging.current = false; }} />
+        <div style={{ position: "absolute", left: mx - 8, top: my - 8, width: 16, height: 16, borderRadius: "50%", border: "3px solid #FFF", boxShadow: "0 0 0 1.5px rgba(0,0,0,0.5)", background: current, pointerEvents: "none" }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 150 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: MED, marginBottom: 4 }}>Brightness</div>
+        <div ref={barRef} style={{ position: "relative", height: 14, borderRadius: 8, background: "linear-gradient(90deg,#000," + full + ")", cursor: "pointer", touchAction: "none", marginBottom: 12 }}
+          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); barDrag.current = true; pickBar(e); }}
+          onPointerMove={(e) => { if (barDrag.current) pickBar(e); }}
+          onPointerUp={() => { barDrag.current = false; }}>
+          <div style={{ position: "absolute", top: -3, left: "calc(" + hsv[2] * 100 + "% - 10px)", width: 20, height: 20, borderRadius: "50%", background: "#FFF", border: "2px solid " + DARK, boxShadow: "0 1px 4px rgba(0,0,0,0.3)", pointerEvents: "none" }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg," + current + "," + resolveTheme(value).b + ")", border: "2px solid #FFF", boxShadow: "0 1px 6px rgba(0,0,0,0.3)", flexShrink: 0 }} />
+          <input value={hexText} maxLength={7} spellCheck={false}
+            onChange={(e) => {
+              let v = e.target.value.trim();
+              if (v && v[0] !== "#") v = "#" + v;
+              setHexText(v);
+              if (/^#[0-9a-f]{6}$/i.test(v)) { const rgb = hexToRgb(v); setHsv(rgbToHsv(rgb[0], rgb[1], rgb[2])); onChange(v.toLowerCase()); }
+            }}
+            style={{ ...inp, width: 100, fontFamily: "monospace", fontSize: 13 }} />
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: MED, marginBottom: 4 }}>Quick colours</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {Object.entries(PROMO_THEMES).map(([key, t]) => (
+            <button key={key} type="button" title={t.label} onClick={() => onChange(key)}
+              style={{ width: 26, height: 26, borderRadius: "50%", cursor: "pointer", background: "linear-gradient(135deg," + t.a + "," + t.b + ")", border: value === key ? "3px solid " + DARK : "3px solid transparent", padding: 0 }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PromoCard({ title, message, promo, codeInfo, inWallet, onSave, onCta, preview, isGuest, eligible = true }) {
-  const theme = PROMO_THEMES[promo.color] || PROMO_THEMES.pink;
+  const theme = resolveTheme(promo.color);
   const grad = "linear-gradient(135deg, " + theme.a + ", " + theme.b + ")";
   const [imgOk, setImgOk] = useState(true);
   useEffect(() => { setImgOk(true); }, [promo.image]);
@@ -2297,6 +2557,14 @@ export default function App() {
   const [audExclusive, setAudExclusive] = useState(false);
   const [audAlsoHero, setAudAlsoHero] = useState(false);
   const [adminCustomerMap, setAdminCustomerMap] = useState({}); // email -> account id (admin only)
+  const [catCfg, setCatCfg] = useState({ categories: [], extraSubs: {} }); // categories the admin added
+  const [showCatMgr, setShowCatMgr] = useState(false);
+  const [custDetail, setCustDetail] = useState(null);   // customer the admin is looking at
+  const [custProfile, setCustProfile] = useState(null); // that customer's saved profile (if they have an account)
+  const [notifFilter, setNotifFilter] = useState("all");
+  const [openNotifId, setOpenNotifId] = useState(null);
+  const [catForm, setCatForm] = useState({ name: "", emoji: "🛍", subs: "" });
+  const [subDraft, setSubDraft] = useState({});
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
     code: "",
@@ -2457,7 +2725,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
         if (!ids.has(n.id)) { ids.add(n.id); merged.push(n); }
       }));
       merged.sort((a, b) => ts(b) - ts(a));
-      setNotifications(merged.slice(0, 30));
+      setNotifications(merged.slice(0, 100));
 
       // IDs this person already closed (remembered on this device)
       let dismissed = new Set();
@@ -2541,6 +2809,43 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       .catch((e) => console.warn("[kakonbala] customers list:", e.message));
     return () => { cancelled = true; };
   }, [showPromoComposer, isAdmin]);
+
+  // Categories added by the admin (public, so guests see them too)
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, "settings", "categories"),
+      (s) => setCatCfg(normalizeCatConfig(s.exists() ? s.data() : null)),
+      (e) => console.warn("[kakonbala] categories:", e.message)
+    );
+    return unsub;
+  }, []);
+
+  // "What They Say": the 5 newest approved reviews, sliding by themselves
+  const latestReviews = [...publishedReviews]
+    .sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0))
+    .slice(0, 5);
+  const reviewsRef = React.useRef(null);
+  const reviewsPaused = React.useRef(false);
+  const reviewStep = () => {
+    const el = reviewsRef.current;
+    const card = el && el.firstElementChild;
+    return card ? card.offsetWidth + 16 : 300;
+  };
+  const slideReviews = (dir) => {
+    const el = reviewsRef.current;
+    if (!el) return;
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 8;
+    const atStart = el.scrollLeft <= 4;
+    let left = el.scrollLeft + dir * reviewStep();
+    if (dir > 0 && atEnd) left = 0;
+    if (dir < 0 && atStart) left = el.scrollWidth;
+    el.scrollTo({ left, behavior: "smooth" });
+  };
+  useEffect(() => {
+    if (!reviewsRef.current || latestReviews.length < 2) return;
+    const id = setInterval(() => { if (!reviewsPaused.current) slideReviews(1); }, 4000);
+    return () => clearInterval(id);
+  }, [latestReviews.length, tab]);
 
   // A promo the person tapped as a guest is saved to their wallet once they are logged in
   useEffect(() => {
@@ -2873,7 +3178,6 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   async function addProduct() {
     if (!newP.name || !newP.price || !newP.stock)
       return notify("⚠ Fill all required fields");
-    const catEmoji = { jewelry: "💍", crafts: "🏺", clothing: "👗" };
     const validUrls = (newP.imageUrls || []).filter(Boolean);
     await addDoc(collection(db, "products"), {
       name: newP.name,
@@ -2883,7 +3187,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       price: Number(newP.price),
       stock: Number(newP.stock),
       desc: newP.desc,
-      emoji: catEmoji[newP.category],
+      emoji: catEmojiOf(newP.category),
       imageUrl: validUrls[0] || "",
       imageUrls: validUrls,
       sizes: newP.sizes || [],
@@ -2991,6 +3295,20 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     } catch (e) { notify("⚠ " + e.message); }
   }
 
+  function openCustomerDetail(o) {
+    const ref = {
+      uid: o.userId || "",
+      email: orderEmail(o),
+      phone: (o.customer && o.customer.phone) || o.customerPhone || "",
+      name: (o.customer && o.customer.name) || "",
+    };
+    setCustProfile(null);
+    setCustDetail(ref);
+    if (ref.uid) {
+      getDoc(doc(db, "customers", ref.uid)).then((s) => { if (s.exists()) setCustProfile(s.data()); }).catch(() => {});
+    }
+  }
+
   /* ── Wallet: saved promos ── */
   const walletAll = wallet.map((code) => {
     const p = promoCodes.find((x) => (x.code || "").toUpperCase() === code.toUpperCase());
@@ -3055,7 +3373,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   function goPromoTarget(target) {
     if (target === "collections") { setTab("collections"); return; }
     setSubFilter("all");
-    setCatFilter(["jewelry", "crafts", "clothing"].includes(target) ? target : "all");
+    setCatFilter(allCatKeys.includes(target) ? target : "all");
     if (target === "clothing") setClothingGroup("all");
     setTab("shop");
   }
@@ -3481,12 +3799,69 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     setPayLoading(false);
   }
 
+  /* ── Categories (built-in + the ones the admin added) ── */
+  const customCatList = catCfg.categories;
+  const allCatKeys = [...BUILTIN_CAT_KEYS, ...customCatList.map((cc) => cc.name)];
+  const isCustomCat = (k) => customCatList.some((cc) => cc.name === k);
+  const subsFor = (k) => subsForCategory(k, catCfg);
+  const clothingGroups = clothingGroupsFor(catCfg);
+  const catEmojiOf = (k) =>
+    ({ jewelry: "💍", crafts: "🏺", clothing: "👗" }[k]) ||
+    (customCatList.find((cc) => cc.name === k) || {}).emoji || "🛍";
+  const promoTargets = [
+    ...PROMO_TARGETS.slice(0, 4),
+    ...customCatList.map((cc) => ({ value: cc.name, label: cc.name })),
+    ...PROMO_TARGETS.slice(4),
+  ];
+
+  async function persistCatCfg(next, okMsg) {
+    try {
+      await setDoc(
+        doc(db, "settings", "categories"),
+        { categories: next.categories, extraSubs: next.extraSubs, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+      setCatCfg(next);
+      if (okMsg) notify(okMsg);
+      return true;
+    } catch (e) {
+      notify("⚠ " + e.message);
+      return false;
+    }
+  }
+  async function addCategory() {
+    const problem = categoryNameProblem(catForm.name, catCfg);
+    if (problem) { notify("⚠ " + problem); return; }
+    const subs = catForm.subs.split(",").map((s) => s.trim()).filter(Boolean);
+    const ok = await persistCatCfg(
+      cfgAddCategory(catCfg, { name: catForm.name, emoji: catForm.emoji.trim() || "🛍", subs }),
+      "✓ Category “" + catForm.name.trim() + "” added"
+    );
+    if (ok) setCatForm({ name: "", emoji: "🛍", subs: "" });
+  }
+  async function addSubcategory(slot) {
+    const parts = (subDraft[slot] || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length === 0) return;
+    const ok = await persistCatCfg(cfgAddSubs(catCfg, slot, parts), "✓ Added");
+    if (ok) setSubDraft((prev) => ({ ...prev, [slot]: "" }));
+  }
+  async function removeSubcategory(slot, sub) {
+    const n = subInUse(products, slot, sub);
+    if (n > 0) { notify("⚠ " + n + " product(s) use “" + sub + "”. Change those products first."); return; }
+    await persistCatCfg(cfgRemoveSub(catCfg, slot, sub), "✓ Removed");
+  }
+  async function removeCategory(name) {
+    const n = products.filter((p) => p.category === name).length;
+    if (n > 0) { notify("⚠ " + n + " product(s) are in “" + name + "”. Move or delete them first."); return; }
+    if (!window.confirm("Delete the category “" + name + "”?")) return;
+    if (catFilter === name) setCatFilter("all");
+    await persistCatCfg(cfgDeleteCategory(catCfg, name), "✓ Category deleted");
+  }
+
   /* ── Sub-category helpers ── */
   function getSubOptions(cat, cg) {
-    if (cat === "jewelry") return CATS.jewelry.subs;
-    if (cat === "crafts") return CATS.crafts.subs;
-    if (cat === "clothing" && cg) return CATS.clothing.groups[cg] || [];
-    return [];
+    if (cat === "clothing") return cg ? clothingGroups[cg] || [] : [];
+    return subsFor(cat); // jewelry, crafts and the categories the admin added
   }
 
   function getDisplayPrice(product, selPieceArg) {
@@ -3609,6 +3984,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
             ["shop", "🛍 Shop"],
             ["collections", "📦 Collections"],
             ["wishlist", "❤️ Wishlist"],
+            ["notifications", "🔔 Notifications"],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -3706,7 +4082,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     marginLeft: 22,
                   }}
                 >
-                  {CATS.jewelry.subs.map((s) => (
+                  {subsFor("jewelry").map((s) => (
                     <button
                       key={s}
                       onClick={() => {
@@ -3781,7 +4157,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     marginLeft: 22,
                   }}
                 >
-                  {CATS.crafts.subs.map((s) => (
+                  {subsFor("crafts").map((s) => (
                     <button
                       key={s}
                       onClick={() => {
@@ -3855,7 +4231,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     marginLeft: 22,
                   }}
                 >
-                  {Object.entries(CATS.clothing.groups).map(([group, subs]) => (
+                  {Object.entries(clothingGroups).map(([group, subs]) => (
                     <div key={group}>
                       <button
                         onClick={() =>
@@ -3926,6 +4302,32 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                 </div>
               )}
             </div>
+
+            {/* Categories added by the admin */}
+            {customCatList.map((cc) => (
+              <div key={cc.name}>
+                <button
+                  onClick={() => setExpandedMenu((e) => (e === "cat:" + cc.name ? null : "cat:" + cc.name))}
+                  style={{ width: "100%", textAlign: "left", padding: "11px 22px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: DARK, fontFamily: "inherit", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <span>{cc.emoji} {cc.name}</span>
+                  <span style={{ fontSize: 12, transition: "transform 0.2s", transform: expandedMenu === "cat:" + cc.name ? "rotate(90deg)" : "rotate(0deg)" }}>›</span>
+                </button>
+                {expandedMenu === "cat:" + cc.name && (
+                  <div style={{ background: "rgba(173,20,87,0.03)", borderLeft: "2px solid rgba(173,20,87,0.15)", marginLeft: 22 }}>
+                    {["", ...cc.subs].map((s) => (
+                      <button
+                        key={s || "__all"}
+                        onClick={() => { setCatFilter(cc.name); setSubFilter(s || "all"); setTab("shop"); setMobileMenu(false); }}
+                        style={{ width: "100%", textAlign: "left", padding: "8px 18px", background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: MED, fontFamily: "inherit" }}
+                      >
+                        {s || "All " + cc.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
 
           <div
@@ -4703,6 +5105,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     <option value="jewelry">💍 Jewelry</option>
                     <option value="crafts">🏺 Crafts</option>
                     <option value="clothing">👗 Clothing</option>
+                    {customCatList.map((cc) => (<option key={cc.name} value={cc.name}>{cc.emoji} {cc.name}</option>))}
                   </select>
                   <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&searchQuery.trim())setTab("shop");}} placeholder="Search products, categories, styles..." style={{ flex:1,padding:"13px 16px",border:"none",outline:"none",fontSize:14,fontFamily:"inherit",background:"#FFF",color:DARK }} />
                   <button onClick={()=>{if(searchQuery.trim())setTab("shop");}} style={{ ...btn,borderRadius:0,padding:"13px 24px",fontSize:14,boxShadow:"none" }}>🔍 Search</button>
@@ -4716,7 +5119,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               </div>
               <div className="kk-hero" style={{ position:"relative",overflow:"hidden",height:400,borderRadius:"0 0 20px 20px",boxShadow:"0 12px 40px rgba(173,20,87,0.2)" }}>
                 {heroSlides.map((slide,i)=>{
-                  const theme = PROMO_THEMES[slide.theme] || PROMO_THEMES.pink;
+                  const theme = resolveTheme(slide.theme);
                   const active = heroSlide === i;
                   const code = slide.promoCode ? slide.promoCode.toUpperCase() : "";
                   return (
@@ -4781,7 +5184,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   gap: 18,
                 }}
               >
-                {["jewelry", "crafts", "clothing"].map((cat) => {
+                {allCatKeys.map((cat) => {
                   const catProduct = products.find(
                     (p) => p.category === cat && p.imageUrl,
                   );
@@ -4841,7 +5244,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                             fontSize: 80,
                           }}
                         >
-                          {emojiMap[cat]}
+                          {emojiMap[cat] || catEmojiOf(cat)}
                         </div>
                       )}
                       <div
@@ -4871,7 +5274,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                             letterSpacing: 0.8,
                           }}
                         >
-                          {emojiMap[cat]} {labelMap[cat]}
+                          {emojiMap[cat] || catEmojiOf(cat)} {labelMap[cat] || cat}
                         </div>
                         <div
                           style={{
@@ -4880,7 +5283,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                             marginTop: 3,
                           }}
                         >
-                          {subMap[cat]}
+                          {subMap[cat] || (subsFor(cat).slice(0, 3).join(", ") + (subsFor(cat).length > 3 ? " & more" : "")) || "Explore"}
                         </div>
                         <div
                           style={{
@@ -5161,28 +5564,53 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
             )}
 
 
-            {/* ── TESTIMONIALS ── */}
+            {/* ── TESTIMONIALS: the latest 5 approved reviews, auto-sliding ── */}
             <div style={{ marginBottom:48 }}>
+              <style>{".kk-hide-sb::-webkit-scrollbar{display:none}"}</style>
               <div style={{ textAlign:"center",marginBottom:28 }}>
                 <div style={{ display:"inline-block",background:"rgba(173,20,87,0.08)",border:"1px solid rgba(173,20,87,0.2)",borderRadius:20,padding:"4px 14px",fontSize:12,color:PRIMARY,fontWeight:700,marginBottom:10 }}>⭐ Happy Customers</div>
                 <h2 style={{ fontSize:"clamp(20px,3vw,26px)",fontWeight:800,color:DARK,margin:0 }}>What They Say</h2>
               </div>
-              <div className="kk-reviews" style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18 }}>
-                {[
-                  {name:"Nusrat J.",loc:"Dhaka",text:"The bangles are gorgeous! Packaging was beautiful and delivery was super fast. Will order again! 🌸"},
-                  {name:"Rabeya K.",loc:"Chittagong",text:"I ordered the mandala artwork and it exceeded my expectations. Truly handmade with detail and care!"},
-                  {name:"Sadia M.",loc:"Sylhet",text:"Got the saree for my cousin's wedding — everyone loved it! Amazing quality for the price. কাঁকনবালা rocks! ❤️"},
-                ].map((r,i)=>(
-                  <div key={i} style={{ ...glass,padding:22 }}>
-                    <div style={{ display:"flex",gap:2,marginBottom:10 }}>{[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:14 }}>⭐</span>)}</div>
-                    <p style={{ fontSize:13,color:MED,lineHeight:1.7,marginBottom:14,fontStyle:"italic" }}>"{r.text}"</p>
-                    <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                      <div style={{ width:36,height:36,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",fontWeight:800,fontSize:14 }}>{r.name[0]}</div>
-                      <div><div style={{ fontSize:13,fontWeight:700,color:DARK }}>{r.name}</div><div style={{ fontSize:11,color:LIGHT }}>{r.loc}</div></div>
-                    </div>
+              {latestReviews.length === 0 ? (
+                <div style={{ ...glass,padding:28,textAlign:"center",color:MED,fontSize:14,lineHeight:1.7 }}>
+                  No reviews yet. Bought something you love? Open the product and tap “Write a Review”. Yours could be the first one shown here 🌸
+                </div>
+              ) : (
+                <div>
+                  <div ref={reviewsRef} className="kk-hide-sb"
+                    onMouseEnter={()=>{reviewsPaused.current=true;}} onMouseLeave={()=>{reviewsPaused.current=false;}}
+                    onTouchStart={()=>{reviewsPaused.current=true;}} onTouchEnd={()=>{setTimeout(()=>{reviewsPaused.current=false;},3000);}}
+                    style={{ display:"flex",gap:16,overflowX:"auto",scrollSnapType:"x mandatory",scrollbarWidth:"none",padding:"4px 2px 12px" }}>
+                    {latestReviews.map((r)=>(
+                      <div key={r.id} style={{ ...glass,flex:"0 0 min(340px, 86%)",scrollSnapAlign:"start",padding:22,display:"flex",flexDirection:"column" }}>
+                        <div style={{ display:"flex",gap:2,marginBottom:10 }}>
+                          {[1,2,3,4,5].map(j=><span key={j} style={{ fontSize:16,color:j<=r.rating?"#F59E0B":"#DDD" }}>★</span>)}
+                        </div>
+                        <p title={r.text} style={{ fontSize:13,color:MED,lineHeight:1.7,margin:"0 0 12px",fontStyle:"italic",display:"-webkit-box",WebkitLineClamp:6,WebkitBoxOrient:"vertical",overflow:"hidden" }}>“{r.text}”</p>
+                        {r.imageUrl ? (
+                          <img src={r.imageUrl} alt="review" onClick={()=>window.open(r.imageUrl,"_blank")}
+                            style={{ width:64,height:64,objectFit:"cover",borderRadius:10,border:"1px solid rgba(173,20,87,0.15)",cursor:"pointer",marginBottom:12 }}
+                            onError={(ev)=>{ev.target.style.display="none";}} />
+                        ) : null}
+                        {r.productName ? <div style={{ fontSize:11,color:PRIMARY,fontWeight:700,marginBottom:10 }}>on {r.productName}</div> : null}
+                        <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:"auto" }}>
+                          <div style={{ width:36,height:36,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",fontWeight:800,fontSize:14,flexShrink:0 }}>{(r.userName||"C")[0].toUpperCase()}</div>
+                          <div>
+                            <div style={{ fontSize:13,fontWeight:700,color:DARK }}>{r.userName||"Customer"}</div>
+                            <div style={{ fontSize:11,color:LIGHT }}>{r.createdAt&&r.createdAt.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                  {latestReviews.length > 1 ? (
+                    <div style={{ display:"flex",justifyContent:"center",gap:10,marginTop:4 }}>
+                      <button onClick={()=>slideReviews(-1)} aria-label="Previous review" style={{ width:34,height:34,borderRadius:"50%",border:"1px solid rgba(173,20,87,0.3)",background:"#FFF",color:PRIMARY,cursor:"pointer",fontSize:18,fontWeight:700 }}>‹</button>
+                      <button onClick={()=>slideReviews(1)} aria-label="Next review" style={{ width:34,height:34,borderRadius:"50%",border:"1px solid rgba(173,20,87,0.3)",background:"#FFF",color:PRIMARY,cursor:"pointer",fontSize:18,fontWeight:700 }}>›</button>
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             {/* ── ABOUT US SECTION ── */}
@@ -5780,18 +6208,21 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               jewelry: {
                 emoji: "💍",
                 label: "Jewelry / গহনা",
-                subs: CATS.jewelry.subs,
+                subs: subsFor("jewelry"),
               },
               crafts: {
                 emoji: "🏺",
                 label: "Crafts / ক্রাফট",
-                subs: CATS.crafts.subs,
+                subs: subsFor("crafts"),
               },
               clothing: {
                 emoji: "👗",
                 label: "Clothing / পোশাক",
                 subs: ["Women", "Men", "Child"],
               },
+              ...Object.fromEntries(
+                customCatList.map((cc) => [cc.name, { emoji: cc.emoji, label: cc.name, subs: cc.subs }]),
+              ),
             }).map(([cat, info]) => {
               const catProducts = products.filter((p) => p.category === cat);
               if (!catProducts.length) return null;
@@ -6219,6 +6650,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   ["jewelry", t.jewelry],
                   ["crafts", t.crafts],
                   ["clothing", t.clothing],
+                  ...customCatList.map((cc) => [cc.name, cc.name]),
                 ].map(([key, label]) => (
                   <button
                     key={key}
@@ -6251,6 +6683,24 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   </button>
                 ))}
               </div>
+              {isCustomCat(catFilter) && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingLeft: 8 }}>
+                  {["all", ...subsFor(catFilter)].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSubFilter(s)}
+                      style={{
+                        background: subFilter === s ? "rgba(173,20,87,0.15)" : GLASS,
+                        color: subFilter === s ? PRIMARY : MED,
+                        border: subFilter === s ? "1px solid rgba(173,20,87,0.4)" : "1px solid rgba(255,255,255,0.5)",
+                        padding: "4px 14px", borderRadius: 15, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600,
+                      }}
+                    >
+                      {s === "all" ? "All" : s}
+                    </button>
+                  ))}
+                </div>
+              )}
               {catFilter === "jewelry" && (
                 <div
                   style={{
@@ -6280,7 +6730,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   >
                     All
                   </button>
-                  {CATS.jewelry.subs.map((s) => (
+                  {subsFor("jewelry").map((s) => (
                     <button
                       key={s}
                       onClick={() => setSubFilter(s)}
@@ -6334,7 +6784,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   >
                     All
                   </button>
-                  {CATS.crafts.subs.map((s) => (
+                  {subsFor("crafts").map((s) => (
                     <button
                       key={s}
                       onClick={() => setSubFilter(s)}
@@ -6394,7 +6844,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     >
                       All
                     </button>
-                    {Object.keys(CATS.clothing.groups).map((g) => (
+                    {Object.keys(clothingGroups).map((g) => (
                       <button
                         key={g}
                         onClick={() => {
@@ -6451,7 +6901,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                       >
                         All {clothingGroup}
                       </button>
-                      {(CATS.clothing.groups[clothingGroup] || []).map((s) => (
+                      {(clothingGroups[clothingGroup] || []).map((s) => (
                         <button
                           key={s}
                           onClick={() => setSubFilter(s)}
@@ -7058,6 +7508,106 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
           </div>
         )}
 
+        {/* NOTIFICATIONS PAGE (customers, guests and admin) */}
+        {tab === "notifications" && (() => {
+          const filters = [
+            ["all", "All"], ["unread", "Unread"], ["offers", "🎁 Offers"],
+            ["orders", isAdmin ? "🛒 Orders" : "📦 My orders"], ["news", "📢 News"],
+          ];
+          const shown = notifications.filter((n) =>
+            notifFilter === "all" ? true : notifFilter === "unread" ? isUnread(n) : notifKind(n) === notifFilter
+          );
+          const unreadCount = notifications.filter(isUnread).length;
+          return (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 6 }}>
+                <div>
+                  <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, background: GRAD, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>🔔 Notifications</h1>
+                  <p style={{ color: MED, fontSize: 13, margin: "4px 0 0" }}>
+                    {unreadCount > 0 ? unreadCount + " unread" : "You're all caught up"}
+                    {!user ? " · Log in to also get updates about your orders" : ""}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {unreadCount > 0 ? (
+                    <button onClick={() => markAllRead()} style={{ padding: "8px 16px", borderRadius: 20, border: "1.5px solid " + PRIMARY, background: "transparent", color: PRIMARY, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>✓ Mark all as read</button>
+                  ) : null}
+                  {isAdmin ? (
+                    <>
+                      <button onClick={() => setShowPromoComposer(true)} style={{ ...btn, padding: "8px 16px", fontSize: 12 }}>🎁 Create promo</button>
+                      <button onClick={() => setShowSendNotif(true)} style={{ padding: "8px 16px", borderRadius: 20, border: "1.5px solid " + PRIMARY, background: "rgba(173,20,87,0.06)", color: PRIMARY, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>📤 Send message</button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "16px 0" }}>
+                {filters.map(([key, label]) => (
+                  <button key={key} onClick={() => setNotifFilter(key)}
+                    style={{ padding: "6px 16px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, fontSize: 12,
+                      border: "1.5px solid " + (notifFilter === key ? PRIMARY : "rgba(173,20,87,0.2)"),
+                      background: notifFilter === key ? "rgba(173,20,87,0.1)" : "rgba(255,255,255,0.7)",
+                      color: notifFilter === key ? PRIMARY : MED }}>{label}</button>
+                ))}
+              </div>
+
+              {shown.length === 0 ? (
+                <div style={{ ...glass, padding: 36, textAlign: "center", color: MED, fontSize: 14 }}>
+                  {notifications.length === 0 ? "No notifications yet. Offers and order updates will show up here." : "Nothing here for this filter."}
+                </div>
+              ) : shown.map((n) => {
+                const open = openNotifId === n.id;
+                const unread = isUnread(n);
+                const codeInfo = n.promo ? promoCodes.find((p) => p.code === n.promo.code) || null : null;
+                return (
+                  <div key={n.id} style={{ ...glass, marginBottom: 12, overflow: "hidden", borderLeft: "5px solid " + (unread ? PRIMARY : "rgba(173,20,87,0.15)") }}>
+                    <div onClick={() => { setOpenNotifId(open ? null : n.id); if (unread) markIdsRead([n.id]); }}
+                      style={{ display: "flex", gap: 12, padding: "14px 16px", cursor: "pointer", alignItems: "flex-start" }}>
+                      <div style={{ fontSize: 24, lineHeight: 1 }}>{notifIcon(n)}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                          <div style={{ fontSize: 14, fontWeight: unread ? 800 : 600, color: DARK }}>{n.title}</div>
+                          <div style={{ fontSize: 11, color: LIGHT, whiteSpace: "nowrap" }}>{relTime(n.createdAt && n.createdAt.seconds)}</div>
+                        </div>
+                        {!open ? (
+                          <div style={{ fontSize: 12, color: MED, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.message}</div>
+                        ) : null}
+                      </div>
+                      {unread ? <div style={{ width: 9, height: 9, borderRadius: "50%", background: PRIMARY, marginTop: 6, flexShrink: 0 }} /> : null}
+                    </div>
+
+                    {open ? (
+                      <div style={{ padding: "0 16px 16px 52px" }}>
+                        {n.type === "promo" && n.promo ? (
+                          <PromoCard
+                            title={n.title} message={n.message} promo={n.promo} codeInfo={codeInfo}
+                            inWallet={wallet.includes((n.promo.code || "").toUpperCase())}
+                            isGuest={!user} preview={isAdmin}
+                            eligible={promoAudienceOk(codeInfo, user && user.uid)}
+                            onSave={() => handlePromoCodeTap(n.promo.code)}
+                            onCta={(target) => goPromoTarget(target)}
+                          />
+                        ) : (
+                          <div style={{ fontSize: 13, color: DARK, lineHeight: 1.7, whiteSpace: "pre-line" }}>{n.message}</div>
+                        )}
+                        <div style={{ fontSize: 11, color: LIGHT, marginTop: 8 }}>
+                          {n.createdAt && n.createdAt.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                        </div>
+                        {n.type === "order" && isAdmin ? (
+                          <button onClick={() => setTab("orders")} style={{ ...btn, marginTop: 10, padding: "8px 18px", fontSize: 12 }}>Open Orders →</button>
+                        ) : null}
+                        {n.type === "order_update" && !isAdmin ? (
+                          <button onClick={() => setShowProfile(true)} style={{ ...btn, marginTop: 10, padding: "8px 18px", fontSize: 12 }}>See my orders →</button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {/* DASHBOARD TAB */}
         {tab === "dashboard" && isAdmin && (
           <div>
@@ -7073,6 +7623,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
             >
               📊 {t.dashTitle}
             </h1>
+            <div style={{ fontSize: 10, color: LIGHT, margin: "-14px 0 14px" }}>App version: {APP_VERSION}</div>
             <div
               style={{
                 display: "flex",
@@ -7346,23 +7897,10 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
               </div>
             )}
 
-                {/* Test Notification Button */}
-                <button onClick={async()=>{
-                  try{
-                    const ref = await addDoc(collection(db,"notifications"),{
-                      target:"admin", userId:"", type:"test",
-                      title:"🔔 Test Notification",
-                      message:"Notification system is working!",
-                      link:"", read:false, createdAt:serverTimestamp()
-                    });
-                    notify("✓ Test notification created! Check the bell icon.");
-                    console.log("Created notif:", ref.id);
-                  }catch(e){
-                    notify("❌ Failed: "+e.message);
-                    console.error("Notif error:", e);
-                  }
-                }} style={{ ...btn,marginBottom:8,background:"rgba(46,125,50,0.1)",color:"#2E7D32",border:"1.5px solid #2E7D32",boxShadow:"none",fontSize:12 }}>
-                  🔔 Test Notification System
+                {/* Category manager */}
+                <button onClick={()=>setShowCatMgr(true)}
+                  style={{ ...btn,marginBottom:12,marginRight:8,background:"rgba(173,20,87,0.08)",color:PRIMARY,border:`1.5px solid ${PRIMARY}`,boxShadow:"none" }}>
+                  🗂 Manage Categories
                 </button>
 
                 {/* Promo popup composer */}
@@ -7826,7 +8364,12 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         <option value="jewelry">💍 Jewelry</option>
                         <option value="crafts">🏺 Crafts</option>
                         <option value="clothing">👗 Clothing</option>
+                        {customCatList.map((cc) => (<option key={cc.name} value={cc.name}>{cc.emoji} {cc.name}</option>))}
                       </select>
+                      <button type="button" onClick={() => setShowCatMgr(true)}
+                        style={{ marginTop: 4, background: "none", border: "none", color: PRIMARY, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>
+                        ＋ New category / subcategory
+                      </button>
                     </div>
                     {newP.category === "clothing" && (
                       <div>
@@ -7853,7 +8396,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                           }
                         >
                           <option value="">-- Select --</option>
-                          {Object.keys(CATS.clothing.groups).map((g) => (
+                          {Object.keys(clothingGroups).map((g) => (
                             <option key={g} value={g}>
                               {g}
                             </option>
@@ -7863,6 +8406,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     )}
                     {(newP.category === "jewelry" ||
                       newP.category === "crafts" ||
+                      isCustomCat(newP.category) ||
                       (newP.category === "clothing" && newP.clothingGroup)) && (
                       <div>
                         <label
@@ -8477,8 +9021,11 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         <td style={{ ...TD,color:MED,fontSize:11 }}>
                           {o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString():"—"}
                         </td>
-                        <td style={{ ...TD,fontWeight:600,fontSize:12 }}>
-                          {o.customer?.name||"—"}<br/>
+                        <td style={{ ...TD,fontWeight:600,fontSize:12 }} onClick={(e)=>e.stopPropagation()}>
+                          <button onClick={()=>openCustomerDetail(o)} title="See this customer's details and order history"
+                            style={{ background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:12,color:PRIMARY,textDecoration:"underline",textAlign:"left" }}>
+                            {o.customer?.name||"—"}
+                          </button><br/>
                           <span style={{ fontSize:10,color:MED }}>{o.customer?.phone||""}</span>
                         </td>
                         <td style={{ ...TD,color:MED,fontSize:11 }}>
@@ -8501,6 +9048,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                               <div>
                                 <div style={{ fontSize:11,fontWeight:800,color:PRIMARY,letterSpacing:1,marginBottom:6 }}>👤 CUSTOMER</div>
                                 <div style={{ fontSize:12,fontWeight:700,color:DARK }}>{o.customer?.name||"—"}</div>
+                                <button onClick={()=>openCustomerDetail(o)} style={{ background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:700,color:PRIMARY,textDecoration:"underline",marginBottom:2 }}>View details &amp; order history →</button>
                                 <div style={{ fontSize:11,color:MED }}>{o.customer?.phone||"—"}</div>
                                 <div style={{ fontSize:11,color:MED }}>{o.customer?.email||"—"}</div>
                               </div>
@@ -9570,10 +10118,12 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                       <option value="jewelry">💍 Jewelry</option>
                       <option value="crafts">🏺 Crafts</option>
                       <option value="clothing">👗 Clothing</option>
+                      {customCatList.map((cc) => (<option key={cc.name} value={cc.name}>{cc.emoji} {cc.name}</option>))}
                     </select>
                   </div>
                   {(editProduct.category === "jewelry" ||
-                    editProduct.category === "crafts") && (
+                    editProduct.category === "crafts" ||
+                    isCustomCat(editProduct.category)) && (
                     <div>
                       <label
                         style={{
@@ -9631,7 +10181,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                           }
                         >
                           <option value="">-- Select --</option>
-                          {Object.keys(CATS.clothing.groups).map((g) => (
+                          {Object.keys(clothingGroups).map((g) => (
                             <option key={g} value={g}>
                               {g}
                             </option>
@@ -11738,24 +12288,19 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                       <div>
                         <label style={lab}>Button 1 opens</label>
                         <select style={inp} value={s.btn1Target || "shop"} onChange={(e) => setSlide(i, { btn1Target: e.target.value })}>
-                          {PROMO_TARGETS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          {promoTargets.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                       </div>
                       <div><label style={lab}>Button 2 text</label><input style={inp} value={s.btn2Label || ""} onChange={(e) => setSlide(i, { btn2Label: e.target.value })} /></div>
                       <div>
                         <label style={lab}>Button 2 opens</label>
                         <select style={inp} value={s.btn2Target || "none"} onChange={(e) => setSlide(i, { btn2Target: e.target.value })}>
-                          {PROMO_TARGETS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          {promoTargets.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                       </div>
                     </div>
                     <label style={{ ...lab, marginTop: 10 }}>Colour (used when there is no picture)</label>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {Object.entries(PROMO_THEMES).map(([key, t]) => (
-                        <button key={key} type="button" title={t.label} onClick={() => setSlide(i, { theme: key })}
-                          style={{ width: 28, height: 28, borderRadius: "50%", cursor: "pointer", background: "linear-gradient(135deg," + t.a + "," + t.b + ")", border: (s.theme || "pink") === key ? "3px solid " + DARK : "3px solid transparent" }} />
-                      ))}
-                    </div>
+                    <ColorWheel size={120} value={s.theme || "pink"} onChange={(v) => setSlide(i, { theme: v })} />
                   </div>
                 ))}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
@@ -12052,6 +12597,10 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                 </div>
               ))
             }
+            <button onClick={()=>{setTab("notifications");setShowNotifPanel(false);}}
+              style={{ width:"100%",padding:"12px",background:"rgba(255,248,255,0.98)",border:"none",borderTop:"1px solid rgba(173,20,87,0.1)",color:PRIMARY,fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit",position:"sticky",bottom:0 }}>
+              View all notifications →
+            </button>
           </div>
         </>
       )}
@@ -12180,17 +12729,14 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     <div>
                       <label style={lab}>Button opens</label>
                       <select style={inp} value={d.ctaTarget} onChange={(e) => setD({ ctaTarget: e.target.value })}>
-                        {PROMO_TARGETS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        {promoTargets.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                       </select>
                     </div>
                   </div>
 
                   <label style={lab}>Colour theme</label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                    {Object.entries(PROMO_THEMES).map(([key, t]) => (
-                      <button key={key} type="button" title={t.label} onClick={() => setD({ color: key })}
-                        style={{ width: 34, height: 34, borderRadius: "50%", cursor: "pointer", background: "linear-gradient(135deg," + t.a + "," + t.b + ")", border: d.color === key ? "3px solid " + DARK : "3px solid transparent", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }} />
-                    ))}
+                  <div style={{ marginBottom: 14 }}>
+                    <ColorWheel value={d.color} onChange={(v) => setD({ color: v })} />
                   </div>
 
                   <label style={lab}>Fine print (optional)</label>
@@ -12275,6 +12821,203 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+
+      {/* ══ CATEGORY MANAGER (Admin) ══ */}
+      {showCatMgr && isAdmin && (() => {
+        const lab = { fontSize: 11, fontWeight: 700, color: DARK, display: "block", marginBottom: 4 };
+        const chipBase = { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 14, fontSize: 12, fontWeight: 600 };
+        const slots = [
+          { slot: "jewelry", title: "💍 Jewelry", locked: CATS.jewelry.subs },
+          { slot: "crafts", title: "🏺 Crafts", locked: CATS.crafts.subs },
+          ...Object.keys(CATS.clothing.groups).map((g) => ({ slot: "clothing:" + g, title: "👗 Clothing · " + g, locked: CATS.clothing.groups[g] })),
+        ];
+        const subEditor = ({ slot, locked, extras }) => (
+          <div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {locked.map((s) => (
+                <span key={"l" + s} style={{ ...chipBase, background: "#F1ECF4", color: LIGHT }} title="Built-in">{s}</span>
+              ))}
+              {extras.map((s) => (
+                <span key={"x" + s} style={{ ...chipBase, background: "rgba(173,20,87,0.1)", color: PRIMARY }}>
+                  {s}
+                  <button onClick={() => removeSubcategory(slot, s)} title="Remove"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: PRIMARY, fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                </span>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input style={{ ...inp, flex: 1, fontSize: 12 }} placeholder="Add subcategories, e.g. Handmade, Readymade"
+                value={subDraft[slot] || ""}
+                onChange={(e) => setSubDraft((prev) => ({ ...prev, [slot]: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === "Enter") addSubcategory(slot); }} />
+              <button onClick={() => addSubcategory(slot)} style={{ ...btn, padding: "8px 16px", fontSize: 12 }}>Add</button>
+            </div>
+          </div>
+        );
+        return (
+          <>
+            <div onClick={() => setShowCatMgr(false)} style={{ position: "fixed", inset: 0, background: "rgba(45,10,63,0.6)", zIndex: 200, backdropFilter: "blur(4px)" }} />
+            <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(720px,96vw)", maxHeight: "92vh", overflowY: "auto", background: "#FFF", borderRadius: 20, zIndex: 201, boxShadow: "0 24px 80px rgba(173,20,87,0.3)" }}>
+              <div style={{ background: GRAD, padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 2, borderRadius: "20px 20px 0 0" }}>
+                <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>🗂 Categories</div>
+                <button onClick={() => setShowCatMgr(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#FFF", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 18 }}>✕</button>
+              </div>
+              <div style={{ padding: 22 }}>
+                {/* New category */}
+                <div style={{ border: "1.5px dashed " + PRIMARY, borderRadius: 14, padding: 16, marginBottom: 20, background: "rgba(173,20,87,0.03)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: PRIMARY, marginBottom: 12 }}>➕ New category</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 10, marginBottom: 10 }}>
+                    <div>
+                      <label style={lab}>Name</label>
+                      <input style={inp} placeholder="e.g. Bags" value={catForm.name} onChange={(e) => setCatForm((f) => ({ ...f, name: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={lab}>Emoji</label>
+                      <input style={{ ...inp, textAlign: "center", fontSize: 18 }} value={catForm.emoji} onChange={(e) => setCatForm((f) => ({ ...f, emoji: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                    {["🛍", "👜", "🧴", "🎁", "🕯", "🧵", "🌿", "🏠", "💄", "👒", "📿", "🧸", "🖼", "🎀"].map((em) => (
+                      <button key={em} type="button" onClick={() => setCatForm((f) => ({ ...f, emoji: em }))}
+                        style={{ width: 32, height: 32, borderRadius: 8, border: catForm.emoji === em ? "2px solid " + PRIMARY : "1px solid rgba(173,20,87,0.2)", background: "#FFF", cursor: "pointer", fontSize: 16 }}>{em}</button>
+                    ))}
+                  </div>
+                  <label style={lab}>Subcategories (optional, separate with commas)</label>
+                  <input style={{ ...inp, marginBottom: 12 }} placeholder="e.g. Handmade, Readymade" value={catForm.subs} onChange={(e) => setCatForm((f) => ({ ...f, subs: e.target.value }))} />
+                  <button onClick={addCategory} style={{ ...btn, width: "100%", padding: "11px", fontSize: 14 }}>➕ Add category</button>
+                </div>
+
+                {/* Your added categories */}
+                {customCatList.length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: DARK, marginBottom: 10 }}>Your categories</div>
+                    {customCatList.map((cc) => {
+                      const count = products.filter((p) => p.category === cc.name).length;
+                      return (
+                        <div key={cc.name} style={{ border: "1px solid rgba(173,20,87,0.15)", borderRadius: 14, padding: 14, marginBottom: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: DARK }}>{cc.emoji} {cc.name} <span style={{ fontSize: 11, color: LIGHT, fontWeight: 600 }}>· {count} product{count === 1 ? "" : "s"}</span></div>
+                            <button onClick={() => removeCategory(cc.name)} style={{ padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(198,40,40,0.3)", background: "rgba(255,235,238,0.85)", color: DANGER, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🗑 Delete</button>
+                          </div>
+                          {subEditor({ slot: cc.name, locked: [], extras: cc.subs })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Built-in categories: add more subcategories */}
+                <div style={{ fontSize: 14, fontWeight: 800, color: DARK, marginBottom: 4 }}>Built-in categories</div>
+                <p style={{ fontSize: 11, color: LIGHT, margin: "0 0 10px" }}>Grey ones are built in. Pink ones are yours and can be removed.</p>
+                {slots.map(({ slot, title, locked }) => (
+                  <div key={slot} style={{ border: "1px solid rgba(173,20,87,0.12)", borderRadius: 14, padding: 14, marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: DARK, marginBottom: 10 }}>{title}</div>
+                    {subEditor({ slot, locked, extras: (catCfg.extraSubs[slot] || []).filter((s) => !locked.includes(s)) })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+
+      {/* ══ CUSTOMER DETAILS + ORDER HISTORY (Admin) ══ */}
+      {custDetail && isAdmin && (() => {
+        const list = ordersOfCustomer(orders, custDetail);
+        const sum = customerSummary(list);
+        const last = (list[0] && list[0].customer) || {};
+        const uid = custDetail.uid || (list.find((o) => o.userId) || {}).userId || "";
+        const name = last.name || custDetail.name || (custProfile && custProfile.name) || "Customer";
+        const phone = last.phone || custDetail.phone || (custProfile && custProfile.phone) || "";
+        const email = last.email || custDetail.email || (custProfile && custProfile.email) || "";
+        const addrOf = (a) => [a.houseRoad, a.thana || a.customArea, a.area, a.district, a.postOffice].filter(Boolean).join(", ");
+        const lastAddr = addrOf(last);
+        const savedAddr = custProfile ? addrOf(custProfile) : "";
+        const fmt = (ms) => (ms ? new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
+        const stat = (label, value) => (
+          <div style={{ background: "rgba(173,20,87,0.05)", borderRadius: 12, padding: "10px 12px", textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: PRIMARY }}>{value}</div>
+            <div style={{ fontSize: 10, color: MED, fontWeight: 600 }}>{label}</div>
+          </div>
+        );
+        return (
+          <>
+            <div onClick={() => setCustDetail(null)} style={{ position: "fixed", inset: 0, background: "rgba(45,10,63,0.6)", zIndex: 200, backdropFilter: "blur(4px)" }} />
+            <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(700px,96vw)", maxHeight: "92vh", overflowY: "auto", background: "#FFF", borderRadius: 20, zIndex: 201, boxShadow: "0 24px 80px rgba(173,20,87,0.3)" }}>
+              <div style={{ background: GRAD, padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 2, borderRadius: "20px 20px 0 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: "50%", background: "rgba(255,255,255,0.25)", color: "#FFF", fontWeight: 900, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>{(name || "C")[0].toUpperCase()}</div>
+                  <div>
+                    <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>{name}</div>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 11 }}>{uid ? "Registered customer" : "Guest customer (no account)"}</div>
+                  </div>
+                </div>
+                <button onClick={() => setCustDetail(null)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#FFF", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 18 }}>✕</button>
+              </div>
+
+              <div style={{ padding: 22 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 18 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: PRIMARY, letterSpacing: 1, marginBottom: 6 }}>📞 CONTACT</div>
+                    <div style={{ fontSize: 13, color: DARK, lineHeight: 1.8 }}>
+                      {phone ? <div><a href={"tel:" + phone} style={{ color: DARK, fontWeight: 700, textDecoration: "none" }}>{phone}</a>{" · "}<a href={"https://wa.me/" + (phone.replace(/\D/g, "").length === 11 ? "88" : "") + phone.replace(/\D/g, "")} target="_blank" rel="noreferrer" style={{ color: SUCCESS, fontSize: 12, fontWeight: 700 }}>WhatsApp</a></div> : <div style={{ color: LIGHT }}>No phone</div>}
+                      {email ? <div><a href={"mailto:" + email} style={{ color: MED, textDecoration: "none" }}>{email}</a></div> : <div style={{ color: LIGHT }}>No email</div>}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: PRIMARY, letterSpacing: 1, marginBottom: 6 }}>📍 ADDRESS</div>
+                    <div style={{ fontSize: 12, color: DARK, lineHeight: 1.7 }}>
+                      {lastAddr ? <div><span style={{ color: LIGHT }}>Latest order: </span>{lastAddr}</div> : <div style={{ color: LIGHT }}>No address on file</div>}
+                      {savedAddr && savedAddr !== lastAddr ? <div><span style={{ color: LIGHT }}>Saved in profile: </span>{savedAddr}</div> : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(105px, 1fr))", gap: 10, marginBottom: 22 }}>
+                  {stat("Orders", sum.orders)}
+                  {stat("Total spent", "৳" + sum.spent.toLocaleString())}
+                  {stat("Average order", "৳" + sum.avg.toLocaleString())}
+                  {stat("Delivered", sum.delivered)}
+                  {stat("Cancelled", sum.cancelled)}
+                  {stat("First order", fmt(sum.firstAt))}
+                  {stat("Last order", fmt(sum.lastAt))}
+                </div>
+
+                <div style={{ fontSize: 14, fontWeight: 800, color: DARK, marginBottom: 10 }}>📦 Order history ({list.length})</div>
+                {list.length === 0 ? (
+                  <div style={{ fontSize: 13, color: LIGHT, textAlign: "center", padding: 20 }}>No orders found for this customer.</div>
+                ) : list.map((o) => {
+                  const st = ORDER_STATUSES.find((s) => s.value === o.status) || { label: (o.status || "").replace(/_/g, " "), color: MED, bg: "#EEE" };
+                  return (
+                    <div key={o.id} style={{ border: "1px solid rgba(173,20,87,0.12)", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: DARK }}>
+                          <span style={{ fontFamily: "monospace", color: PRIMARY }}>#{(o.id || "").slice(-6).toUpperCase()}</span>
+                          <span style={{ color: LIGHT, fontWeight: 600 }}> · {orderSecs(o) ? fmt(orderSecs(o) * 1000) : "—"}</span>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 10, background: st.bg, color: st.color }}>{st.label}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: MED, lineHeight: 1.7 }}>
+                        {(o.items || []).map((it, k) => <div key={k}>{it.name} × {it.qty} <span style={{ color: LIGHT }}>(৳{(it.price * it.qty).toLocaleString()})</span></div>)}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 6, fontSize: 11, color: LIGHT }}>
+                        <span>
+                          {o.paymentMethod === "cod" ? "Cash on delivery" : (o.paymentGateway || "Online")}
+                          {o.transactionId ? " · TX " + o.transactionId : ""}
+                          {o.promoCode ? " · promo " + o.promoCode : ""}
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 900, color: PRIMARY }}>৳{(o.total || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </>
