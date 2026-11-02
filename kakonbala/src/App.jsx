@@ -1978,24 +1978,49 @@ const EMPTY_PROMO_DRAFT = {
 };
 
 
-/* ── Categories the admin can extend (saved in settings/categories) ── */
+/* ── Categories the admin can extend (saved in settings/categories) ──
+   category  ->  type (2nd level, e.g. Handmade / Readymade)  ->  subcategory (e.g. Bangles)
+   Clothing already has its own 2nd level (Women / Men / Child). */
 const BUILTIN_CAT_KEYS = ["jewelry", "crafts", "clothing"];
 const uniqList = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
 
+function normGroupMap(g) {
+  const out = {};
+  if (g && typeof g === "object" && !Array.isArray(g)) {
+    Object.keys(g).forEach((k) => {
+      const name = String(k).trim();
+      if (name) out[name] = uniqList(Array.isArray(g[k]) ? g[k] : []);
+    });
+  }
+  return out;
+}
 function normalizeCatConfig(data) {
   const cats = data && Array.isArray(data.categories) ? data.categories : [];
+  const extraGroups = {};
+  if (data && data.extraGroups && typeof data.extraGroups === "object") {
+    Object.keys(data.extraGroups).forEach((k) => { extraGroups[k] = normGroupMap(data.extraGroups[k]); });
+  }
+  const images = {};
+  if (data && data.images && typeof data.images === "object") {
+    Object.keys(data.images).forEach((k) => { if (typeof data.images[k] === "string" && data.images[k]) images[k] = data.images[k]; });
+  }
   return {
     categories: cats
       .filter((c) => c && typeof c.name === "string" && c.name.trim())
-      .map((c) => ({ name: c.name.trim(), emoji: c.emoji || "🛍", subs: uniqList(c.subs) })),
+      .map((c) => ({ name: c.name.trim(), emoji: c.emoji || "🛍", subs: uniqList(c.subs), groups: normGroupMap(c.groups) })),
     extraSubs: data && data.extraSubs && typeof data.extraSubs === "object" ? data.extraSubs : {},
+    extraGroups,
+    images,
   };
 }
+// letters (any language), marks, numbers, spaces, & ' - only
+const NAME_OK = /^[\p{L}\p{M}\p{N} &'\-]+$/u;
 // Returns "" when the name is fine, otherwise a message for the admin
 function categoryNameProblem(name, cfg) {
   const n = (name || "").trim();
   if (!n) return "Type a category name";
   if (n.length > 30) return "Keep the name under 30 letters";
+  if (!NAME_OK.test(n)) return "Use letters, numbers, spaces, & or - only";
   const low = n.toLowerCase();
   if (BUILTIN_CAT_KEYS.includes(low) || low === "all") return '"' + n + '" already exists';
   if (cfg.categories.some((c) => c.name.toLowerCase() === low)) return '"' + n + '" already exists';
@@ -2013,34 +2038,107 @@ function clothingGroupsFor(cfg) {
   });
   return out;
 }
+// the types (2nd level) of jewelry, crafts or a category the admin added: { typeName: [subcategories] }
+function groupsOf(key, cfg) {
+  if (key === "jewelry" || key === "crafts") return cfg.extraGroups[key] || {};
+  const c = cfg.categories.find((x) => x.name === key);
+  return c ? c.groups || {} : {};
+}
+function groupProblem(name, key, cfg) {
+  const n = (name || "").trim();
+  if (!n) return "Type a name for the type";
+  if (n.length > 30) return "Keep the type name under 30 letters";
+  if (!NAME_OK.test(n)) return "Use letters, numbers, spaces, & or - only";
+  const low = n.toLowerCase();
+  if (Object.keys(groupsOf(key, cfg)).some((g) => g.toLowerCase() === low)) return '"' + n + '" already exists here';
+  return "";
+}
 function cfgAddCategory(cfg, cat) {
-  return { ...cfg, categories: [...cfg.categories, { name: cat.name.trim(), emoji: cat.emoji || "🛍", subs: uniqList(cat.subs) }] };
+  return { ...cfg, categories: [...cfg.categories, { name: cat.name.trim(), emoji: cat.emoji || "🛍", subs: uniqList(cat.subs), groups: normGroupMap(cat.groups) }] };
 }
 function cfgDeleteCategory(cfg, name) {
-  return { ...cfg, categories: cfg.categories.filter((c) => c.name !== name) };
+  const images = { ...cfg.images };
+  delete images[name];
+  return { ...cfg, categories: cfg.categories.filter((c) => c.name !== name), images };
 }
-// slot = "jewelry" | "crafts" | "clothing:Women" | "clothing:Men" | "clothing:Child" | <new category name>
+// slot = "jewelry" | "crafts" | "clothing:Women" | <new category>  (subcategories)
+//      | "jewelry>Handmade" | "<new category>>Handmade"             (subcategories of one type)
+function splitSlot(slot) {
+  const i = slot.indexOf(">");
+  return i < 0 ? [slot, null] : [slot.slice(0, i), slot.slice(i + 1)];
+}
+function setGroupSubs(cfg, key, group, fn) {
+  if (cfg.categories.some((c) => c.name === key)) {
+    return { ...cfg, categories: cfg.categories.map((c) => (c.name === key ? { ...c, groups: { ...c.groups, [group]: fn((c.groups || {})[group] || []) } } : c)) };
+  }
+  const mine = cfg.extraGroups[key] || {};
+  return { ...cfg, extraGroups: { ...cfg.extraGroups, [key]: { ...mine, [group]: fn(mine[group] || []) } } };
+}
+function cfgAddGroup(cfg, key, group, startSubs) {
+  return setGroupSubs(cfg, key, group.trim(), () => uniqList(startSubs || []));
+}
+function cfgRemoveGroup(cfg, key, group) {
+  if (cfg.categories.some((c) => c.name === key)) {
+    return { ...cfg, categories: cfg.categories.map((c) => { if (c.name !== key) return c; const g = { ...c.groups }; delete g[group]; return { ...c, groups: g }; }) };
+  }
+  const eg = { ...cfg.extraGroups };
+  const mine = { ...(eg[key] || {}) };
+  delete mine[group];
+  if (Object.keys(mine).length) eg[key] = mine; else delete eg[key];
+  return { ...cfg, extraGroups: eg };
+}
 function cfgAddSubs(cfg, slot, subs) {
   const parts = uniqList((subs || []).map((s) => String(s).trim()));
+  const [key, group] = splitSlot(slot);
+  if (group) return setGroupSubs(cfg, key, group, (old) => uniqList([...old, ...parts]));
   if (cfg.categories.some((c) => c.name === slot)) {
     return { ...cfg, categories: cfg.categories.map((c) => (c.name === slot ? { ...c, subs: uniqList([...c.subs, ...parts]) } : c)) };
   }
   return { ...cfg, extraSubs: { ...cfg.extraSubs, [slot]: uniqList([...(cfg.extraSubs[slot] || []), ...parts]) } };
 }
 function cfgRemoveSub(cfg, slot, sub) {
+  const [key, group] = splitSlot(slot);
+  if (group) return setGroupSubs(cfg, key, group, (old) => old.filter((s) => s !== sub));
   if (cfg.categories.some((c) => c.name === slot)) {
     return { ...cfg, categories: cfg.categories.map((c) => (c.name === slot ? { ...c, subs: c.subs.filter((s) => s !== sub) } : c)) };
   }
   return { ...cfg, extraSubs: { ...cfg.extraSubs, [slot]: (cfg.extraSubs[slot] || []).filter((s) => s !== sub) } };
+}
+function cfgSetImage(cfg, key, url) {
+  const images = { ...cfg.images };
+  if (url) images[key] = url; else delete images[key];
+  return { ...cfg, images };
 }
 function subInUse(products, slot, sub) {
   if (slot.startsWith("clothing:")) {
     const g = slot.slice("clothing:".length);
     return (products || []).filter((p) => p.category === "clothing" && p.clothingGroup === g && p.subcategory === sub).length;
   }
+  const [key, group] = splitSlot(slot);
+  if (group) return (products || []).filter((p) => p.category === key && p.typeGroup === group && p.subcategory === sub).length;
   return (products || []).filter((p) => p.category === slot && p.subcategory === sub).length;
 }
+function groupInUse(products, key, group) {
+  return (products || []).filter((p) => p.category === key && p.typeGroup === group).length;
+}
 
+/* ── Picture upload (ImgBB). Needs a free key saved as VITE_IMGBB_KEY in Vercel. ── */
+function imgbbKey() {
+  try { return import.meta.env.VITE_IMGBB_KEY || ""; } catch (e) { return ""; }
+}
+async function uploadImageToImgBB(file) {
+  const key = imgbbKey();
+  if (!key) throw new Error("Picture upload is not set up yet");
+  const fd = new FormData();
+  fd.append("image", file);
+  const res = await fetch("https://api.imgbb.com/1/upload?key=" + encodeURIComponent(key), { method: "POST", body: fd });
+  let json = null;
+  try { json = await res.json(); } catch (e) {}
+  if (!res.ok || !json || !json.success || !json.data) {
+    throw new Error((json && json.error && json.error.message) || "ImgBB did not accept the picture");
+  }
+  return json.data.display_url || json.data.url;
+}
 
 /* ── Finding one customer's orders (admin) and notification-page helpers ── */
 const orderEmail = (o) => String(o.customerEmail || (o.customer && o.customer.email) || "").toLowerCase();
@@ -2087,7 +2185,7 @@ function relTime(secs, nowMs) {
   return Math.floor(d / 86400) + " days ago";
 }
 
-const APP_VERSION = "v8 · colour wheel · categories · customer details · notifications page";
+const APP_VERSION = "v9 · types (2nd level) · category banner pictures";
 
 function promoCodeLabel(p) {
   if (!p) return "";
@@ -2485,6 +2583,7 @@ export default function App() {
     imageUrls: [""],
     subcategory: "",
     clothingGroup: "",
+  typeGroup: "",
     sizes: [],
     colors: [],
     pieceCounts: [],
@@ -2557,13 +2656,17 @@ export default function App() {
   const [audExclusive, setAudExclusive] = useState(false);
   const [audAlsoHero, setAudAlsoHero] = useState(false);
   const [adminCustomerMap, setAdminCustomerMap] = useState({}); // email -> account id (admin only)
-  const [catCfg, setCatCfg] = useState({ categories: [], extraSubs: {} }); // categories the admin added
+  const [catCfg, setCatCfg] = useState(() => normalizeCatConfig(null)); // categories the admin added
   const [showCatMgr, setShowCatMgr] = useState(false);
   const [custDetail, setCustDetail] = useState(null);   // customer the admin is looking at
   const [custProfile, setCustProfile] = useState(null); // that customer's saved profile (if they have an account)
   const [notifFilter, setNotifFilter] = useState("all");
   const [openNotifId, setOpenNotifId] = useState(null);
-  const [catForm, setCatForm] = useState({ name: "", emoji: "🛍", subs: "" });
+  const [catForm, setCatForm] = useState({ name: "", emoji: "🛍", subs: "", types: "" });
+  const [typeSel, setTypeSel] = useState({ cat: "", type: "all" }); // which type (2nd level) is picked in the shop
+  const [groupDraft, setGroupDraft] = useState({});                 // category -> { name, copy } for "add a type"
+  const [imgDraft, setImgDraft] = useState({});                     // category -> pasted banner link
+  const [uploadingCat, setUploadingCat] = useState("");
   const [subDraft, setSubDraft] = useState({});
   const [showPromoMgr, setShowPromoMgr] = useState(false);
   const [newPromo, setNewPromo] = useState({
@@ -3009,6 +3112,10 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       )
         return false;
       if (subFilter !== "all" && p.subcategory !== subFilter) return false;
+    if (catFilter !== "all" && catFilter !== "clothing") {
+      const tf = typeSel.cat === catFilter ? typeSel.type : "all";
+      if (tf !== "all" && (p.typeGroup || "") !== tf) return false;
+    }
       // Price filter
       const pPrice =
         p.packOptions && p.packOptions.length > 0
@@ -3184,6 +3291,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       category: newP.category,
       subcategory: newP.subcategory || "",
       clothingGroup: newP.clothingGroup || "",
+      typeGroup: newP.typeGroup || "",
       price: Number(newP.price),
       stock: Number(newP.stock),
       desc: newP.desc,
@@ -3206,6 +3314,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       imageUrls: [""],
       subcategory: "",
       clothingGroup: "",
+      typeGroup: "",
       sizes: [],
       colors: [],
       pieceCounts: [],
@@ -3227,6 +3336,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       category: editProduct.category,
       subcategory: editProduct.subcategory || "",
       clothingGroup: editProduct.clothingGroup || "",
+      typeGroup: editProduct.typeGroup || "",
       price: Number(editProduct.price),
       stock: Number(editProduct.stock),
       desc: editProduct.desc,
@@ -3808,6 +3918,32 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   const catEmojiOf = (k) =>
     ({ jewelry: "💍", crafts: "🏺", clothing: "👗" }[k]) ||
     (customCatList.find((cc) => cc.name === k) || {}).emoji || "🛍";
+  const groupNamesOf = (k) => (k === "clothing" ? [] : Object.keys(groupsOf(k, catCfg)));
+  const typeFilter = typeSel.cat === catFilter ? typeSel.type : "all";
+  const shopSubs = (k) => {
+    const g = groupsOf(k, catCfg)[typeFilter];
+    return typeFilter !== "all" && g ? g : subsFor(k);
+  };
+  const subPill = (active) => ({
+    background: active ? "rgba(173,20,87,0.15)" : GLASS,
+    color: active ? PRIMARY : MED,
+    border: active ? "1px solid rgba(173,20,87,0.4)" : "1px solid rgba(255,255,255,0.5)",
+    padding: "4px 14px", borderRadius: 15, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600,
+  });
+  const renderMenuGroups = (key) => groupNamesOf(key).map((g) => (
+    <div key={"g-" + g}>
+      <button
+        onClick={() => { setCatFilter(key); setTypeSel({ cat: key, type: g }); setSubFilter("all"); setTab("shop"); setMobileMenu(false); }}
+        style={{ width: "100%", textAlign: "left", padding: "8px 18px", background: "transparent", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: PRIMARY, fontFamily: "inherit" }}
+      >▸ {g}</button>
+      {groupsOf(key, catCfg)[g].map((s) => (
+        <button key={s}
+          onClick={() => { setCatFilter(key); setTypeSel({ cat: key, type: g }); setSubFilter(s); setTab("shop"); setMobileMenu(false); }}
+          style={{ width: "100%", textAlign: "left", padding: "6px 18px 6px 34px", background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: MED, fontFamily: "inherit" }}
+        >{s}</button>
+      ))}
+    </div>
+  ));
   const promoTargets = [
     ...PROMO_TARGETS.slice(0, 4),
     ...customCatList.map((cc) => ({ value: cc.name, label: cc.name })),
@@ -3816,11 +3952,11 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
 
   async function persistCatCfg(next, okMsg) {
     try {
-      await setDoc(
-        doc(db, "settings", "categories"),
-        { categories: next.categories, extraSubs: next.extraSubs, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
+      // no "merge": we always write the whole block, so removed items really disappear
+      await setDoc(doc(db, "settings", "categories"), {
+        categories: next.categories, extraSubs: next.extraSubs,
+        extraGroups: next.extraGroups, images: next.images, updatedAt: serverTimestamp(),
+      });
       setCatCfg(next);
       if (okMsg) notify(okMsg);
       return true;
@@ -3833,17 +3969,64 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
     const problem = categoryNameProblem(catForm.name, catCfg);
     if (problem) { notify("⚠ " + problem); return; }
     const subs = catForm.subs.split(",").map((s) => s.trim()).filter(Boolean);
+    const typeNames = uniqList(catForm.types.split(",").map((s) => s.trim()).filter(Boolean));
+    const bad = typeNames.map((tn) => groupProblem(tn, "__new__", { categories: [], extraGroups: {} })).find(Boolean);
+    if (bad) { notify("⚠ " + bad); return; }
+    const groups = {};
+    typeNames.forEach((tn) => { groups[tn] = subs; }); // each type starts with the same subcategories
     const ok = await persistCatCfg(
-      cfgAddCategory(catCfg, { name: catForm.name, emoji: catForm.emoji.trim() || "🛍", subs }),
+      cfgAddCategory(catCfg, { name: catForm.name, emoji: catForm.emoji.trim() || "🛍", subs, groups }),
       "✓ Category “" + catForm.name.trim() + "” added"
     );
-    if (ok) setCatForm({ name: "", emoji: "🛍", subs: "" });
+    if (ok) setCatForm({ name: "", emoji: "🛍", subs: "", types: "" });
   }
   async function addSubcategory(slot) {
     const parts = (subDraft[slot] || "").split(",").map((s) => s.trim()).filter(Boolean);
     if (parts.length === 0) return;
     const ok = await persistCatCfg(cfgAddSubs(catCfg, slot, parts), "✓ Added");
     if (ok) setSubDraft((prev) => ({ ...prev, [slot]: "" }));
+  }
+  async function addGroup(key) {
+    const d = groupDraft[key] || {};
+    const names = uniqList(String(d.name || "").split(",").map((s) => s.trim()).filter(Boolean));
+    if (names.length === 0) return;
+    let next = catCfg;
+    const startWith = d.copy === false ? [] : subsFor(key);
+    for (const n of names) {
+      const problem = groupProblem(n, key, next);
+      if (problem) { notify("⚠ " + problem); return; }
+      next = cfgAddGroup(next, key, n, startWith);
+    }
+    const ok = await persistCatCfg(next, "✓ Type added");
+    if (ok) setGroupDraft((prev) => ({ ...prev, [key]: { ...(prev[key] || {}), name: "" } }));
+  }
+  async function removeGroup(key, group) {
+    const n = groupInUse(products, key, group);
+    if (n > 0) { notify("⚠ " + n + " product(s) are in the type “" + group + "”. Change those products first."); return; }
+    if (!window.confirm("Remove the type “" + group + "”?")) return;
+    if (typeSel.cat === key && typeSel.type === group) setTypeSel({ cat: key, type: "all" });
+    await persistCatCfg(cfgRemoveGroup(catCfg, key, group), "✓ Type removed");
+  }
+  async function handleCatImageFile(key, file, inputEl) {
+    if (inputEl) inputEl.value = "";
+    if (!file) return;
+    if (!/^image\//.test(file.type || "")) { notify("⚠ Please choose a picture file"); return; }
+    if (file.size > 5 * 1024 * 1024) { notify("⚠ That picture is over 5 MB. Please choose a smaller one"); return; }
+    if (!imgbbKey()) { notify("⚠ Upload is not set up yet. Paste an image link instead (see the note in the window)"); return; }
+    setUploadingCat(key);
+    try {
+      const url = await uploadImageToImgBB(file);
+      await persistCatCfg(cfgSetImage(catCfg, key, url), "✓ Banner picture updated");
+    } catch (e) {
+      notify("⚠ Upload failed: " + e.message);
+    }
+    setUploadingCat("");
+  }
+  async function saveCatImageLink(key) {
+    const url = (imgDraft[key] || "").trim();
+    if (!/^https?:\/\//i.test(url)) { notify("⚠ The link must start with https://"); return; }
+    const ok = await persistCatCfg(cfgSetImage(catCfg, key, url), "✓ Banner picture updated");
+    if (ok) setImgDraft((prev) => ({ ...prev, [key]: "" }));
   }
   async function removeSubcategory(slot, sub) {
     const n = subInUse(products, slot, sub);
@@ -3859,8 +4042,9 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
   }
 
   /* ── Sub-category helpers ── */
-  function getSubOptions(cat, cg) {
+  function getSubOptions(cat, cg, tg) {
     if (cat === "clothing") return cg ? clothingGroups[cg] || [] : [];
+    if (tg && groupsOf(cat, catCfg)[tg]) return groupsOf(cat, catCfg)[tg];
     return subsFor(cat); // jewelry, crafts and the categories the admin added
   }
 
@@ -4109,6 +4293,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                       {s}
                     </button>
                   ))}
+                  {renderMenuGroups("jewelry")}
                 </div>
               )}
             </div>
@@ -4183,6 +4368,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                       {s}
                     </button>
                   ))}
+                  {renderMenuGroups("crafts")}
                 </div>
               )}
             </div>
@@ -4324,6 +4510,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         {s || "All " + cc.name}
                       </button>
                     ))}
+                    {renderMenuGroups(cc.name)}
                   </div>
                 )}
               </div>
@@ -5188,6 +5375,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   const catProduct = products.find(
                     (p) => p.category === cat && p.imageUrl,
                   );
+                  const bannerImg = catCfg.images[cat] || (catProduct && catProduct.imageUrl) || "";
                   const labelMap = {
                     jewelry: "Jewelry / গহনা",
                     crafts: "Crafts / ক্রাফট",
@@ -5219,9 +5407,9 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         boxShadow: "0 8px 30px rgba(173,20,87,0.18)",
                       }}
                     >
-                      {catProduct ? (
+                      {bannerImg ? (
                         <img
-                          src={catProduct.imageUrl}
+                          src={bannerImg}
                           alt={cat}
                           style={{
                             width: "100%",
@@ -6550,7 +6738,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                 overflow: "hidden",
                 position: "relative",
                 minHeight: 180,
-                backgroundImage: "url('/banner.png')",
+                backgroundImage: "url('" + ((catFilter !== "all" && catCfg.images[catFilter]) || "/banner.png") + "')",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 boxShadow: "0 8px 32px rgba(173,20,87,0.25)",
@@ -6683,130 +6871,25 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                   </button>
                 ))}
               </div>
-              {isCustomCat(catFilter) && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingLeft: 8 }}>
-                  {["all", ...subsFor(catFilter)].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setSubFilter(s)}
-                      style={{
-                        background: subFilter === s ? "rgba(173,20,87,0.15)" : GLASS,
-                        color: subFilter === s ? PRIMARY : MED,
-                        border: subFilter === s ? "1px solid rgba(173,20,87,0.4)" : "1px solid rgba(255,255,255,0.5)",
-                        padding: "4px 14px", borderRadius: 15, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600,
-                      }}
-                    >
-                      {s === "all" ? "All" : s}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {catFilter === "jewelry" && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    flexWrap: "wrap",
-                    paddingLeft: 8,
-                  }}
-                >
-                  <button
-                    onClick={() => setSubFilter("all")}
-                    style={{
-                      background:
-                        subFilter === "all" ? "rgba(173,20,87,0.15)" : GLASS,
-                      color: subFilter === "all" ? PRIMARY : MED,
-                      border:
-                        subFilter === "all"
-                          ? `1px solid rgba(173,20,87,0.4)`
-                          : `1px solid rgba(255,255,255,0.5)`,
-                      padding: "4px 14px",
-                      borderRadius: 15,
-                      cursor: "pointer",
-                      fontSize: 12,
-                      fontFamily: "inherit",
-                      fontWeight: 600,
-                    }}
-                  >
-                    All
-                  </button>
-                  {subsFor("jewelry").map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setSubFilter(s)}
-                      style={{
-                        background:
-                          subFilter === s ? "rgba(173,20,87,0.15)" : GLASS,
-                        color: subFilter === s ? PRIMARY : MED,
-                        border:
-                          subFilter === s
-                            ? `1px solid rgba(173,20,87,0.4)`
-                            : `1px solid rgba(255,255,255,0.5)`,
-                        padding: "4px 14px",
-                        borderRadius: 15,
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontFamily: "inherit",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {catFilter === "crafts" && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    flexWrap: "wrap",
-                    paddingLeft: 8,
-                  }}
-                >
-                  <button
-                    onClick={() => setSubFilter("all")}
-                    style={{
-                      background:
-                        subFilter === "all" ? "rgba(106,27,154,0.15)" : GLASS,
-                      color: subFilter === "all" ? PURPLE : MED,
-                      border:
-                        subFilter === "all"
-                          ? `1px solid rgba(106,27,154,0.4)`
-                          : `1px solid rgba(255,255,255,0.5)`,
-                      padding: "4px 14px",
-                      borderRadius: 15,
-                      cursor: "pointer",
-                      fontSize: 12,
-                      fontFamily: "inherit",
-                      fontWeight: 600,
-                    }}
-                  >
-                    All
-                  </button>
-                  {subsFor("crafts").map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setSubFilter(s)}
-                      style={{
-                        background:
-                          subFilter === s ? "rgba(106,27,154,0.15)" : GLASS,
-                        color: subFilter === s ? PURPLE : MED,
-                        border:
-                          subFilter === s
-                            ? `1px solid rgba(106,27,154,0.4)`
-                            : `1px solid rgba(255,255,255,0.5)`,
-                        padding: "4px 14px",
-                        borderRadius: 15,
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontFamily: "inherit",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {s}
-                    </button>
-                  ))}
+              {catFilter !== "all" && catFilter !== "clothing" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {groupNamesOf(catFilter).length > 0 && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingLeft: 8, alignItems: "center" }}>
+                      <span style={{ fontSize: 11, color: LIGHT, fontWeight: 700 }}>Type:</span>
+                      {["all", ...groupNamesOf(catFilter)].map((g) => (
+                        <button key={g} onClick={() => { setTypeSel({ cat: catFilter, type: g }); setSubFilter("all"); }} style={subPill(typeFilter === g)}>
+                          {g === "all" ? "All types" : g}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingLeft: 8 }}>
+                    {["all", ...shopSubs(catFilter)].map((s) => (
+                      <button key={s} onClick={() => setSubFilter(s)} style={subPill(subFilter === s)}>
+                        {s === "all" ? "All" : s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {catFilter === "clothing" && (
@@ -8358,6 +8441,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                             category: e.target.value,
                             subcategory: "",
                             clothingGroup: "",
+                            typeGroup: "",
                           }))
                         }
                       >
@@ -8404,6 +8488,16 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         </select>
                       </div>
                     )}
+                    {groupNamesOf(newP.category).length > 0 && (
+                      <div>
+                        <label style={{ fontSize: 12, color: MED, fontWeight: 700, display: "block", marginBottom: 4 }}>Type</label>
+                        <select style={inp} value={newP.typeGroup || ""}
+                          onChange={(e) => setNewP((p) => ({ ...p, typeGroup: e.target.value, subcategory: "" }))}>
+                          <option value="">-- None --</option>
+                          {groupNamesOf(newP.category).map((g) => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </div>
+                    )}
                     {(newP.category === "jewelry" ||
                       newP.category === "crafts" ||
                       isCustomCat(newP.category) ||
@@ -8431,7 +8525,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                           }
                         >
                           <option value="">-- Select --</option>
-                          {getSubOptions(newP.category, newP.clothingGroup).map(
+                          {getSubOptions(newP.category, newP.clothingGroup, newP.typeGroup).map(
                             (s) => (
                               <option key={s} value={s}>
                                 {s}
@@ -10112,6 +10206,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                           category: e.target.value,
                           subcategory: "",
                           clothingGroup: "",
+                          typeGroup: "",
                         }))
                       }
                     >
@@ -10121,7 +10216,17 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                       {customCatList.map((cc) => (<option key={cc.name} value={cc.name}>{cc.emoji} {cc.name}</option>))}
                     </select>
                   </div>
-                  {(editProduct.category === "jewelry" ||
+                  {groupNamesOf(editProduct.category).length > 0 && (
+                      <div>
+                        <label style={{ fontSize: 12, color: MED, fontWeight: 700, display: "block", marginBottom: 4 }}>Type</label>
+                        <select style={inp} value={editProduct.typeGroup || ""}
+                          onChange={(e) => setEditProduct((p) => ({ ...p, typeGroup: e.target.value, subcategory: "" }))}>
+                          <option value="">-- None --</option>
+                          {groupNamesOf(editProduct.category).map((g) => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    {(editProduct.category === "jewelry" ||
                     editProduct.category === "crafts" ||
                     isCustomCat(editProduct.category)) && (
                     <div>
@@ -10147,7 +10252,7 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         }
                       >
                         <option value="">-- Select --</option>
-                        {getSubOptions(editProduct.category, "").map((s) => (
+                        {getSubOptions(editProduct.category, "", editProduct.typeGroup).map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
@@ -12832,11 +12937,11 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
       {showCatMgr && isAdmin && (() => {
         const lab = { fontSize: 11, fontWeight: 700, color: DARK, display: "block", marginBottom: 4 };
         const chipBase = { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 14, fontSize: 12, fontWeight: 600 };
-        const slots = [
-          { slot: "jewelry", title: "💍 Jewelry", locked: CATS.jewelry.subs },
-          { slot: "crafts", title: "🏺 Crafts", locked: CATS.crafts.subs },
-          ...Object.keys(CATS.clothing.groups).map((g) => ({ slot: "clothing:" + g, title: "👗 Clothing · " + g, locked: CATS.clothing.groups[g] })),
-        ];
+        const small = { padding: "3px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" };
+        const dangerBtn = { ...small, border: "1px solid rgba(198,40,40,0.3)", background: "rgba(255,235,238,0.85)", color: DANGER };
+        const nameOf = (title) => title.replace(/^\S+\s/, "");
+
+        // chips + "add" box for one list of subcategories
         const subEditor = ({ slot, locked, extras }) => (
           <div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
@@ -12850,9 +12955,10 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                     style={{ background: "none", border: "none", cursor: "pointer", color: PRIMARY, fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
                 </span>
               ))}
+              {locked.length + extras.length === 0 ? <span style={{ fontSize: 11, color: LIGHT }}>None yet</span> : null}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input style={{ ...inp, flex: 1, fontSize: 12 }} placeholder="Add subcategories, e.g. Handmade, Readymade"
+              <input style={{ ...inp, flex: 1, fontSize: 12 }} placeholder="Add subcategories, separated by commas"
                 value={subDraft[slot] || ""}
                 onChange={(e) => setSubDraft((prev) => ({ ...prev, [slot]: e.target.value }))}
                 onKeyDown={(e) => { if (e.key === "Enter") addSubcategory(slot); }} />
@@ -12860,15 +12966,120 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
             </div>
           </div>
         );
+
+        // the banner picture of a category: upload, paste a link, or remove
+        const imageRow = (key) => {
+          const url = catCfg.images[key] || "";
+          const busy = uploadingCat === key;
+          return (
+            <div data-banner={key} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 14, padding: 10, borderRadius: 12, background: "rgba(173,20,87,0.04)" }}>
+              <div style={{ width: 120, height: 70, borderRadius: 10, overflow: "hidden", background: "#F1ECF4", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: LIGHT, fontSize: 11, textAlign: "center" }}>
+                {url ? <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(ev) => { ev.target.style.display = "none"; }} /> : "No banner picture"}
+              </div>
+              <div style={{ flex: 1, minWidth: 210 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: DARK, marginBottom: 6 }}>Banner picture</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                  <label style={{ ...btn, padding: "7px 14px", fontSize: 12, display: "inline-block", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+                    {busy ? "Uploading..." : "⬆ Upload picture"}
+                    <input type="file" accept="image/*" disabled={busy} style={{ display: "none" }}
+                      onChange={(ev) => handleCatImageFile(key, ev.target.files && ev.target.files[0], ev.target)} />
+                  </label>
+                  {url ? <button onClick={() => persistCatCfg(cfgSetImage(catCfg, key, ""), "✓ Banner picture removed")} style={dangerBtn}>Remove picture</button> : null}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input style={{ ...inp, flex: 1, fontSize: 12 }} placeholder="…or paste a picture link (https://...)"
+                    value={imgDraft[key] || ""} onChange={(ev) => setImgDraft((prev) => ({ ...prev, [key]: ev.target.value }))}
+                    onKeyDown={(ev) => { if (ev.key === "Enter") saveCatImageLink(key); }} />
+                  <button onClick={() => saveCatImageLink(key)} style={{ ...small, border: "1px solid " + PRIMARY, background: "#FFF", color: PRIMARY }}>Use link</button>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // second level: types such as Handmade / Readymade, each with its own subcategories
+        const typesSection = (key, title) => {
+          const groups = groupsOf(key, catCfg);
+          const d = groupDraft[key] || {};
+          return (
+            <div style={{ marginTop: 14, borderTop: "1px dashed rgba(173,20,87,0.25)", paddingTop: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: PRIMARY, marginBottom: 2 }}>Types (second level)</div>
+              <div style={{ fontSize: 11, color: LIGHT, marginBottom: 10 }}>
+                For example Handmade and Readymade. Customers then browse {title} → type → subcategory.
+              </div>
+              {Object.keys(groups).map((g) => (
+                <div key={g} data-type={g} style={{ border: "1px solid rgba(173,20,87,0.15)", borderRadius: 12, padding: 12, marginBottom: 10, background: "rgba(255,248,255,0.6)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: DARK }}>▸ {g} <span style={{ fontSize: 11, color: LIGHT, fontWeight: 600 }}>· {groupInUse(products, key, g)} product(s)</span></div>
+                    <button onClick={() => removeGroup(key, g)} style={dangerBtn}>Remove type</button>
+                  </div>
+                  {subEditor({ slot: key + ">" + g, locked: [], extras: groups[g] })}
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input style={{ ...inp, flex: 1, minWidth: 180, fontSize: 12 }} placeholder="Add types, e.g. Handmade, Readymade"
+                  value={d.name || ""} onChange={(ev) => setGroupDraft((prev) => ({ ...prev, [key]: { ...(prev[key] || {}), name: ev.target.value } }))}
+                  onKeyDown={(ev) => { if (ev.key === "Enter") addGroup(key); }} />
+                <button onClick={() => addGroup(key)} style={{ ...btn, padding: "8px 16px", fontSize: 12 }}>Add type</button>
+              </div>
+              <label style={{ display: "flex", gap: 6, fontSize: 11, color: MED, marginTop: 6, cursor: "pointer" }}>
+                <input type="checkbox" checked={d.copy !== false}
+                  onChange={(ev) => setGroupDraft((prev) => ({ ...prev, [key]: { ...(prev[key] || {}), copy: ev.target.checked } }))} />
+                Start each new type with the same subcategories as {title}
+              </label>
+            </div>
+          );
+        };
+
+        const categoryCard = ({ key, title, custom, lockedSubs, extraSubs }) => {
+          const count = products.filter((p) => p.category === key).length;
+          return (
+            <div key={key} data-cat={key} style={{ border: "1px solid rgba(173,20,87,0.15)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: DARK }}>{title} <span style={{ fontSize: 11, color: LIGHT, fontWeight: 600 }}>· {count} product{count === 1 ? "" : "s"}</span></div>
+                {custom ? <button onClick={() => removeCategory(key)} style={dangerBtn}>🗑 Delete</button> : null}
+              </div>
+              {imageRow(key)}
+              <div style={{ fontSize: 12, fontWeight: 800, color: DARK, marginBottom: 6 }}>Subcategories <span style={{ fontWeight: 600, color: LIGHT }}>(shown when no type is chosen)</span></div>
+              {subEditor({ slot: key, locked: lockedSubs, extras: extraSubs })}
+              {typesSection(key, nameOf(title))}
+            </div>
+          );
+        };
+
+        const clothingCard = (
+          <div key="clothing" data-cat="clothing" style={{ border: "1px solid rgba(173,20,87,0.15)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: DARK, marginBottom: 10 }}>👗 Clothing <span style={{ fontSize: 11, color: LIGHT, fontWeight: 600 }}>· {products.filter((p) => p.category === "clothing").length} products</span></div>
+            {imageRow("clothing")}
+            <div style={{ fontSize: 11, color: LIGHT, marginBottom: 10 }}>Clothing already has its own second level: Women, Men and Child. Add more subcategories to each below.</div>
+            {Object.keys(CATS.clothing.groups).map((g) => {
+              const locked = CATS.clothing.groups[g];
+              return (
+                <div key={g} style={{ border: "1px solid rgba(173,20,87,0.12)", borderRadius: 12, padding: 12, marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: DARK, marginBottom: 8 }}>▸ {g}</div>
+                  {subEditor({ slot: "clothing:" + g, locked, extras: (catCfg.extraSubs["clothing:" + g] || []).filter((s) => !locked.includes(s)) })}
+                </div>
+              );
+            })}
+          </div>
+        );
+
         return (
           <>
             <div onClick={() => setShowCatMgr(false)} style={{ position: "fixed", inset: 0, background: "rgba(45,10,63,0.6)", zIndex: 200, backdropFilter: "blur(4px)" }} />
-            <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(720px,96vw)", maxHeight: "92vh", overflowY: "auto", background: "#FFF", borderRadius: 20, zIndex: 201, boxShadow: "0 24px 80px rgba(173,20,87,0.3)" }}>
+            <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(760px,96vw)", maxHeight: "92vh", overflowY: "auto", background: "#FFF", borderRadius: 20, zIndex: 201, boxShadow: "0 24px 80px rgba(173,20,87,0.3)" }}>
               <div style={{ background: GRAD, padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 2, borderRadius: "20px 20px 0 0" }}>
                 <div style={{ color: "#FFF", fontSize: 17, fontWeight: 800 }}>🗂 Categories</div>
                 <button onClick={() => setShowCatMgr(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#FFF", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 18 }}>✕</button>
               </div>
               <div style={{ padding: 22 }}>
+                {!imgbbKey() ? (
+                  <div style={{ background: "#FFF8E1", border: "1px solid #FFE082", borderRadius: 12, padding: "10px 14px", fontSize: 11, color: "#795548", lineHeight: 1.6, marginBottom: 16 }}>
+                    📷 The <b>Upload picture</b> button needs a free ImgBB key. Create one at <b>api.imgbb.com</b>, then in Vercel go to
+                    Settings → Environment Variables, add <b>VITE_IMGBB_KEY</b> and redeploy. Until then you can paste a picture link.
+                  </div>
+                ) : null}
+
                 {/* New category */}
                 <div style={{ border: "1.5px dashed " + PRIMARY, borderRadius: 14, padding: 16, marginBottom: 20, background: "rgba(173,20,87,0.03)" }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: PRIMARY, marginBottom: 12 }}>➕ New category</div>
@@ -12888,45 +13099,30 @@ getDoc(doc(db,"settings","banners")).then(snap=>{
                         style={{ width: 32, height: 32, borderRadius: 8, border: catForm.emoji === em ? "2px solid " + PRIMARY : "1px solid rgba(173,20,87,0.2)", background: "#FFF", cursor: "pointer", fontSize: 16 }}>{em}</button>
                     ))}
                   </div>
+                  <label style={lab}>Types (optional, second level, separate with commas)</label>
+                  <input style={{ ...inp, marginBottom: 10 }} placeholder="e.g. Handmade, Readymade" value={catForm.types} onChange={(e) => setCatForm((f) => ({ ...f, types: e.target.value }))} />
                   <label style={lab}>Subcategories (optional, separate with commas)</label>
-                  <input style={{ ...inp, marginBottom: 12 }} placeholder="e.g. Handmade, Readymade" value={catForm.subs} onChange={(e) => setCatForm((f) => ({ ...f, subs: e.target.value }))} />
+                  <input style={{ ...inp, marginBottom: 12 }} placeholder="e.g. Tote, Clutch" value={catForm.subs} onChange={(e) => setCatForm((f) => ({ ...f, subs: e.target.value }))} />
                   <button onClick={addCategory} style={{ ...btn, width: "100%", padding: "11px", fontSize: 14 }}>➕ Add category</button>
                 </div>
 
-                {/* Your added categories */}
-                {customCatList.length > 0 && (
-                  <div style={{ marginBottom: 20 }}>
+                {customCatList.length > 0 ? (
+                  <div style={{ marginBottom: 6 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: DARK, marginBottom: 10 }}>Your categories</div>
-                    {customCatList.map((cc) => {
-                      const count = products.filter((p) => p.category === cc.name).length;
-                      return (
-                        <div key={cc.name} style={{ border: "1px solid rgba(173,20,87,0.15)", borderRadius: 14, padding: 14, marginBottom: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: DARK }}>{cc.emoji} {cc.name} <span style={{ fontSize: 11, color: LIGHT, fontWeight: 600 }}>· {count} product{count === 1 ? "" : "s"}</span></div>
-                            <button onClick={() => removeCategory(cc.name)} style={{ padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(198,40,40,0.3)", background: "rgba(255,235,238,0.85)", color: DANGER, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>🗑 Delete</button>
-                          </div>
-                          {subEditor({ slot: cc.name, locked: [], extras: cc.subs })}
-                        </div>
-                      );
-                    })}
+                    {customCatList.map((cc) => categoryCard({ key: cc.name, title: cc.emoji + " " + cc.name, custom: true, lockedSubs: [], extraSubs: cc.subs }))}
                   </div>
-                )}
+                ) : null}
 
-                {/* Built-in categories: add more subcategories */}
                 <div style={{ fontSize: 14, fontWeight: 800, color: DARK, marginBottom: 4 }}>Built-in categories</div>
                 <p style={{ fontSize: 11, color: LIGHT, margin: "0 0 10px" }}>Grey ones are built in. Pink ones are yours and can be removed.</p>
-                {slots.map(({ slot, title, locked }) => (
-                  <div key={slot} style={{ border: "1px solid rgba(173,20,87,0.12)", borderRadius: 14, padding: 14, marginBottom: 12 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: DARK, marginBottom: 10 }}>{title}</div>
-                    {subEditor({ slot, locked, extras: (catCfg.extraSubs[slot] || []).filter((s) => !locked.includes(s)) })}
-                  </div>
-                ))}
+                {categoryCard({ key: "jewelry", title: "💍 Jewelry", lockedSubs: CATS.jewelry.subs, extraSubs: (catCfg.extraSubs.jewelry || []).filter((s) => !CATS.jewelry.subs.includes(s)) })}
+                {categoryCard({ key: "crafts", title: "🏺 Crafts", lockedSubs: CATS.crafts.subs, extraSubs: (catCfg.extraSubs.crafts || []).filter((s) => !CATS.crafts.subs.includes(s)) })}
+                {clothingCard}
               </div>
             </div>
           </>
         );
       })()}
-
 
       {/* ══ CUSTOMER DETAILS + ORDER HISTORY (Admin) ══ */}
       {custDetail && isAdmin && (() => {
